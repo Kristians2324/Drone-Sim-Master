@@ -19,6 +19,8 @@ var formation_ascent_speed: float = 10.0
 var formation_settle_speed: float = 6.0
 var formation_hold_tolerance: float = 0.75
 var terrain_exclude_rids: Array[RID] = []
+var drone_last_input_vectors: Array[Vector4] = []
+var drone_terrain_heights: Array[float] = []
 var cached_centroid: Vector3 = Vector3.ZERO
 var cached_avg_velocity: Vector3 = Vector3.ZERO
 
@@ -50,10 +52,16 @@ func initialize_swarm(leader: RigidBody3D, count: int = 39, spawn_pos: Vector3 =
 	formation_active = false
 	formation_targets.clear()
 
+	drone_last_input_vectors.resize(swarm_count)
+	drone_last_input_vectors.fill(Vector4.ZERO)
+	drone_terrain_heights.resize(swarm_count)
+	drone_terrain_heights.fill(0.0)
+
 	target_position = spawn_pos
 
 	for i in range(swarm_count):
 		var drone_inst = drone_scene.instantiate()
+		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
 		
 		# Spawn followers in a sphere shell around the leader
@@ -97,11 +105,18 @@ func initialize_formation(leader: RigidBody3D, targets: Array[Vector3], spawn_po
 	formation_settling = true
 	formation_transition_time = 0.0
 	formation_targets = targets.duplicate()
+
+	drone_last_input_vectors.resize(swarm_count)
+	drone_last_input_vectors.fill(Vector4.ZERO)
+	drone_terrain_heights.resize(swarm_count)
+	drone_terrain_heights.fill(0.0)
+
 	target_position = spawn_pos
 	formation_hold_altitude = spawn_pos.y + 40.0
 
 	for i in range(swarm_count):
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
+		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
 		var target_spawn: Vector3 = targets[i]
 		drone_inst.global_position = Vector3(
@@ -179,6 +194,8 @@ func clear_swarm():
 			d.queue_free()
 	drones.clear()
 	terrain_exclude_rids.clear()
+	drone_last_input_vectors.clear()
+	drone_terrain_heights.clear()
 	update_phase = 0
 	active = false
 	print("SwarmController: Swarm cleared.")
@@ -245,9 +262,17 @@ func _physics_process(delta):
 	var leader_pos = leader_drone.global_position
 	var leader_vel = leader_drone.linear_velocity
 
+	var frames = Engine.get_physics_frames()
+
 	for i in range(drones.size()):
 		var drone_inst = drones[i]
 		if not drone_inst or not is_instance_valid(drone_inst) or not valids[i]:
+			continue
+
+		# STAGGERED UPDATE: Only update flocking controls every `update_divisor` frames
+		# Intermediate frames reuse the last calculated input vector to eliminate lag
+		if (frames + i) % update_divisor != 0 and drone_last_input_vectors.size() > i:
+			drone_inst.set_input_vector(drone_last_input_vectors[i])
 			continue
 
 		var pos = positions[i]
@@ -308,8 +333,12 @@ func _physics_process(delta):
 		desired_tgt = desired_tgt.limit_length(max_speed)
 		steer_target = (desired_tgt - vel).limit_length(max_force)
 
-		# 5. GROUND AVOIDANCE
-		var terrain_height = get_terrain_height_at(pos)
+		# 5. GROUND AVOIDANCE (Staggered raycasts)
+		# Only perform physics raycast once every 8 frames per drone since terrain is smooth/slowly varying
+		if (frames + i) % 8 == 0 or drone_terrain_heights[i] == 0.0:
+			drone_terrain_heights[i] = get_terrain_height_at(pos)
+		var terrain_height = drone_terrain_heights[i]
+
 		var min_height_above_ground = 8.0
 		if pos.y < terrain_height + min_height_above_ground:
 			var desired_up = Vector3(vel.x, max_speed, vel.z).normalized() * max_speed
@@ -350,7 +379,10 @@ func _physics_process(delta):
 		var pitch = clamp(-local_force.z * 0.10, -1.0, 1.0)
 		var roll = clamp(local_force.x * 0.10, -1.0, 1.0)
 
-		drone_inst.set_input_vector(Vector4(throttle, yaw, pitch, roll))
+		var input_vector = Vector4(throttle, yaw, pitch, roll)
+		if drone_last_input_vectors.size() > i:
+			drone_last_input_vectors[i] = input_vector
+		drone_inst.set_input_vector(input_vector)
 
 func _process_formation(delta: float) -> void:
 	formation_transition_time = min(formation_transition_time + delta, formation_transition_duration)
@@ -415,9 +447,7 @@ func get_terrain_height_at(pos: Vector3) -> float:
 	var from = Vector3(pos.x, 300.0, pos.z)
 	var to = Vector3(pos.x, -50.0, pos.z)
 	var query = PhysicsRayQueryParameters3D.create(from, to)
-	
-	# Exclude leader and all swarm drones to prevent raycast collision with itself/each other
-	query.exclude = terrain_exclude_rids
+	query.collision_mask = 2 # ONLY collide with Terrain layer 2
 
 	var result = space_state.intersect_ray(query)
 	if result.has("position"):

@@ -7,7 +7,7 @@ var crash_audio: AudioStreamPlayer3D
 var crash_playback: AudioStreamGeneratorPlayback
 var audio_hz = 44100.0
 var motor_phase = 0.0
-var audio_enabled: bool = true
+var audio_enabled: bool = false
 
 func initialize():
 	setup_motor_audio()

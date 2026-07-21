@@ -20,7 +20,7 @@ var wind_manager: WindManager
 @export var wind_direction: Vector3 = Vector3(1, 0, 0)
 @export var wind_strength: float = 0.0
 @export var input_smoothing: float = 3.5
-@export var audio_enabled: bool = true
+@export var audio_enabled: bool = false
 
 var collision_shape: CollisionShape3D
 var start_global_transform: Transform3D

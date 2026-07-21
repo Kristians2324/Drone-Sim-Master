@@ -163,7 +163,7 @@ func get_terrain_height_at(pos: Vector3) -> float:
 	var from = Vector3(pos.x, 300.0, pos.z)
 	var to = Vector3(pos.x, -50.0, pos.z)
 	var query = PhysicsRayQueryParameters3D.create(from, to)
-	query.exclude = [drone.get_rid()]
+	query.collision_mask = 2 # ONLY collide with Terrain layer 2
 	var result = space_state.intersect_ray(query)
 	if result.has("position"):
 		return result.position.y

@@ -83,6 +83,8 @@ func set_low_cost_mode(enabled: bool) -> void:
 
 func set_low_detail_visuals(enabled: bool) -> void:
 	low_detail_visuals = enabled
+	if is_instance_valid(design):
+		design.visible = true
 	if is_instance_valid(show_rig):
 		show_rig.visible = true
 
@@ -157,6 +159,11 @@ func _connect_wind_manager() -> void:
 		set_wind_profile(wm.wind_direction, wm.get_wind_strength(), wm.gust_factor, wm.get_state_name())
 
 func replace_drone_model():
+	if low_detail_visuals:
+		print("Drone: Using low-detail procedural model for follower drone.")
+		setup_show_lights()
+		return
+
 	print("Drone: Starting model replacement with assets/drone_model/scene.gltf...")
 	# Hide/Remove old procedural parts
 	for child in design.get_children():

@@ -12,8 +12,17 @@ config_version=5
 
 config/name="Drone-Sim-Master"
 run/main_scene="res://scenes/Main.tscn"
+run/max_fps=60
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.png"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=3
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [editor_plugins]
 
@@ -71,12 +80,3 @@ textures/vram_compression/import_etc2_astc=true
 openxr/enabled=true
 openxr/startup_alert=false
 shaders/enabled=true
-
-[display]
-
-window/size/viewport_width=1920
-window/size/viewport_height=1080
-window/size/mode=3
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
-
