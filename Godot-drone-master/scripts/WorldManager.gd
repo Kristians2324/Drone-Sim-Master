@@ -24,6 +24,32 @@ func _ready():
 	
 	# Load default environment
 	load_environment(MapEarthDay)
+	
+	# Setup window and auto-detect screen resolution
+	_setup_window_and_resolution()
+
+func _setup_window_and_resolution():
+	# If running headless (e.g. running unit tests), do not apply window settings
+	if DisplayServer.get_name() == "headless":
+		return
+		
+	# If running in VR, let VRManager handle the window (it needs its own setup)
+	if vr_manager and vr_manager.has_method("is_vr_active") and vr_manager.is_vr_active():
+		return
+		
+	# Detect screen resolution
+	var screen_index = DisplayServer.window_get_current_screen()
+	var screen_size = DisplayServer.screen_get_size(screen_index)
+	
+	print("WorldManager: Auto-detected screen resolution: %dx%d" % [screen_size.x, screen_size.y])
+	
+	# Defer window setting to ensure OS window initialization is complete
+	call_deferred("_apply_window_settings", screen_index, screen_size)
+
+func _apply_window_settings(screen_index: int, screen_size: Vector2i):
+	DisplayServer.window_set_current_screen(screen_index)
+	DisplayServer.window_set_size(screen_size)
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 
 func load_environment(EnvironmentClass):
 	if current_environment:
@@ -44,7 +70,10 @@ func _input(event):
 				menu_instance.pause()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_1:
+		if event.keycode == KEY_F11 or (event.keycode == KEY_ENTER and event.alt_pressed):
+			_toggle_fullscreen()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_1:
 			load_environment(MapEarthDay)
 		elif event.keycode == KEY_2:
 			load_environment(MapEarthNight)
@@ -57,6 +86,22 @@ func _input(event):
 				menu_instance.resume()
 			call_deferred("_restart_fresh")
 			get_viewport().set_input_as_handled()
+
+func _toggle_fullscreen():
+	var current_mode = DisplayServer.window_get_mode()
+	if current_mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN or current_mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720)) # reasonable windowed size
+		# Center the window on the screen
+		var screen_index = DisplayServer.window_get_current_screen()
+		var screen_size = DisplayServer.screen_get_size(screen_index)
+		var window_size = DisplayServer.window_get_size()
+		DisplayServer.window_set_position((screen_size - window_size) / 2)
+	else:
+		var screen_index = DisplayServer.window_get_current_screen()
+		var screen_size = DisplayServer.screen_get_size(screen_index)
+		DisplayServer.window_set_size(screen_size)
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 
 func _restart_fresh():
 	if get_tree():

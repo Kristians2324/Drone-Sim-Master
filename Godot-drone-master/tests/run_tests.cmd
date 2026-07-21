@@ -12,7 +12,7 @@ setlocal
 :: - Menu / ESC Key Toggling
 :: =============================================================================
 
-set "GODOT_EXE=%USERPROFILE%\Desktop\R2\Godot_v4.6.2-stable_win64.exe"
+set "GODOT_EXE=%USERPROFILE%\Desktop\Godot\Godot_v4.6.2-stable_win64.exe"
 
 if not exist "%GODOT_EXE%" (
 	echo Could not find Godot at:
@@ -32,7 +32,7 @@ echo.
 
 :: Godot on Windows does not pipe stdout to the console when launched from cmd.
 :: We redirect its output to a log file and then print it here.
-"%GODOT_EXE%" --headless --path . --script res://tests/test_runner.gd > "%LOG%" 2>&1
+"%GODOT_EXE%" --headless --path . --xr-mode off --script res://tests/test_runner.gd > "%LOG%" 2>&1
 set "EXITCODE=%ERRORLEVEL%"
 
 :: Print the log to the console

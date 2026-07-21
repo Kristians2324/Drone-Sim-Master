@@ -4,7 +4,6 @@ var xr_interface: XRInterface
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_apply_fullscreen_to_primary_display()
 	initialize_vr()
 
 func _apply_fullscreen_to_primary_display():
@@ -28,6 +27,9 @@ func initialize_vr():
 		
 		# Disable VSync for VR (OpenXR handles it)
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		
+		# Apply fullscreen to primary display for VR window mirroring
+		_apply_fullscreen_to_primary_display()
 	else:
 		print("VR: OpenXR Interface NOT detected or failed to initialize. Continuing in Desktop mode.")
 		xr_interface = null
