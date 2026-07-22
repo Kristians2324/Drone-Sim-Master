@@ -4,13 +4,13 @@ extends CanvasLayer
 class_name WindCompass
 
 # ── Layout constants ────────────────────────────────────────────────────────
-const COMPASS_RADIUS  := 100.0
-const ARROW_LEN       := 76.0
+const COMPASS_RADIUS  := 80.0
+const ARROW_LEN       := 60.0
 const RIBBON_COUNT    := 14
-const RIBBON_LEN      := 85.0
-const RIBBON_SPACING  := 7.0
-const ARC_WIDTH       := 13.0
-const PANEL_MARGIN    := 24.0
+const RIBBON_LEN      := 68.0
+const RIBBON_SPACING  := 6.0
+const ARC_WIDTH       := 10.0
+const PANEL_MARGIN    := 18.0
 
 # ── Runtime state ──────────────────────────────────────────────────────────
 var _wind_direction: Vector3  = Vector3(1.0, 0.0, 0.0)

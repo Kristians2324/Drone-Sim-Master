@@ -5,14 +5,14 @@ extends CanvasLayer
 ## detailed stats panel (right side): RAM, VRAM, GPU, draw calls, etc.
 
 const TOGGLE_KEY := KEY_V
-const FONT_SIZE_FPS := 22
-const FONT_SIZE_STATS := 17
-const FONT_SIZE_BATTERY := 28
-const BATTERY_PANEL_WIDTH := 240
-const BATTERY_PANEL_HEIGHT := 92
-const PANEL_WIDTH := 340
-const PADDING := 12
-const LINE_HEIGHT := 22
+const FONT_SIZE_FPS := 18
+const FONT_SIZE_STATS := 14
+const FONT_SIZE_BATTERY := 22
+const BATTERY_PANEL_WIDTH := 190
+const BATTERY_PANEL_HEIGHT := 74
+const PANEL_WIDTH := 280
+const PADDING := 10
+const LINE_HEIGHT := 18
 const UPDATE_INTERVAL := 0.15  # seconds between stat refreshes
 
 var _visible := false
