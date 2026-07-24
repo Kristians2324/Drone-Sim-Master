@@ -13,11 +13,11 @@ const HOVER_MAX_HOLD_FORCE = 90.0
 const MAX_PITCH_DEGREES = 30.0
 const MAX_TILT_DEGREES = 35.0
 # DJI Mini 4K realistic wind resistance constants
-const WIND_FORCE_SCALE = 8.5
-const WIND_LIFT_SCALE = 0.5
-const WIND_DRAG_SCALE = 0.25
-const WIND_HOVER_BOBBLE_SCALE = 0.40
-const WIND_ROTATION_SCALE = 0.05
+const WIND_FORCE_SCALE = 14.0
+const WIND_LIFT_SCALE = 0.8
+const WIND_DRAG_SCALE = 0.35
+const WIND_HOVER_BOBBLE_SCALE = 0.55
+const WIND_ROTATION_SCALE = 0.08
 # Turbulence: independent frequency layers per axis
 const WIND_TURB_SCALE = 0.85     # overall turbulence intensity
 const WIND_TURB_FREQ_A = 1.90    # fast jitter

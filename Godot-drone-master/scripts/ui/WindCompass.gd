@@ -1,6 +1,6 @@
 extends CanvasLayer
-## Redesigned Wind Compass HUD showing wind origin direction, push direction,
-## animated air flow ribbons, vector arrow, and real-time velocity in m/s.
+## Redesigned Wind Compass HUD showing wind origin, push direction, real-time velocity,
+## drone nose orientation pointer, and instant relative flight effect badges.
 class_name WindCompass
 
 const COMPASS_RADIUS := 80.0
@@ -16,13 +16,15 @@ var _wind_strength: float    = 0.0
 var _gust_factor: float      = 0.0
 var _state_name: String      = "Normal"
 var _smooth_strength: float  = 0.0
-var _smooth_angle: float     = 0.0   # radians in XZ plane
-var _gust_flash: float       = 0.0   # 0-1 flash alpha on big gust
+var _smooth_angle: float     = 0.0   # 2D screen radians
+var _smooth_drone_angle: float = 0.0
+var _gust_flash: float       = 0.0
 var _prev_gust_factor: float = 0.0
 var _time: float             = 0.0
 
 var _canvas: Control
 var _wind_manager: WindManager = null
+var target_drone: Node3D = null
 
 func _ready() -> void:
 	layer = 125
@@ -61,6 +63,17 @@ func _find_wind_manager() -> WindManager:
 			return nested as WindManager
 	return null
 
+func _find_target_drone() -> void:
+	if target_drone and is_instance_valid(target_drone):
+		return
+	var scene := get_tree().current_scene if get_tree() else null
+	if scene:
+		var manager = scene.get_node_or_null("DroneControllerManager")
+		if manager and "drone" in manager and manager.drone and is_instance_valid(manager.drone):
+			target_drone = manager.drone
+			return
+		target_drone = scene.find_child("Drone", true, false)
+
 func _on_wind_changed(direction: Vector3, strength: float, gust_factor: float, state_name: String) -> void:
 	_wind_direction = direction
 	_wind_strength  = strength
@@ -72,12 +85,20 @@ func _on_wind_changed(direction: Vector3, strength: float, gust_factor: float, s
 
 func _process(delta: float) -> void:
 	_time += delta
-	_smooth_strength = lerpf(_smooth_strength, _wind_strength, delta * 3.0)
+	_smooth_strength = lerpf(_smooth_strength, _wind_strength, delta * 3.5)
 
-	# Target angle from wind direction in XZ plane (direction wind pushes)
-	var target_angle := atan2(-_wind_direction.x, -_wind_direction.z)
+	# 2D Screen Angle for wind push (x = East/Right, z = South/Down)
+	var target_angle := atan2(_wind_direction.z, _wind_direction.x)
 	var angle_diff := fmod(target_angle - _smooth_angle + PI * 3.0, TAU) - PI
-	_smooth_angle += angle_diff * delta * 4.0
+	_smooth_angle += angle_diff * delta * 5.0
+
+	_find_target_drone()
+	if target_drone and is_instance_valid(target_drone):
+		# Drone facing direction in 2D screen coordinates (-z = North/Up, x = East/Right)
+		var fwd := -target_drone.global_transform.basis.z
+		var target_d_angle := atan2(fwd.z, fwd.x)
+		var d_diff := fmod(target_d_angle - _smooth_drone_angle + PI * 3.0, TAU) - PI
+		_smooth_drone_angle += d_diff * delta * 12.0
 
 	_gust_flash = maxf(0.0, _gust_flash - delta * 2.2)
 
@@ -91,7 +112,7 @@ func _process(delta: float) -> void:
 func _on_draw() -> void:
 	var vp_size := _canvas.get_rect().size
 	var cx := COMPASS_RADIUS + PANEL_MARGIN + ARC_WIDTH + 8.0
-	var cy := vp_size.y - COMPASS_RADIUS - PANEL_MARGIN - ARC_WIDTH - 36.0
+	var cy := vp_size.y - COMPASS_RADIUS - PANEL_MARGIN - ARC_WIDTH - 42.0
 	var center := Vector2(cx, cy)
 
 	_draw_backing(center)
@@ -99,6 +120,7 @@ func _on_draw() -> void:
 	_draw_cardinal_labels(center)
 	_draw_flow_ribbons(center)
 	_draw_compass_ring(center)
+	_draw_drone_pointer(center)
 	_draw_direction_arrow(center)
 	_draw_state_badge(center)
 	if _gust_flash > 0.01:
@@ -107,9 +129,7 @@ func _on_draw() -> void:
 # ── Dark glass panel background ──────────────────────────────────────────────
 func _draw_backing(center: Vector2) -> void:
 	var r := COMPASS_RADIUS + ARC_WIDTH + 4.0
-	# Soft shadow
 	_canvas.draw_circle(center, r + 4.0, Color(0.0, 0.0, 0.0, 0.30))
-	# Dark glass background
 	_canvas.draw_circle(center, r, Color(0.03, 0.06, 0.10, 0.85))
 
 # ── Outer speed arc ──────────────────────────────────────────────────────────
@@ -118,10 +138,8 @@ func _draw_speed_arc(center: Vector2) -> void:
 	var fill := clampf(_smooth_strength / max_speed, 0.0, 1.0)
 	var r := COMPASS_RADIUS + ARC_WIDTH * 0.5
 
-	# Background track
 	_draw_arc_thick(center, r, 0.0, TAU, ARC_WIDTH, Color(0.1, 0.15, 0.22, 0.5))
 
-	# Filled progress arc
 	if fill > 0.001:
 		var arc_col := _speed_colour(fill)
 		_draw_arc_thick(center, r, -PI * 0.5, -PI * 0.5 + fill * TAU, ARC_WIDTH, arc_col)
@@ -147,10 +165,8 @@ func _draw_arc_thick(center: Vector2, radius: float, from_angle: float, to_angle
 
 # ── Compass ring and tick marks ─────────────────────────────────────────────
 func _draw_compass_ring(center: Vector2) -> void:
-	# Cyan outer ring
 	_draw_arc_thick(center, COMPASS_RADIUS, 0.0, TAU, 1.8, Color(0.2, 0.75, 1.0, 0.7))
 
-	# Ticks every 45°
 	for i in range(8):
 		var angle := (PI / 4.0) * float(i)
 		var inner := COMPASS_RADIUS - (8.0 if i % 2 == 0 else 4.0)
@@ -179,7 +195,7 @@ func _draw_flow_ribbons(center: Vector2) -> void:
 	if _smooth_strength < 0.05:
 		return
 
-	var flow_angle := _smooth_angle # direction wind is pushing
+	var flow_angle := _smooth_angle
 	var speed_t := clampf(_smooth_strength / 7.0, 0.0, 1.0)
 	var ribbon_alpha := lerpf(0.12, 0.60, speed_t)
 	var ribbon_speed := lerpf(24.0, 70.0, speed_t)
@@ -205,7 +221,22 @@ func _draw_flow_ribbons(center: Vector2) -> void:
 				var col := Color(0.3, 0.85, 1.0, seg_alpha)
 				_canvas.draw_line(p0, p1, col, lerpf(1.2, 2.2, speed_t), true)
 
-# ── Dynamic Wind Vector Push Arrow ──────────────────────────────────────────
+# ── Drone Nose Orientation Pointer (Cyan) ───────────────────────────────────
+func _draw_drone_pointer(center: Vector2) -> void:
+	if not target_drone or not is_instance_valid(target_drone):
+		return
+	var angle := _smooth_drone_angle
+	var dir := Vector2(cos(angle), sin(angle))
+	var perp := Vector2(-dir.y, dir.x)
+	var tip := center + dir * (COMPASS_RADIUS - 10.0)
+
+	_canvas.draw_line(center, tip, Color(0.2, 0.85, 1.0, 0.6), 1.5, true)
+	var head_back := tip - dir * 10.0
+	var h_left := head_back + perp * 5.0
+	var h_right := head_back - perp * 5.0
+	_canvas.draw_colored_polygon(PackedVector2Array([tip, h_left, h_right]), Color(0.2, 0.85, 1.0, 0.9))
+
+# ── Dynamic Wind Vector Push Arrow (Orange/Gold) ────────────────────────────
 func _draw_direction_arrow(center: Vector2) -> void:
 	var angle := _smooth_angle
 	var dir := Vector2(cos(angle), sin(angle))
@@ -214,10 +245,8 @@ func _draw_direction_arrow(center: Vector2) -> void:
 	var tip := center + dir * ARROW_LEN
 	var base := center - dir * (ARROW_LEN * 0.35)
 
-	# Main shaft line
 	_canvas.draw_line(base, tip, Color(1.0, 1.0, 1.0, 0.4), 2.5, true)
 
-	# Arrowhead
 	var head_back := tip - dir * 16.0
 	var h_left := head_back + perp * 8.0
 	var h_right := head_back - perp * 8.0
@@ -230,35 +259,52 @@ func _draw_direction_arrow(center: Vector2) -> void:
 	_canvas.draw_colored_polygon(pts, arrow_col)
 	_canvas.draw_polyline(PackedVector2Array([h_left, tip, h_right]), Color(1.0, 1.0, 1.0, 0.8), 1.6, true)
 
-	# Center position dot
 	_canvas.draw_circle(center, 4.0, Color(1.0, 1.0, 1.0, 0.85))
 	_canvas.draw_arc(center, 4.0, 0.0, TAU, 16, Color(0.2, 0.8, 1.0, 0.9), 1.2)
 
-# ── Wind Origin & Speed Text Readout Badge ──────────────────────────────────
+# ── Wind Readout & Relative Effect Text Badges ──────────────────────────────
 func _draw_state_badge(center: Vector2) -> void:
 	var speed_t := clampf(_smooth_strength / 7.0, 0.0, 1.0)
 	var badge_col := _speed_colour(speed_t)
 
-	var origin_name := _wind_manager.get_wind_origin_name() if _wind_manager else "WEST"
-	var push_name   := _wind_manager.get_wind_push_name() if _wind_manager else "EAST"
+	var origin_name := _wind_manager.get_wind_origin_name() if _wind_manager else "EAST"
+	var push_name   := _wind_manager.get_wind_push_name() if _wind_manager else "WEST"
 
 	var text_line1 := "WIND: FROM %s" % origin_name
 	var text_line2 := "PUSH: %s (%.1f m/s)" % [push_name, _smooth_strength]
 
-	var pos1 := center + Vector2(-42.0, COMPASS_RADIUS + ARC_WIDTH + 8.0)
-	var pos2 := pos1 + Vector2(0, 14)
+	# Relative effect to drone facing direction
+	var effect_text := "EFFECT: DRIFT"
+	if target_drone and is_instance_valid(target_drone):
+		var fwd := -target_drone.global_transform.basis.z
+		var right := target_drone.global_transform.basis.x
+		var tailwind := fwd.dot(_wind_direction)
+		var crosswind := right.dot(_wind_direction)
 
-	# Drop shadow
-	_canvas.draw_string(ThemeDB.fallback_font, pos1 + Vector2(1, 1), text_line1,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.0, 0.0, 0.0, 0.8))
-	_canvas.draw_string(ThemeDB.fallback_font, pos2 + Vector2(1, 1), text_line2,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.0, 0.0, 0.0, 0.8))
+		if tailwind > 0.4:
+			effect_text = "EFFECT: TAILWIND (PUSHING NOSE)"
+		elif tailwind < -0.4:
+			effect_text = "EFFECT: HEADWIND (RESISTING NOSE)"
+		elif crosswind > 0.3:
+			effect_text = "EFFECT: CROSSWIND (PUSHING RIGHT)"
+		elif crosswind < -0.3:
+			effect_text = "EFFECT: CROSSWIND (PUSHING LEFT)"
+		else:
+			effect_text = "EFFECT: BALANCED DRIFT"
+
+	var pos1 := center + Vector2(-48.0, COMPASS_RADIUS + ARC_WIDTH + 8.0)
+	var pos2 := pos1 + Vector2(0, 13)
+	var pos3 := pos2 + Vector2(0, 13)
+
+	# Shadow
+	_canvas.draw_string(ThemeDB.fallback_font, pos1 + Vector2(1, 1), text_line1, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.0, 0.0, 0.0, 0.8))
+	_canvas.draw_string(ThemeDB.fallback_font, pos2 + Vector2(1, 1), text_line2, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.0, 0.0, 0.0, 0.8))
+	_canvas.draw_string(ThemeDB.fallback_font, pos3 + Vector2(1, 1), effect_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.0, 0.0, 0.0, 0.8))
 
 	# Text
-	_canvas.draw_string(ThemeDB.fallback_font, pos1, text_line1,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.95, 1.0, 0.9))
-	_canvas.draw_string(ThemeDB.fallback_font, pos2, text_line2,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, badge_col)
+	_canvas.draw_string(ThemeDB.fallback_font, pos1, text_line1, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.95, 1.0, 0.9))
+	_canvas.draw_string(ThemeDB.fallback_font, pos2, text_line2, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, badge_col)
+	_canvas.draw_string(ThemeDB.fallback_font, pos3, effect_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.3, 0.85, 1.0, 0.9))
 
 # ── Gust Flash Pulse ────────────────────────────────────────────────────────
 func _draw_gust_flash(center: Vector2) -> void:
