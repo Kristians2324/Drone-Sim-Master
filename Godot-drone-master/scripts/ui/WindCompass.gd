@@ -36,13 +36,17 @@ func _ready() -> void:
 	add_child(_canvas)
 	_connect_wind_manager()
 
+var _connect_retries: int = 0
+
 func _connect_wind_manager() -> void:
+	if not is_inside_tree():
+		return
 	_wind_manager = _find_wind_manager()
 	if _wind_manager:
 		if not _wind_manager.wind_changed.is_connected(_on_wind_changed):
 			_wind_manager.wind_changed.connect(_on_wind_changed)
-	else:
-		# Retry next frame in case scene isn't fully loaded
+	elif is_inside_tree() and _connect_retries < 30:
+		_connect_retries += 1
 		call_deferred("_connect_wind_manager")
 
 func _find_wind_manager() -> WindManager:

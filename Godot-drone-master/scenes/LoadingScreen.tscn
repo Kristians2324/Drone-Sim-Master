@@ -1,0 +1,45 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8x9m0n1o2p4"]
+
+[ext_resource type="Script" path="res://scripts/ui/LoadingScreen.gd" id="1_loading_screen"]
+[ext_resource type="Texture2D" uid="uid://dm1l0yfqoiq6l" path="res://icon.png" id="2_spinner"]
+
+[node name="LoadingScreen" type="CanvasLayer"]
+layer = 200
+process_mode = 3
+script = ExtResource("1_loading_screen")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.06, 0.07, 0.09, 0.95)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Layout" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="SpinnerRect" type="TextureRect" parent="Center/Layout"]
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+size_flags_horizontal = 4
+pivot_offset = Vector2(40, 40)
+texture = ExtResource("2_spinner")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StatusLabel" type="Label" parent="Center/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.88, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "Loading..."
+horizontal_alignment = 1

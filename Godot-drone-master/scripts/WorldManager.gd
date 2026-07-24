@@ -1,7 +1,11 @@
 extends Node3D
 
 @onready var menu_scene = preload("res://scenes/Menu.tscn")
+@onready var start_menu_scene = preload("res://scenes/StartMenu.tscn")
+@onready var loading_screen_scene = preload("res://scenes/LoadingScreen.tscn")
 var menu_instance: CanvasLayer
+var start_menu_instance: CanvasLayer
+var loading_screen_instance: CanvasLayer
 var vr_manager: Node
 var current_environment: BaseEnvironment = null
 
@@ -17,16 +21,49 @@ func _ready():
 	vr_manager.name = "VRManager"
 	add_child(vr_manager)
 	
+	# Instantiate loading screen first so it can display during startup
+	loading_screen_instance = loading_screen_scene.instantiate()
+	add_child(loading_screen_instance)
+	if DisplayServer.get_name() != "headless":
+		loading_screen_instance.show_loading("Loading simulation...")
+	else:
+		loading_screen_instance.hide()
+	
 	# Instantiate menu once at startup
 	menu_instance = menu_scene.instantiate()
 	add_child(menu_instance)
 	menu_instance.hide()
+	
+	# Instantiate Start/Intro menu at startup
+	start_menu_instance = start_menu_scene.instantiate()
+	add_child(start_menu_instance)
+	if start_menu_instance.has_signal("simulation_started"):
+		start_menu_instance.simulation_started.connect(_on_simulation_started)
 	
 	# Load default environment
 	load_environment(MapEarthDay)
 	
 	# Setup window and auto-detect screen resolution
 	_setup_window_and_resolution()
+
+	# In non-headless mode, freeze physics and open start menu
+	if DisplayServer.get_name() != "headless":
+		get_tree().paused = true
+		if start_menu_instance and start_menu_instance.has_method("open_menu"):
+			start_menu_instance.open_menu()
+	else:
+		if start_menu_instance:
+			start_menu_instance.hide()
+
+func _on_simulation_started():
+	get_tree().paused = false
+
+func open_start_menu():
+	if menu_instance and menu_instance.visible:
+		menu_instance.resume()
+	get_tree().paused = true
+	if start_menu_instance and start_menu_instance.has_method("open_menu"):
+		start_menu_instance.open_menu()
 
 func _setup_window_and_resolution():
 	# If running headless (e.g. running unit tests), do not apply window settings
@@ -52,6 +89,9 @@ func _apply_window_settings(screen_index: int, screen_size: Vector2i):
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 
 func load_environment(EnvironmentClass):
+	if loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
+		loading_screen_instance.show_loading("Loading environment...")
+		
 	if current_environment:
 		current_environment.queue_free()
 		current_environment = null
@@ -59,6 +99,13 @@ func load_environment(EnvironmentClass):
 	current_environment = EnvironmentClass.new()
 	current_environment.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(current_environment)
+
+	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
+		call_deferred("_finish_loading_environment")
+
+func _finish_loading_environment():
+	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
+		loading_screen_instance.hide_loading()
 
 func _input(event):
 	# Listen for ESC key globally

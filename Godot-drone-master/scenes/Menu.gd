@@ -94,6 +94,12 @@ func resume():
 func _on_resume_pressed():
 	resume()
 
+func _on_main_menu_pressed():
+	resume()
+	var world = get_tree().current_scene
+	if world and world.has_method("open_start_menu"):
+		world.open_start_menu()
+
 func _on_restart_pressed():
 	resume()
 	get_tree().reload_current_scene()

@@ -36,6 +36,8 @@ func _initialize() -> void:
 	run_suite("DroneShowLightRig – real functions",  _tests_light_rig)
 	run_suite("Boid         – real functions",       _tests_boid)
 	run_suite("SwarmController – real properties",   _tests_swarm_controller)
+	run_suite("StartMenu       – intro functionality", _tests_start_menu)
+	run_suite("LoadingScreen   – loading spinner",     _tests_loading_screen)
 	run_suite("Drone Controls – input and flight tests", _tests_drone_controls)
 
 	print("")
@@ -310,6 +312,44 @@ func _tests_swarm_controller() -> void:
 	if sc != null:
 		sc.queue_free()
 	await process_frame
+
+# =============================================================================
+# ── StartMenu ────────────────────────────────────────────────────────────────
+# =============================================================================
+func _tests_start_menu() -> void:
+	var scene = load("res://scenes/StartMenu.tscn")
+	assert_true(scene != null, "StartMenu.tscn loads successfully")
+	if scene != null:
+		var instance = scene.instantiate()
+		assert_true(instance != null, "StartMenu scene instantiates successfully")
+		spawn(instance)
+		assert_true(instance.is_active, "StartMenu starts with is_active == true")
+		assert_true(instance.has_signal("simulation_started"), "StartMenu has signal 'simulation_started'")
+		
+		# Test triggering start simulation
+		instance.start_simulation()
+		await process_frame
+		assert_false(instance.is_active, "StartMenu sets is_active == false after start_simulation()")
+		instance.queue_free()
+		await process_frame
+
+# =============================================================================
+# ── LoadingScreen ────────────────────────────────────────────────────────────
+# =============================================================================
+func _tests_loading_screen() -> void:
+	var scene = load("res://scenes/LoadingScreen.tscn")
+	assert_true(scene != null, "LoadingScreen.tscn loads successfully")
+	if scene != null:
+		var instance = scene.instantiate()
+		assert_true(instance != null, "LoadingScreen scene instantiates successfully")
+		spawn(instance)
+		instance.show_loading("Testing loading...")
+		assert_true(instance.is_loading, "LoadingScreen is_loading == true after show_loading()")
+		instance.hide_loading()
+		await process_frame
+		assert_false(instance.is_loading, "LoadingScreen is_loading == false after hide_loading()")
+		instance.queue_free()
+		await process_frame
 
 # =============================================================================
 # ── Drone Controls ───────────────────────────────────────────────────────────

@@ -1,0 +1,181 @@
+[gd_scene format=3 uid="uid://b7x8lam0n1o3"]
+
+[ext_resource type="Script" path="res://scripts/ui/StartMenu.gd" id="1_start_menu"]
+[ext_resource type="Texture2D" uid="uid://dm1l0yfqoiq6l" path="res://icon.png" id="2_logo"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.08, 0.09, 0.12, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.65, 0.9, 0.6)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 28
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_feature"]
+bg_color = Color(0.13, 0.15, 0.2, 0.8)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+expand_margin_left = 6.0
+expand_margin_top = 4.0
+expand_margin_right = 6.0
+expand_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button"]
+bg_color = Color(0.15, 0.45, 0.75, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_size = 6
+
+[node name="StartMenu" type="CanvasLayer"]
+layer = 100
+process_mode = 3
+script = ExtResource("1_start_menu")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.65)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(520, 560)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="VBoxContainer" parent="Center/Panel/Margin/Layout"]
+layout_mode = 2
+alignment = 1
+
+[node name="LogoRect" type="TextureRect" parent="Center/Panel/Margin/Layout/Header"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_horizontal = 4
+texture = ExtResource("2_logo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/Layout/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.97, 1, 1)
+theme_override_colors/font_outline_color = Color(0.1, 0.4, 0.8, 0.8)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 28
+text = "DRONE SIMULATOR"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Center/Panel/Margin/Layout/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Welcome"
+horizontal_alignment = 1
+
+[node name="WelcomeText" type="Label" parent="Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.84, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+text = "Press Space to start flying, or view the flight controls below."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator" type="HSeparator" parent="Center/Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="FeatureGrid" type="GridContainer" parent="Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 10
+columns = 2
+
+[node name="Feature1" type="Label" parent="Center/Panel/Margin/Layout/FeatureGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.8, 0.88, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxFlat_feature")
+text = "Flight: WASD + Space / Shift"
+
+[node name="Feature2" type="Label" parent="Center/Panel/Margin/Layout/FeatureGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.8, 0.88, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxFlat_feature")
+text = "Tricks: 6 (Loop), 7 (Roll)"
+
+[node name="Feature3" type="Label" parent="Center/Panel/Margin/Layout/FeatureGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.8, 0.88, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxFlat_feature")
+text = "Maps: 1 to 4 Keys"
+
+[node name="Feature4" type="Label" parent="Center/Panel/Margin/Layout/FeatureGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.8, 0.88, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxFlat_feature")
+text = "Swarm Mode: Tab Key"
+
+[node name="HSeparator2" type="HSeparator" parent="Center/Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="PromptBox" type="VBoxContainer" parent="Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PressSpacePrompt" type="Label" parent="Center/Panel/Margin/Layout/PromptBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_colors/font_outline_color = Color(0.4, 0.3, 0.0, 0.8)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 20
+text = "PRESS SPACE TO START"
+horizontal_alignment = 1
+
+[node name="SubPrompt" type="Label" parent="Center/Panel/Margin/Layout/PromptBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.72, 1)
+theme_override_font_sizes/font_size = 12
+text = "(or press Enter / Controller A button)"
+horizontal_alignment = 1
+
+[node name="StartButton" type="Button" parent="Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+text = "START SIMULATION"
