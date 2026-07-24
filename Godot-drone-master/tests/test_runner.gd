@@ -384,7 +384,7 @@ func _tests_minimap() -> void:
 		assert_true(instance != null, "Minimap scene instantiates successfully")
 		spawn(instance)
 		await process_frame
-		assert_true(instance.sub_viewport != null, "Minimap SubViewport initialized")
+		assert_true(instance.get_node_or_null("Margin/Panel/ViewportContainer/SubViewport") != null, "Minimap SubViewport initialized")
 		instance.queue_free()
 		await process_frame
 
