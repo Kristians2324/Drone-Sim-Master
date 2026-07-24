@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://t1u8o9r2i3a4"]
+[gd_scene format=3 uid="uid://t1u8par2i3a4"]
 
 [ext_resource type="Script" path="res://scripts/ui/TutorialManager.gd" id="1_tutorial_script"]
 

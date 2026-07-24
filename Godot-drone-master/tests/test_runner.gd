@@ -39,6 +39,7 @@ func _initialize() -> void:
 	run_suite("StartMenu       – intro functionality", _tests_start_menu)
 	run_suite("LoadingScreen   – loading spinner",     _tests_loading_screen)
 	run_suite("TutorialOverlay – interactive tutorial", _tests_tutorial_overlay)
+	run_suite("Minimap         – top-left HUD minimap", _tests_minimap)
 	run_suite("Drone Controls – input and flight tests", _tests_drone_controls)
 
 	print("")
@@ -369,6 +370,21 @@ func _tests_tutorial_overlay() -> void:
 		assert_true(instance.current_step_index == 1, "TutorialOverlay advances to step 1 on next")
 		instance.close_tutorial()
 		assert_false(instance.is_active, "TutorialOverlay is_active == false after close_tutorial()")
+		instance.queue_free()
+		await process_frame
+
+# =============================================================================
+# ── Minimap ──────────────────────────────────────────────────────────────────
+# =============================================================================
+func _tests_minimap() -> void:
+	var scene = load("res://scenes/Minimap.tscn")
+	assert_true(scene != null, "Minimap.tscn loads successfully")
+	if scene != null:
+		var instance = scene.instantiate()
+		assert_true(instance != null, "Minimap scene instantiates successfully")
+		spawn(instance)
+		await process_frame
+		assert_true(instance.sub_viewport != null, "Minimap SubViewport initialized")
 		instance.queue_free()
 		await process_frame
 

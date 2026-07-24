@@ -20,18 +20,22 @@ const TUTORIAL_STEPS = [
 	},
 	{
 		"title": "2. Recharge & Maintenance Tower",
-		"description": "Your drone operates on a battery system supported by the Recharge Tower:\n\n• Locate the hexagonal tower obelisk at coordinates (X: 350, Z: 350).\n• Land or hover directly on the glowing top landing pad.\n• Recharging begins automatically, restoring full power and system health."
+		"description": "Your drone operates on a battery system supported by the Recharge Tower:\n\n• Locate the tall hexagonal obelisk with glowing orange neon lights.\n• Land or hover directly on the glowing top landing pad.\n• Recharging begins automatically, restoring full power and system health."
 	},
 	{
 		"title": "3. Wind Dynamics & Compass HUD",
-		"description": "Atmospheric turbulence affects flight trajectory in real time:\n\n• Observe the top-left Wind Compass HUD for live wind heading and speed (m/s).\n• Use subtle counter-pitch and roll inputs to maintain a steady flight line during heavy gusts."
+		"description": "Atmospheric turbulence affects flight trajectory in real time:\n\n• Observe the bottom-left Wind Compass HUD for live wind heading and speed (m/s).\n• Use subtle counter-pitch and roll inputs to maintain a steady flight line during heavy gusts."
 	},
 	{
 		"title": "4. ESC Menu & Swarm Light Shows",
 		"description": "Press ESC at any time to open the Pause Menu:\n\n• Review full keyboard and Xbox controller button mappings.\n• Command a 60+ drone swarm in synchronized light show formations (Star, Circle, Heart, Diamond, Wave).\n• Replay this Flight Guide or adjust simulation settings."
 	},
 	{
-		"title": "5. Environment Switcher (Keys 1 - 4)",
+		"title": "5. Swarm Escort Mode (TAB Key)",
+		"description": "Press TAB during flight to activate Swarm Escort Mode:\n\n• A formation of drones surrounds your position in a synchronized flock.\n• The main player drone becomes invisible while the swarm surrounds and follows your flight path.\n• Press TAB again to disengage Swarm Escort Mode."
+	},
+	{
+		"title": "6. Environment Switcher (Keys 1 - 4)",
 		"description": "Switch environments seamlessly during flight using numerical keys 1 through 4:\n\n• Key 1 : Earth & Mountainous Terrain\n• Key 2 : Urban Town & Architecture\n• Key 3 : Night Show Arena\n• Key 4 : Indoor Flight Track\n\nEach transition features an animated loading screen with progress feedback."
 	}
 ]

@@ -4,10 +4,12 @@ const menu_scene = preload("res://scenes/Menu.tscn")
 const start_menu_scene = preload("res://scenes/StartMenu.tscn")
 const loading_screen_scene = preload("res://scenes/LoadingScreen.tscn")
 const tutorial_scene = preload("res://scenes/TutorialOverlay.tscn")
+const minimap_scene = preload("res://scenes/Minimap.tscn")
 var menu_instance: CanvasLayer
 var start_menu_instance: CanvasLayer
 var loading_screen_instance: CanvasLayer
 var tutorial_instance: CanvasLayer
+var minimap_instance: CanvasLayer
 var vr_manager: Node
 var current_environment: BaseEnvironment = null
 
@@ -50,6 +52,10 @@ func _ready():
 	add_child(start_menu_instance)
 	if start_menu_instance.has_signal("simulation_started"):
 		start_menu_instance.simulation_started.connect(_on_simulation_started)
+	
+	# Instantiate Minimap HUD overlay
+	minimap_instance = minimap_scene.instantiate()
+	add_child(minimap_instance)
 	
 	# Load default environment
 	load_environment(MapEarthDay)

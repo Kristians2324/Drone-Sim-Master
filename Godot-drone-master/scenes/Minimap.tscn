@@ -1,0 +1,30 @@
+[gd_scene load_steps=2 format=3 uid="uid://m1n2m3p4s5t6"]
+
+[ext_resource type="Script" path="res://scripts/ui/Minimap.gd" id="1_minimap_script"]
+
+[node name="Minimap" type="CanvasLayer"]
+layer = 120
+script = ExtResource("1_minimap_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+offset_right = 230.0
+offset_bottom = 230.0
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+
+[node name="ViewportContainer" type="SubViewportContainer" parent="Margin"]
+texture_filter = 2
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="Margin/ViewportContainer"]
+handle_input_locally = false
+size = Vector2i(200, 200)
+render_target_update_mode = 3
+
+[node name="MapCamera" type="Camera3D" parent="Margin/ViewportContainer/SubViewport"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 200, 0)
+projection = 1
+size = 220.0
+far = 600.0
