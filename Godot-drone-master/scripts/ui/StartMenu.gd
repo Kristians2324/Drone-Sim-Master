@@ -22,15 +22,16 @@ func _ready() -> void:
 func _setup_logo() -> void:
 	if not logo_rect:
 		return
-	if ResourceLoader.exists("res://assets/textures/drone_logo.png.import"):
-		var custom_tex = load("res://assets/textures/drone_logo.png")
-		if custom_tex is Texture2D:
-			logo_rect.texture = custom_tex
+	var logo_path = "res://assets/textures/drone_logo.png" if FileAccess.file_exists("res://assets/textures/drone_logo.png") else "res://icon.png"
+	if ResourceLoader.has_cached(logo_path):
+		var cached_tex = ResourceLoader.load(logo_path)
+		if cached_tex is Texture2D:
+			logo_rect.texture = cached_tex
 			return
-	if ResourceLoader.exists("res://icon.png.import"):
-		var fallback_tex = load("res://icon.png")
-		if fallback_tex is Texture2D:
-			logo_rect.texture = fallback_tex
+	if FileAccess.file_exists(logo_path):
+		var img = Image.load_from_file(logo_path)
+		if img and not img.is_empty():
+			logo_rect.texture = ImageTexture.create_from_image(img)
 
 func _start_pulse_animation() -> void:
 	if pulse_tween and pulse_tween.is_running():

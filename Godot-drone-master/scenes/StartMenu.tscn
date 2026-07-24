@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://b7x8lam0n1o3"]
 
 [ext_resource type="Script" path="res://scripts/ui/StartMenu.gd" id="1_start_menu"]
-[ext_resource type="Texture2D" uid="uid://dm1l0yfqoiq6l" path="res://icon.png" id="2_logo"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
 bg_color = Color(0.08, 0.09, 0.12, 0.94)
@@ -80,7 +79,6 @@ alignment = 1
 custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
-texture = ExtResource("2_logo")
 expand_mode = 1
 stretch_mode = 5
 
