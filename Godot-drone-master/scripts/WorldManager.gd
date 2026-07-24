@@ -1,16 +1,33 @@
 extends Node3D
 
-@onready var menu_scene = preload("res://scenes/Menu.tscn")
-@onready var start_menu_scene = preload("res://scenes/StartMenu.tscn")
-@onready var loading_screen_scene = preload("res://scenes/LoadingScreen.tscn")
+const menu_scene = preload("res://scenes/Menu.tscn")
+const start_menu_scene = preload("res://scenes/StartMenu.tscn")
+const loading_screen_scene = preload("res://scenes/LoadingScreen.tscn")
 var menu_instance: CanvasLayer
 var start_menu_instance: CanvasLayer
 var loading_screen_instance: CanvasLayer
 var vr_manager: Node
 var current_environment: BaseEnvironment = null
 
+func _enter_tree():
+	if not loading_screen_instance:
+		loading_screen_instance = loading_screen_scene.instantiate()
+		add_child(loading_screen_instance)
+		if DisplayServer.get_name() != "headless":
+			loading_screen_instance.show_loading("Loading simulation...")
+		else:
+			loading_screen_instance.hide()
+
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	if not loading_screen_instance:
+		loading_screen_instance = loading_screen_scene.instantiate()
+		add_child(loading_screen_instance)
+		if DisplayServer.get_name() != "headless":
+			loading_screen_instance.show_loading("Loading simulation...")
+		else:
+			loading_screen_instance.hide()
 	
 	# Add FPS Counter
 	var fps_counter = preload("res://scripts/FPSCounter.gd").new()
@@ -20,14 +37,6 @@ func _ready():
 	vr_manager = load("res://scripts/VRManager.gd").new()
 	vr_manager.name = "VRManager"
 	add_child(vr_manager)
-	
-	# Instantiate loading screen first so it can display during startup
-	loading_screen_instance = loading_screen_scene.instantiate()
-	add_child(loading_screen_instance)
-	if DisplayServer.get_name() != "headless":
-		loading_screen_instance.show_loading("Loading simulation...")
-	else:
-		loading_screen_instance.hide()
 	
 	# Instantiate menu once at startup
 	menu_instance = menu_scene.instantiate()
@@ -88,24 +97,36 @@ func _apply_window_settings(screen_index: int, screen_size: Vector2i):
 	DisplayServer.window_set_size(screen_size)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 
+var is_loading_environment: bool = false
+
 func load_environment(EnvironmentClass):
+	if is_loading_environment:
+		return
+	is_loading_environment = true
+	
 	if loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
 		loading_screen_instance.show_loading("Loading environment...")
+		if get_tree():
+			await get_tree().process_frame
+			await get_tree().process_frame
 		
 	if current_environment:
 		current_environment.queue_free()
 		current_environment = null
+		if get_tree():
+			await get_tree().process_frame
 	
 	current_environment = EnvironmentClass.new()
 	current_environment.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(current_environment)
 
-	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
-		call_deferred("_finish_loading_environment")
+	if get_tree():
+		await get_tree().process_frame
 
-func _finish_loading_environment():
 	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
 		loading_screen_instance.hide_loading()
+		
+	is_loading_environment = false
 
 func _input(event):
 	# Listen for ESC key globally
