@@ -38,6 +38,7 @@ func _initialize() -> void:
 	run_suite("SwarmController – real properties",   _tests_swarm_controller)
 	run_suite("StartMenu       – intro functionality", _tests_start_menu)
 	run_suite("LoadingScreen   – loading spinner",     _tests_loading_screen)
+	run_suite("TutorialOverlay – interactive tutorial", _tests_tutorial_overlay)
 	run_suite("Drone Controls – input and flight tests", _tests_drone_controls)
 
 	print("")
@@ -348,6 +349,26 @@ func _tests_loading_screen() -> void:
 		instance.hide_loading()
 		await process_frame
 		assert_false(instance.is_loading, "LoadingScreen is_loading == false after hide_loading()")
+		instance.queue_free()
+		await process_frame
+
+# =============================================================================
+# ── TutorialOverlay ──────────────────────────────────────────────────────────
+# =============================================================================
+func _tests_tutorial_overlay() -> void:
+	var scene = load("res://scenes/TutorialOverlay.tscn")
+	assert_true(scene != null, "TutorialOverlay.tscn loads successfully")
+	if scene != null:
+		var instance = scene.instantiate()
+		assert_true(instance != null, "TutorialOverlay scene instantiates successfully")
+		spawn(instance)
+		instance.start_tutorial()
+		assert_true(instance.is_active, "TutorialOverlay starts with is_active == true")
+		assert_true(instance.current_step_index == 0, "TutorialOverlay starts at step 0")
+		instance._on_next_pressed()
+		assert_true(instance.current_step_index == 1, "TutorialOverlay advances to step 1 on next")
+		instance.close_tutorial()
+		assert_false(instance.is_active, "TutorialOverlay is_active == false after close_tutorial()")
 		instance.queue_free()
 		await process_frame
 

@@ -6,7 +6,8 @@ signal simulation_started
 @onready var panel: PanelContainer = $Center/Panel
 @onready var logo_rect: TextureRect = $Center/Panel/Margin/Layout/Header/LogoRect
 @onready var start_prompt_label: Label = $Center/Panel/Margin/Layout/PromptBox/PressSpacePrompt
-@onready var start_button: Button = $Center/Panel/Margin/Layout/StartButton
+@onready var start_button: Button = $Center/Panel/Margin/Layout/ButtonGroup/StartButton
+@onready var tutorial_button: Button = $Center/Panel/Margin/Layout/ButtonGroup/TutorialButton
 @onready var subtitle_label: Label = $Center/Panel/Margin/Layout/Header/Subtitle
 
 var is_active: bool = true
@@ -18,6 +19,8 @@ func _ready() -> void:
 	_start_pulse_animation()
 	if start_button and not start_button.pressed.is_connected(_on_start_button_pressed):
 		start_button.pressed.connect(_on_start_button_pressed)
+	if tutorial_button and not tutorial_button.pressed.is_connected(_on_tutorial_button_pressed):
+		tutorial_button.pressed.connect(_on_tutorial_button_pressed)
 
 func _setup_logo() -> void:
 	if not logo_rect:
@@ -90,3 +93,9 @@ func open_menu() -> void:
 	_start_pulse_animation()
 	if start_button:
 		start_button.grab_focus()
+
+func _on_tutorial_button_pressed() -> void:
+	start_simulation()
+	var world = get_tree().current_scene
+	if world and world.has_method("start_tutorial"):
+		world.start_tutorial()

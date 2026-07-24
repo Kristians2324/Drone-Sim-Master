@@ -3,9 +3,11 @@ extends Node3D
 const menu_scene = preload("res://scenes/Menu.tscn")
 const start_menu_scene = preload("res://scenes/StartMenu.tscn")
 const loading_screen_scene = preload("res://scenes/LoadingScreen.tscn")
+const tutorial_scene = preload("res://scenes/TutorialOverlay.tscn")
 var menu_instance: CanvasLayer
 var start_menu_instance: CanvasLayer
 var loading_screen_instance: CanvasLayer
+var tutorial_instance: CanvasLayer
 var vr_manager: Node
 var current_environment: BaseEnvironment = null
 
@@ -73,6 +75,13 @@ func open_start_menu():
 	get_tree().paused = true
 	if start_menu_instance and start_menu_instance.has_method("open_menu"):
 		start_menu_instance.open_menu()
+
+func start_tutorial() -> void:
+	if not tutorial_instance or not is_instance_valid(tutorial_instance):
+		tutorial_instance = tutorial_scene.instantiate()
+		add_child(tutorial_instance)
+	if tutorial_instance and tutorial_instance.has_method("start_tutorial"):
+		tutorial_instance.start_tutorial()
 
 func _setup_window_and_resolution():
 	# If running headless (e.g. running unit tests), do not apply window settings

@@ -94,6 +94,12 @@ func resume():
 func _on_resume_pressed():
 	resume()
 
+func _on_tutorial_pressed():
+	resume()
+	var world = get_tree().current_scene
+	if world and world.has_method("start_tutorial"):
+		world.start_tutorial()
+
 func _on_main_menu_pressed():
 	resume()
 	var world = get_tree().current_scene
