@@ -100,6 +100,31 @@ func get_state_name() -> String:
 		WindState.HEAVY:  return "Heavy"
 		_:                return "Unknown"
 
+func get_wind_origin_name() -> String:
+	var origin := -wind_direction
+	var angle := atan2(-origin.x, -origin.z)
+	var deg := fmod(rad_to_deg(angle) + 360.0, 360.0)
+	if deg >= 315.0 or deg < 45.0:
+		return "NORTH"
+	elif deg >= 45.0 and deg < 135.0:
+		return "EAST"
+	elif deg >= 135.0 and deg < 225.0:
+		return "SOUTH"
+	else:
+		return "WEST"
+
+func get_wind_push_name() -> String:
+	var angle := atan2(-wind_direction.x, -wind_direction.z)
+	var deg := fmod(rad_to_deg(angle) + 360.0, 360.0)
+	if deg >= 315.0 or deg < 45.0:
+		return "NORTH"
+	elif deg >= 45.0 and deg < 135.0:
+		return "EAST"
+	elif deg >= 135.0 and deg < 225.0:
+		return "SOUTH"
+	else:
+		return "WEST"
+
 func set_wind_enabled(enabled: bool) -> void:
 	wind_enabled = enabled
 

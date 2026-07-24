@@ -12,12 +12,12 @@ const HOVER_HOLD_DAMPING = 12.0
 const HOVER_MAX_HOLD_FORCE = 90.0
 const MAX_PITCH_DEGREES = 30.0
 const MAX_TILT_DEGREES = 35.0
-# Realistic light/moderate wind constants (was 18/2.4/0.45/1.35/0.28)
-const WIND_FORCE_SCALE = 5.5
-const WIND_LIFT_SCALE = 0.9
-const WIND_DRAG_SCALE = 0.30
-const WIND_HOVER_BOBBLE_SCALE = 0.55
-const WIND_ROTATION_SCALE = 0.14
+# DJI Mini 4K realistic wind resistance constants
+const WIND_FORCE_SCALE = 8.5
+const WIND_LIFT_SCALE = 0.5
+const WIND_DRAG_SCALE = 0.25
+const WIND_HOVER_BOBBLE_SCALE = 0.40
+const WIND_ROTATION_SCALE = 0.05
 # Turbulence: independent frequency layers per axis
 const WIND_TURB_SCALE = 0.85     # overall turbulence intensity
 const WIND_TURB_FREQ_A = 1.90    # fast jitter
@@ -367,56 +367,44 @@ func _apply_input_forces(delta, input_vec: Vector4):
 	var wind_drag_factor := 1.0
 
 	if wind_strength > 0.0:
-		var wind_dir := wind_velocity.normalized() if not wind_velocity.is_zero_approx() else Vector3.ZERO
-		if not wind_dir.is_zero_approx():
-			var forward_component := -forward_dir.dot(wind_dir)
-			var right_component   := strafe_dir.dot(wind_dir)
+		var wind_world := wind_velocity
+		if not wind_world.is_zero_approx():
+			var tailwind_push := forward_dir.dot(wind_world)
+			var crosswind_push := strafe_dir.dot(wind_world)
 
-			# Drag slightly reduces forward speed into the wind
-			wind_drag_factor = clampf(1.0 - forward_component * WIND_DRAG_SCALE, 0.60, 1.25)
+			var gust_env := 0.8 + wind_gust_factor * 0.5 + sin(wind_phase * 1.5) * 0.1
+			wind_force = wind_world * (WIND_FORCE_SCALE * gust_env)
 
-			# Gust envelope — peaks when gust_factor is high, adds sine shimmer
-			var gust_env := 0.7 + wind_gust_factor * 0.8 + sin(wind_phase * 1.55) * 0.12
+			wind_drag_factor = clampf(1.0 - (tailwind_push / maxf(wind_strength, 0.1)) * WIND_DRAG_SCALE, 0.70, 1.30)
 
-			# ── Primary push (base wind direction) ───────────────────────────
-			wind_force = wind_dir * (wind_strength * WIND_FORCE_SCALE * gust_env)
-
-			# ── Multi-octave turbulence per axis (independent phases) ────────
-			# Each axis gets a blended low+mid+high frequency signal
 			var ws := wind_strength * WIND_TURB_SCALE
 			var turb_x := (
-				sin(_turb_phase_x * WIND_TURB_FREQ_A) * 0.55 +
-				sin(_turb_phase_x * WIND_TURB_FREQ_B * 1.3) * 0.30 +
-				sin(_turb_phase_x * WIND_TURB_FREQ_C * 0.4) * 0.15
+				sin(_turb_phase_x * WIND_TURB_FREQ_A) * 0.5 +
+				sin(_turb_phase_x * WIND_TURB_FREQ_B * 1.2) * 0.3
 			)
 			var turb_z := (
-				cos(_turb_phase_z * WIND_TURB_FREQ_A * 0.9) * 0.55 +
-				cos(_turb_phase_z * WIND_TURB_FREQ_B * 1.7) * 0.30 +
-				cos(_turb_phase_z * WIND_TURB_FREQ_C * 0.5) * 0.15
+				cos(_turb_phase_z * WIND_TURB_FREQ_A * 0.9) * 0.5 +
+				cos(_turb_phase_z * WIND_TURB_FREQ_B * 1.4) * 0.3
 			)
-			# Scale turbulence with gust factor — gusty wind = jitterier flight
-			var turb_scale := lerpf(0.5, 1.5, wind_gust_factor)
+			var turb_scale := lerpf(0.4, 1.0, wind_gust_factor)
 			wind_force.x += turb_x * ws * turb_scale
 			wind_force.z += turb_z * ws * turb_scale
 
-			# ── Lift variation (wind can slightly bounce altitude) ────────────
-			var lift_osc := sin(_turb_phase_y * WIND_TURB_FREQ_A * 0.8) * 0.6 + sin(_turb_phase_y * WIND_TURB_FREQ_B) * 0.4
-			wind_force.y += wind_strength * WIND_LIFT_SCALE * (0.3 + wind_gust_factor * 0.5) * lift_osc
+			# Gentle bank tilt torque into/with wind (max ~15 deg bank, stabilized by flight controller)
+			var bank_tilt_torque := -crosswind_push * WIND_ROTATION_SCALE * 0.8
+			var pitch_tilt_torque := tailwind_push * WIND_ROTATION_SCALE * 0.8
+			apply_torque(global_transform.basis.z * bank_tilt_torque)
+			apply_torque(global_transform.basis.x * pitch_tilt_torque)
 
-			# ── Crosswind component ──────────────────────────────────────────
-			wind_force += strafe_dir * (wind_strength * right_component * 1.2 * gust_env)
-
-			# ── Hover bobble (extra positional jitter when holding position) ─
 			if hover_enabled:
 				wind_bobble = Vector3(
 					turb_x * wind_strength * WIND_HOVER_BOBBLE_SCALE,
-					lift_osc * wind_strength * WIND_HOVER_BOBBLE_SCALE * 0.4,
+					0.0,
 					turb_z * wind_strength * WIND_HOVER_BOBBLE_SCALE
 				)
 
 	forward_force *= wind_drag_factor
-	strafe_force  *= lerpf(wind_drag_factor, 1.0, 0.2)
-	# Wind force contributes a small fraction to vertical thrust (lift interaction)
+	strafe_force *= lerpf(wind_drag_factor, 1.0, 0.2)
 	vertical_thrust += Vector3(0.0, wind_force.y * 0.08, 0.0)
 
 	apply_central_force(vertical_thrust + forward_force + strafe_force + wind_force + wind_bobble)
@@ -438,8 +426,8 @@ func _apply_input_forces(delta, input_vec: Vector4):
 					apply_central_force(Vector3.UP * hover_force)
 
 	# ── Rotation from control inputs ────────────────────────────────────────
-	apply_torque(global_transform.basis.x * (-smoothed_input_internal.z * TURN_POWER * speed_multiplier + wind_force.z * WIND_ROTATION_SCALE))
-	apply_torque(global_transform.basis.z * (-smoothed_input_internal.w * TURN_POWER * speed_multiplier + wind_force.x * WIND_ROTATION_SCALE))
+	apply_torque(global_transform.basis.x * (-smoothed_input_internal.z * TURN_POWER * speed_multiplier))
+	apply_torque(global_transform.basis.z * (-smoothed_input_internal.w * TURN_POWER * speed_multiplier))
 	apply_torque(global_transform.basis.y * -smoothed_input_internal.y * TURN_POWER * speed_multiplier)
 
 	# ── Wind tilt torque (multi-axis turbulent wobble) ───────────────────────

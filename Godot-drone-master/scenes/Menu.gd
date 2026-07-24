@@ -3,11 +3,11 @@ extends CanvasLayer
 @onready var controls_label = $Center/Panel/Margin/Layout/Controls
 @onready var resume_button = $Center/Panel/Margin/Layout/Resume
 @onready var formation_buttons = {
-	"star": $Center/Panel/Margin/Layout/Formations/Grid/Star,
-	"circle": $Center/Panel/Margin/Layout/Formations/Grid/Circle,
-	"heart": $Center/Panel/Margin/Layout/Formations/Grid/Heart,
-	"diamond": $Center/Panel/Margin/Layout/Formations/Grid/Diamond,
-	"wave": $Center/Panel/Margin/Layout/Formations/Grid/Wave,
+	"star": $Center/Panel/Margin/Layout/Formations/Row/Star,
+	"circle": $Center/Panel/Margin/Layout/Formations/Row/Circle,
+	"heart": $Center/Panel/Margin/Layout/Formations/Row/Heart,
+	"diamond": $Center/Panel/Margin/Layout/Formations/Row/Diamond,
+	"wave": $Center/Panel/Margin/Layout/Formations/Row/Wave,
 }
 
 var last_input_was_controller: bool = false
