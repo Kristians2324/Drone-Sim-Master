@@ -12,12 +12,16 @@ sky_material = SubResource("ProceduralSkyMaterial_night")
 background_mode = 2
 sky = SubResource("Sky_night")
 tonemap_mode = 3
-tonemap_exposure = 0.8
-ssao_enabled = false
-ssr_enabled = false
-glow_enabled = false
+tonemap_exposure = 0.85
+ssao_enabled = true
+ssao_radius = 2.5
+ssao_intensity = 2.0
+ssr_enabled = true
+glow_enabled = true
+glow_intensity = 0.9
+glow_bloom = 0.3
 volumetric_fog_enabled = true
-volumetric_fog_density = 0.05
+volumetric_fog_density = 0.015
 volumetric_fog_albedo = Color(0.1, 0.1, 0.2, 1)
 
 [node name="EnvironmentNight" type="Node3D"]
@@ -27,6 +31,13 @@ environment = SubResource("Environment_night")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433013, 0, 10, 0)
-light_color = Color(0.5, 0.6, 1, 1)
-light_energy = 0.2
-shadow_enabled = false
+light_color = Color(0.65, 0.75, 1, 1)
+light_energy = 0.6
+shadow_enabled = true
+shadow_bias = 0.02
+shadow_blur = 1.2
+directional_shadow_mode = 2
+directional_shadow_max_distance = 1500.0
+directional_shadow_split_1 = 0.08
+directional_shadow_split_2 = 0.22
+directional_shadow_split_3 = 0.55

@@ -11,7 +11,7 @@ extends CanvasLayer
 }
 
 var last_input_was_controller: bool = false
-
+var stop_show_button: Button = null
 
 const KEYBOARD_TEXT = "--- KEYBOARD CONTROLS ---
 SPACE / SHIFT : Thrust Up/Down
@@ -20,6 +20,7 @@ A / D : Roll Left/Right
 Q / E : Yaw Rotate
 C : Switch Camera View
 H : Toggle Hover Mode
+B : Exit Light Show (Back to Flight)
 V : Toggle Debug Mode
 R : Reset Level
 1-4 : Switch Environments
@@ -42,9 +43,20 @@ func _ready():
 	hide()
 	update_controls_display()
 	connect_formation_buttons()
+	_setup_stop_show_button()
+
+func _setup_stop_show_button() -> void:
+	var layout = get_node_or_null("Center/Panel/Margin/Layout/Formations")
+	if layout and stop_show_button == null:
+		stop_show_button = Button.new()
+		stop_show_button.name = "StopShowButton"
+		stop_show_button.text = "STOP AIRSHOW FORMATION"
+		stop_show_button.custom_minimum_size = Vector2(0, 36)
+		stop_show_button.pressed.connect(_on_stop_show_pressed)
+		layout.add_child(stop_show_button)
+		stop_show_button.visible = false
 
 func _input(event):
-	# Detect if user is using a controller
 	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
 		if not last_input_was_controller:
 			last_input_was_controller = true
@@ -70,6 +82,12 @@ func _on_formation_pressed(shape_name: String) -> void:
 		manager.select_show_shape(shape_name)
 		resume()
 
+func _on_stop_show_pressed() -> void:
+	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
+	if manager and manager.has_method("stop_show_mode"):
+		manager.stop_show_mode()
+	resume()
+
 func toggle():
 	if visible:
 		resume()
@@ -82,7 +100,11 @@ func pause():
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	
-	# Enable controller navigation by focusing the first button
+	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
+	if stop_show_button:
+		var has_show = manager and manager.get("show_mode") != 0
+		stop_show_button.visible = has_show
+
 	if resume_button:
 		resume_button.grab_focus()
 

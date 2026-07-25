@@ -16,7 +16,7 @@ var is_active: bool = false
 const TUTORIAL_STEPS = [
 	{
 		"title": "1. Basic Flight & Attitude Controls",
-		"description": "Mastering drone flight relies on smooth control inputs:\n\n• W / S : Pitch Forward / Backward\n• A / D : Roll Left / Right\n• SPACE / SHIFT : Increase / Decrease Thrust (Ascend / Descend)\n• Q / E : Yaw Rotation (Rotate Left / Right)\n• H : Toggle Hover Mode (locks current altitude automatically)"
+		"description": "Mastering drone flight relies on smooth control inputs:\n\n• W / S : Pitch Forward / Backward\n• A / D : Roll Left / Right\n• SPACE / SHIFT : Increase / Decrease Thrust (Ascend / Descend)\n• Q / E : Yaw Rotation (Rotate Left / Right)\n• H : Toggle Hover Mode (holds current altitude without losing height)"
 	},
 	{
 		"title": "2. Recharge & Maintenance Tower",
@@ -28,7 +28,7 @@ const TUTORIAL_STEPS = [
 	},
 	{
 		"title": "4. ESC Menu & Swarm Light Shows",
-		"description": "Press ESC at any time to open the Pause Menu:\n\n• Review full keyboard and Xbox controller button mappings.\n• Command a 60+ drone swarm in synchronized light show formations (Star, Circle, Heart, Diamond, Wave).\n• Replay this Flight Guide or adjust simulation settings."
+		"description": "Press ESC at any time to open the Pause Menu:\n\n• Review full keyboard and Xbox controller button mappings.\n• Command a drone swarm in synchronized light show formations (Star, Circle, Heart, Diamond, Wave).\n• During a Light Show Formation, vibrant colorful LED lights illuminate below each drone and cinematic cameras track the flight.\n• Press B key at any time (or click STOP AIRSHOW FORMATION in the pause menu) to exit back to manual flight."
 	},
 	{
 		"title": "5. Swarm Escort Mode (TAB Key)",
@@ -69,6 +69,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func start_tutorial() -> void:
 	current_step_index = 0
 	is_active = true
+	if is_inside_tree() and get_tree():
+		get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	show()
 	_update_step_display()
 	if next_button:
@@ -115,4 +118,7 @@ func _on_skip_pressed() -> void:
 func close_tutorial() -> void:
 	is_active = false
 	hide()
+	if is_inside_tree() and get_tree():
+		get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	tutorial_completed.emit()

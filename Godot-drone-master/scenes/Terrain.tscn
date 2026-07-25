@@ -5,12 +5,12 @@
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Grass"]
 albedo_color = Color(0.18, 0.28, 0.14, 1)
 roughness = 0.9
-specular = 0.1
+metallic_specular = 0.1
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Mountain"]
 albedo_color = Color(0.24, 0.24, 0.26, 1)
 roughness = 0.95
-specular = 0.05
+metallic_specular = 0.05
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_Ground"]
 size = Vector2(4000, 4000)

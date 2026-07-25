@@ -1,9 +1,12 @@
 extends RigidBody3D
 
-# --- POWERFUL SMOOTH FLIGHT CONFIG ---
-const THROTTLE_POWER = 180.0   
-const FORWARD_POWER = 120.0    
-const TURN_POWER = 18.0
+const DroneBatteryManager = preload("res://scripts/drone/DroneBatteryManager.gd")
+const DroneAerodynamics = preload("res://scripts/drone/DroneAerodynamics.gd")
+const DronePropellerController = preload("res://scripts/drone/DronePropellerController.gd")
+
+const THROTTLE_POWER = 210.0   
+const FORWARD_POWER = 150.0    
+const TURN_POWER = 20.0
 const STABILIZE_FORCE = 45.0
 const INPUT_SMOOTHING = 3.5
 const HOVER_MIN_CLEARANCE = 2.0
@@ -12,52 +15,61 @@ const HOVER_HOLD_DAMPING = 12.0
 const HOVER_MAX_HOLD_FORCE = 90.0
 const MAX_PITCH_DEGREES = 30.0
 const MAX_TILT_DEGREES = 35.0
-# DJI Mini 4K realistic wind resistance constants
-const WIND_FORCE_SCALE = 14.0
-const WIND_LIFT_SCALE = 0.8
-const WIND_DRAG_SCALE = 0.35
-const WIND_HOVER_BOBBLE_SCALE = 0.55
-const WIND_ROTATION_SCALE = 0.08
-# Turbulence: independent frequency layers per axis
-const WIND_TURB_SCALE = 0.85     # overall turbulence intensity
-const WIND_TURB_FREQ_A = 1.90    # fast jitter
-const WIND_TURB_FREQ_B = 0.65    # medium sway
-const WIND_TURB_FREQ_C = 0.22    # slow drift
 
-# DJI Mini 4K-inspired battery behavior:
-# - About 20 minutes of flight under normal use
-# - Drain rate increases with aggressive maneuvering / high thrust
-# - Low battery warning and automatic landing reserve near the end
-const BATTERY_CAPACITY_MINUTES := 20.0
-const BATTERY_DRAIN_PER_SECOND := 100.0 / (BATTERY_CAPACITY_MINUTES * 60.0)
-const BATTERY_AGGRESSIVE_DRAIN_MULTIPLIER := 1.85
-const BATTERY_HOVER_DRAIN_MULTIPLIER := 0.72
-const BATTERY_LOW_WARNING_PERCENT := 20.0
-const BATTERY_CRITICAL_PERCENT := 8.0
-const BATTERY_AUTO_LAND_PERCENT := 3.0
-const BATTERY_CONTROL_SLOWDOWN_START_PERCENT := 12.0
-
-var smoothed_input = Vector4.ZERO # throttle, yaw, pitch, roll
+var smoothed_input = Vector4.ZERO
 var hover_enabled = false
 var speed_multiplier: float = 1.0
+
 var wind_velocity: Vector3 = Vector3.ZERO
 var wind_strength: float = 0.0
 var wind_gust_factor: float = 0.25
 var wind_state_name: String = "Normal"
 var wind_phase: float = 0.0
-# Independent per-axis turbulence phases so X/Z wobble are never in sync
-var _turb_phase_x: float = 0.0
-var _turb_phase_z: float = 0.37
-var _turb_phase_y: float = 0.71
 
 var low_cost_mode: bool = false
-var battery_percent: float = 100.0
-var battery_low_warning: bool = false
-var battery_critical: bool = false
-var battery_auto_landing: bool = false
-var battery_failed: bool = false
-var battery_exhausted: bool = false
-var battery_recharging: bool = false
+var low_detail_visuals: bool = false
+
+var battery_manager: DroneBatteryManager
+var aerodynamics: DroneAerodynamics
+var propeller_controller: DronePropellerController
+
+var battery_percent: float:
+	get: return battery_manager.battery_percent if battery_manager else 100.0
+var battery_low_warning: bool:
+	get: return battery_manager.battery_low_warning if battery_manager else false
+var battery_critical: bool:
+	get: return battery_manager.battery_critical if battery_manager else false
+var battery_auto_landing: bool:
+	get: return battery_manager.battery_auto_landing if battery_manager else false
+var battery_failed: bool:
+	get: return battery_manager.battery_failed if battery_manager else false
+var battery_exhausted: bool:
+	get: return battery_manager.battery_exhausted_flag if battery_manager else false
+var battery_recharging: bool:
+	get: return battery_manager.battery_recharging if battery_manager else false
+	set(val):
+		if battery_manager: battery_manager.battery_recharging = val
+
+var propeller_datas: Array[Dictionary] = []
+@onready var design = $Design
+@onready var collision_shape: CollisionShape3D = $Collision
+var drone_model: Node3D
+var propellers: Array[Node3D] = []
+var show_rig: DroneShowLightRig
+const CAMERA_COLLISION_LAYER := 1 << 31
+
+func _init() -> void:
+	battery_manager = DroneBatteryManager.new()
+	aerodynamics = DroneAerodynamics.new()
+	propeller_controller = DronePropellerController.new()
+
+func set_hover_mode(enabled: bool) -> void:
+	hover_enabled = enabled
+	linear_damp = 2.0
+	angular_damp = 8.0
+
+func apply_hover_mode() -> void:
+	set_hover_mode(hover_enabled)
 
 func set_swarm_mode_active(active: bool):
 	speed_multiplier = 1.6 if active else 1.0
@@ -69,15 +81,14 @@ func set_swarm_mode_active(active: bool):
 		design.visible = !active
 	if is_instance_valid(show_rig):
 		show_rig.visible = true
-		show_rig.set_show_lighting_enabled(not active and not low_cost_mode)
+		show_rig.set_show_lighting_enabled(false)
 
 func set_low_cost_mode(enabled: bool) -> void:
 	low_cost_mode = enabled
 	if is_instance_valid(show_rig):
 		show_rig.set_low_cost_mode(enabled)
 		show_rig.visible = true
-		if speed_multiplier > 1.0:
-			show_rig.set_show_lighting_enabled(false)
+		show_rig.set_show_lighting_enabled(false)
 	if is_instance_valid(design) and speed_multiplier <= 1.0:
 		design.visible = true
 
@@ -87,59 +98,40 @@ func set_low_detail_visuals(enabled: bool) -> void:
 		design.visible = true
 	if is_instance_valid(show_rig):
 		show_rig.visible = true
+		show_rig.set_show_lighting_enabled(false)
 
 func set_show_lighting_enabled(enabled: bool) -> void:
 	if is_instance_valid(show_rig):
 		show_rig.set_show_lighting_enabled(enabled)
 
-var propeller_datas: Array[Dictionary] = []
-var prop_rotation_angle: float = 0.0
-
-@onready var design = $Design
-@onready var collision_shape: CollisionShape3D = $Collision
-var drone_model: Node3D
-var propellers: Array[Node3D] = []
-var show_rig: DroneShowLightRig
-var low_detail_visuals: bool = false
-const CAMERA_COLLISION_LAYER := 1 << 31
-
 func _ready():
 	add_to_group("drone_quality_targets")
-	# Prevent drones from colliding with the swarm camera rig.
-	# The camera controller assigns the camera to a dedicated collision layer.
 	collision_layer = 1
-	# Collide with everything in the world (obstacles on layer 1, terrain/hills on layer 2)
 	collision_mask = 0xFFFFFFFF & ~CAMERA_COLLISION_LAYER
-	# Professional heavy physics for maximum stability
 	mass = 5.0
 	gravity_scale = 1.0
 	linear_damp = 2.0
 	angular_damp = 8.0
-	
+
 	process_mode = Node.PROCESS_MODE_PAUSABLE
-	
-	# Enable collision detection for sound
+
 	contact_monitor = true
 	max_contacts_reported = 4
-	body_entered.connect(_on_drone_collision)
-	
-	# Ensure collision shape is properly set on the body
-	collision_shape.shape = BoxShape3D.new()
-	collision_shape.shape.size = Vector3(1.2, 0.2, 1.2)
-	collision_shape.transform = Transform3D.IDENTITY
-	
-	# Replace with the new model automatically at startup
+	if not body_entered.is_connected(_on_drone_collision):
+		body_entered.connect(_on_drone_collision)
+
+	if collision_shape:
+		collision_shape.shape = BoxShape3D.new()
+		collision_shape.shape.size = Vector3(1.2, 0.2, 1.2)
+		collision_shape.transform = Transform3D.IDENTITY
+
 	replace_drone_model()
 	apply_hover_mode()
-	
-	# ── Connect to WindManager so ALL drone instances receive live wind data ──
-	# Deferred so the scene tree is fully ready when we search.
 	call_deferred("_connect_wind_manager")
 
 func _connect_wind_manager() -> void:
 	var scene := get_tree().current_scene if get_tree() else null
-	if scene == null:
-		return
+	if scene == null: return
 	var wm: WindManager = null
 	var direct := scene.get_node_or_null("WindManager")
 	if direct is WindManager:
@@ -155,24 +147,27 @@ func _connect_wind_manager() -> void:
 				break
 	if wm and wm.has_signal("wind_changed") and not wm.wind_changed.is_connected(set_wind_profile):
 		wm.wind_changed.connect(set_wind_profile)
-		# Apply current wind state immediately so there's no startup lag
 		set_wind_profile(wm.wind_direction, wm.get_wind_strength(), wm.gust_factor, wm.get_state_name())
+
+func set_wind_profile(dir: Vector3, strength: float, gust: float, state: String) -> void:
+	wind_velocity = dir * strength
+	wind_strength = strength
+	wind_gust_factor = gust
+	wind_state_name = state
 
 func replace_drone_model():
 	if low_detail_visuals:
-		print("Drone: Using low-detail procedural model for follower drone.")
 		setup_show_lights()
 		return
 
-	print("Drone: Starting model replacement with assets/drone_model/scene.gltf...")
-	# Hide/Remove old procedural parts
+	if design == null: return
+
 	for child in design.get_children():
 		if not child is Camera3D and not child is XROrigin3D:
 			if child == show_rig:
 				show_rig = null
 			child.queue_free()
-	
-	# Load and instance the model
+
 	if not FileAccess.file_exists("res://assets/drone_model/scene.gltf"):
 		push_error("Drone: scene.gltf NOT FOUND")
 		return
@@ -183,29 +178,22 @@ func replace_drone_model():
 		design.add_child(drone_model)
 		design.visible = true
 
-		# The GLTF fan blade meshes each contain ALL 4 blades in one mesh.
-		# Spinning them individually sends 3 blades flying. Hide them all.
 		var nodes_to_hide = ["Circle_16", "Fan_006_20"]
 		for node_name in nodes_to_hide:
 			var n = drone_model.find_child(node_name, true, false)
-			if n:
-				n.visible = false
+			if n: n.visible = false
 
-		# Scale model to fit 1.3m wingspan
 		var model_aabb: AABB = _center_spline_model(drone_model)
 		var max_dim: float = max(model_aabb.size.x, model_aabb.size.z)
 		var target_scale := 1.3 / max_dim if max_dim > 0 else 1.0
 		drone_model.scale = Vector3(target_scale, target_scale, target_scale)
-		print("Drone: Applied scale: ", target_scale)
 		drone_model.rotation_degrees.y = 0
 
-		# --- Procedural propeller discs ---
-		# Positions from tree_output.txt (GLTF_SceneRootNode local space)
 		var arm_positions: Array = [
-			Vector3(-0.249101,  0.109929, -0.132448),  # Front-Left
-			Vector3( 0.249100,  0.109079, -0.132448),  # Front-Right
-			Vector3(-0.249101,  0.109079,  0.134621),  # Back-Left
-			Vector3( 0.226978,  0.109079,  0.134621),  # Back-Right
+			Vector3(-0.249101,  0.109929, -0.132448),
+			Vector3( 0.249100,  0.109079, -0.132448),
+			Vector3(-0.249101,  0.109079,  0.134621),
+			Vector3( 0.226978,  0.109079,  0.134621),
 		]
 
 		var blade_mat := StandardMaterial3D.new()
@@ -217,7 +205,6 @@ func replace_drone_model():
 		propellers.clear()
 		propeller_datas.clear()
 
-		# Parent discs into GLTF_SceneRootNode so they share its coord system
 		var scene_root_node = drone_model.find_child("GLTF_SceneRootNode", true, false)
 		var disc_parent: Node3D = scene_root_node if scene_root_node else drone_model
 
@@ -227,7 +214,6 @@ func replace_drone_model():
 			holder.position = arm_positions[i]
 			disc_parent.add_child(holder)
 
-			# Thin disc base
 			var disc := MeshInstance3D.new()
 			var cyl := CylinderMesh.new()
 			cyl.top_radius    = 0.1
@@ -238,7 +224,6 @@ func replace_drone_model():
 			disc.material_override = blade_mat
 			holder.add_child(disc)
 
-			# Blade bar 1
 			var b1 := MeshInstance3D.new()
 			var b1m := BoxMesh.new()
 			b1m.size = Vector3(0.185, 0.006, 0.032)
@@ -246,7 +231,6 @@ func replace_drone_model():
 			b1.material_override = blade_mat
 			holder.add_child(b1)
 
-			# Blade bar 2 (cross)
 			var b2 := MeshInstance3D.new()
 			var b2m := BoxMesh.new()
 			b2m.size = Vector3(0.032, 0.006, 0.185)
@@ -255,72 +239,37 @@ func replace_drone_model():
 			holder.add_child(b2)
 
 			propellers.append(holder)
-			var data := {}
-			data["node"] = holder
-			data["original_transform"] = holder.transform
-			propeller_datas.append(data)
+			propeller_datas.append({"node": holder, "original_transform": holder.transform})
 
-		print("Drone: Model loaded. Created 4 procedural propeller discs.")
 		setup_show_lights()
-	else:
-		push_error("Drone: Failed to load scene.gltf.")
+
+func setup_show_lights():
+	if is_instance_valid(show_rig):
+		show_rig.queue_free()
+		show_rig = null
+
+	show_rig = preload("res://scripts/drone/DroneShowLightRig.gd").new()
+	show_rig.name = "ShowLightRig"
+	add_child(show_rig)
 
 func _center_spline_model(model: Node3D) -> AABB:
 	var meshes: Array[MeshInstance3D] = []
 	_get_all_meshes(model, meshes)
-	
 	var aabb = AABB()
 	var first = true
-	
 	for mesh in meshes:
 		var mesh_transform = model.global_transform.affine_inverse() * mesh.global_transform
 		var mesh_aabb = mesh_transform * mesh.get_aabb()
-		
 		if first:
 			aabb = mesh_aabb
 			first = false
 		else:
 			aabb = aabb.merge(mesh_aabb)
-	
-	if not first:
-		return aabb
-		
-	return AABB()
+	return aabb if not first else AABB()
 
 func _get_all_meshes(node: Node, meshes: Array[MeshInstance3D]):
-	if node is MeshInstance3D:
-		meshes.append(node)
-	for child in node.get_children():
-		_get_all_meshes(child, meshes)
-
-func _find_propellers_fallback(node):
-	if node is MeshInstance3D:
-		var name_lower = node.name.to_lower()
-		if "cylinder" in name_lower:
-			propellers.append(node)
-	
-	for child in node.get_children():
-		_find_propellers_fallback(child)
-
-func _find_propellers(node):
-	var name_lower = node.name.to_lower()
-	var is_prop = ("prop" in name_lower or "blade" in name_lower or "helix" in name_lower or "fan" in name_lower or "circle_16" in name_lower) and not "rotor" in name_lower
-	
-	if is_prop and node is Node3D:
-		propellers.append(node)
-	
-	for child in node.get_children():
-		_find_propellers(child)
-
-
-func _get_mesh_child_recursively(node: Node) -> MeshInstance3D:
-	if node is MeshInstance3D and node.mesh:
-		return node
-	for child in node.get_children():
-		var m = _get_mesh_child_recursively(child)
-		if m != null:
-			return m
-	return null
+	if node is MeshInstance3D: meshes.append(node)
+	for child in node.get_children(): _get_all_meshes(child, meshes)
 
 func _physics_process(delta):
 	if get_tree().paused: return
@@ -329,79 +278,48 @@ func _physics_process(delta):
 		return
 
 	wind_phase += delta * (1.2 + wind_strength * 0.08)
-	# Advance independent turbulence phases at different rates so X/Z never sync
-	_turb_phase_x += delta * (WIND_TURB_FREQ_A + wind_strength * 0.06)
-	_turb_phase_z += delta * (WIND_TURB_FREQ_B + wind_strength * 0.04)
-	_turb_phase_y += delta * (WIND_TURB_FREQ_C + wind_strength * 0.02)
-	_update_battery(delta)
+	aerodynamics.advance_turbulence(delta, wind_strength)
+	battery_manager.update_battery(delta, smoothed_input, hover_enabled)
 
 	_apply_input_forces(delta, smoothed_input)
 
 	if battery_auto_landing:
-		# Simulate DJI-style reserve behavior by softening control response as battery gets extremely low.
 		smoothed_input.y = 0.0
 		smoothed_input.z = 0.0
 		smoothed_input.w = 0.0
 
-var smoothed_input_internal = Vector4.ZERO
+func _apply_battery_lockout():
+	smoothed_input = Vector4.ZERO
+	linear_velocity = linear_velocity.lerp(Vector3.ZERO, 0.05)
+	angular_velocity = angular_velocity.lerp(Vector3.ZERO, 0.05)
 
 func _apply_input_forces(delta, input_vec: Vector4):
-	smoothed_input_internal = smoothed_input_internal.lerp(input_vec, delta * INPUT_SMOOTHING)
-
 	var local_up = Vector3.UP if hover_enabled else global_transform.basis.y
 	var forward_dir = -global_transform.basis.z
 	var strafe_dir = global_transform.basis.x
 	if hover_enabled:
 		forward_dir.y = 0.0
 		strafe_dir.y = 0.0
-		if not forward_dir.is_zero_approx():
-			forward_dir = forward_dir.normalized()
-		if not strafe_dir.is_zero_approx():
-			strafe_dir = strafe_dir.normalized()
+		if not forward_dir.is_zero_approx(): forward_dir = forward_dir.normalized()
+		if not strafe_dir.is_zero_approx(): strafe_dir = strafe_dir.normalized()
 
-	var vertical_thrust = local_up * smoothed_input_internal.x * THROTTLE_POWER * speed_multiplier
-	var forward_force = forward_dir * smoothed_input_internal.z * FORWARD_POWER * speed_multiplier
-	var strafe_force = strafe_dir * smoothed_input_internal.w * FORWARD_POWER * speed_multiplier
-	var wind_force := Vector3.ZERO
-	var wind_bobble := Vector3.ZERO
-	var wind_drag_factor := 1.0
+	var vertical_thrust = local_up * input_vec.x * THROTTLE_POWER * speed_multiplier
+	var forward_force = forward_dir * input_vec.z * FORWARD_POWER * speed_multiplier
+	var strafe_force = strafe_dir * input_vec.w * FORWARD_POWER * speed_multiplier
 
-	if wind_strength > 0.0:
-		var wind_world := wind_velocity
-		if not wind_world.is_zero_approx():
-			var tailwind_push := forward_dir.dot(wind_world)
-			var crosswind_push := strafe_dir.dot(wind_world)
+	if hover_enabled:
+		var anti_gravity = Vector3.UP * (mass * 9.8)
+		apply_central_force(anti_gravity)
+		if abs(input_vec.x) < 0.05:
+			linear_velocity.y = lerpf(linear_velocity.y, 0.0, 0.25)
 
-			var gust_env := 0.8 + wind_gust_factor * 0.5 + sin(wind_phase * 1.5) * 0.1
-			wind_force = wind_world * (WIND_FORCE_SCALE * gust_env)
+	var aero_res = aerodynamics.calculate_wind_forces(
+		forward_dir, strafe_dir, wind_velocity, wind_strength, wind_gust_factor, wind_phase, hover_enabled
+	)
 
-			wind_drag_factor = clampf(1.0 - (tailwind_push / maxf(wind_strength, 0.1)) * WIND_DRAG_SCALE, 0.70, 1.30)
-
-			var ws := wind_strength * WIND_TURB_SCALE
-			var turb_x := (
-				sin(_turb_phase_x * WIND_TURB_FREQ_A) * 0.5 +
-				sin(_turb_phase_x * WIND_TURB_FREQ_B * 1.2) * 0.3
-			)
-			var turb_z := (
-				cos(_turb_phase_z * WIND_TURB_FREQ_A * 0.9) * 0.5 +
-				cos(_turb_phase_z * WIND_TURB_FREQ_B * 1.4) * 0.3
-			)
-			var turb_scale := lerpf(0.4, 1.0, wind_gust_factor)
-			wind_force.x += turb_x * ws * turb_scale
-			wind_force.z += turb_z * ws * turb_scale
-
-			# Gentle bank tilt torque into/with wind (max ~15 deg bank, stabilized by flight controller)
-			var bank_tilt_torque := -crosswind_push * WIND_ROTATION_SCALE * 0.8
-			var pitch_tilt_torque := tailwind_push * WIND_ROTATION_SCALE * 0.8
-			apply_torque(global_transform.basis.z * bank_tilt_torque)
-			apply_torque(global_transform.basis.x * pitch_tilt_torque)
-
-			if hover_enabled:
-				wind_bobble = Vector3(
-					turb_x * wind_strength * WIND_HOVER_BOBBLE_SCALE,
-					0.0,
-					turb_z * wind_strength * WIND_HOVER_BOBBLE_SCALE
-				)
+	var wind_force: Vector3 = aero_res["wind_force"]
+	var wind_bobble: Vector3 = aero_res["wind_bobble"]
+	var wind_drag_factor: float = aero_res["wind_drag_factor"]
 
 	forward_force *= wind_drag_factor
 	strafe_force *= lerpf(wind_drag_factor, 1.0, 0.2)
@@ -425,33 +343,25 @@ func _apply_input_forces(delta, input_vec: Vector4):
 					hover_force = clamp(hover_force, 0.0, HOVER_MAX_HOLD_FORCE)
 					apply_central_force(Vector3.UP * hover_force)
 
-	# ── Rotation from control inputs ────────────────────────────────────────
-	apply_torque(global_transform.basis.x * (-smoothed_input_internal.z * TURN_POWER * speed_multiplier))
-	apply_torque(global_transform.basis.z * (-smoothed_input_internal.w * TURN_POWER * speed_multiplier))
-	apply_torque(global_transform.basis.y * -smoothed_input_internal.y * TURN_POWER * speed_multiplier)
+	apply_torque(global_transform.basis.x * (-input_vec.z * TURN_POWER * speed_multiplier))
+	apply_torque(global_transform.basis.z * (-input_vec.w * TURN_POWER * speed_multiplier))
+	apply_torque(global_transform.basis.y * -input_vec.y * TURN_POWER * speed_multiplier)
 
-	# ── Wind tilt torque (multi-axis turbulent wobble) ───────────────────────
-	if wind_strength > 0.0:
-		# Pitch and roll wobble use independent turbulence phases
-		var tilt_x := sin(_turb_phase_x * WIND_TURB_FREQ_A * 0.7) * 0.65 + sin(_turb_phase_x * WIND_TURB_FREQ_B) * 0.35
-		var tilt_z := cos(_turb_phase_z * WIND_TURB_FREQ_A * 0.8) * 0.65 + cos(_turb_phase_z * WIND_TURB_FREQ_B * 1.2) * 0.35
-		var tilt_scale := wind_strength * WIND_ROTATION_SCALE * lerpf(0.6, 1.4, wind_gust_factor)
-		apply_torque(global_transform.basis.x * tilt_x * tilt_scale)
-		apply_torque(global_transform.basis.z * tilt_z * tilt_scale)
+	apply_torque(global_transform.basis.z * float(aero_res["bank_tilt_torque"]))
+	apply_torque(global_transform.basis.x * float(aero_res["pitch_tilt_torque"]))
+	apply_torque(global_transform.basis.x * float(aero_res["tilt_x_torque"]))
+	apply_torque(global_transform.basis.z * float(aero_res["tilt_z_torque"]))
 
 	var up = global_transform.basis.y
 	var correction = up.cross(Vector3.UP)
-	
 	var current_stabilize = STABILIZE_FORCE
-	if abs(smoothed_input_internal.z) < 0.05 and abs(smoothed_input_internal.w) < 0.05:
+	if abs(input_vec.z) < 0.05 and abs(input_vec.w) < 0.05:
 		current_stabilize = STABILIZE_FORCE * 3.0
-	# Wind reduces stabilization — harder to hold level in heavier gusts
 	if wind_strength > 0.0:
 		var stab_reduction := clampf(wind_strength * 0.06, 0.0, 0.40)
 		current_stabilize *= (1.0 - stab_reduction)
 	apply_torque(correction * current_stabilize)
 
-	# Keep the drone within the configured attitude limits.
 	var current_pitch = rad_to_deg(get_rotation().x)
 	var current_tilt = max(abs(rad_to_deg(get_rotation().z)), abs(rad_to_deg(get_rotation().x)))
 	if abs(current_pitch) > MAX_PITCH_DEGREES:
@@ -462,22 +372,8 @@ func _apply_input_forces(delta, input_vec: Vector4):
 		var tilt_correction = clamp(tilt_error * 0.05, 0.0, 1.0)
 		apply_torque(global_transform.basis.z * tilt_correction * TURN_POWER * speed_multiplier)
 
-	var prop_speed = 30.0 + (smoothed_input_internal.x * 60.0)
-	prop_rotation_angle = fmod(prop_rotation_angle + delta * prop_speed, PI * 2.0)
-	
-	# Spin the procedural propeller disc holders around their local Y axis
-	for data in propeller_datas:
-		var prop = data["node"]
-		if is_instance_valid(prop):
-			var orig: Transform3D = data["original_transform"]
-			var t := orig
-			t.basis = orig.basis.rotated(Vector3.UP, prop_rotation_angle)
-			prop.transform = t
-
-	var legacy_props = design.get_node_or_null("Props")
-	if legacy_props:
-		for prop in legacy_props.get_children():
-			prop.rotate_y(delta * prop_speed)
+	var legacy_props = design.get_node_or_null("Props") if design else null
+	propeller_controller.update_propellers(delta, input_vec.x, propeller_datas, legacy_props)
 
 func set_input_vector(input_vec: Vector4) -> void:
 	if battery_exhausted:
@@ -486,162 +382,30 @@ func set_input_vector(input_vec: Vector4) -> void:
 	smoothed_input = input_vec
 
 func get_battery_percent() -> float:
-	return battery_percent
+	return battery_manager.battery_percent
 
 func is_battery_low_warning() -> bool:
-	return battery_low_warning
+	return battery_manager.battery_low_warning
 
 func is_battery_critical() -> bool:
-	return battery_critical
+	return battery_manager.battery_critical
 
 func is_battery_auto_landing() -> bool:
-	return battery_auto_landing
+	return battery_manager.battery_auto_landing
 
 func is_battery_empty() -> bool:
-	return battery_exhausted
+	return battery_manager.battery_failed
 
-func recharge_battery() -> void:
-	battery_percent = 100.0
-	battery_low_warning = false
-	battery_critical = false
-	battery_auto_landing = false
-	battery_failed = false
-	battery_exhausted = false
-	battery_recharging = false
-	print("Drone: Battery recharged to 100%.")
+func is_battery_recharging() -> bool:
+	return battery_manager.battery_recharging
 
 func start_battery_recharge() -> void:
-	battery_recharging = true
-	battery_auto_landing = true
-	battery_low_warning = true
-	battery_critical = true
-	battery_exhausted = false
-	set_sleeping(false)
-	gravity_scale = 0.0 if hover_enabled else 1.0
-	print("Drone: Recharge sequence started.")
+	if battery_manager:
+		battery_manager.battery_recharging = true
 
-func set_battery_percent(value: float) -> void:
-	battery_percent = clamp(value, 0.0, 100.0)
-	battery_low_warning = battery_percent <= BATTERY_LOW_WARNING_PERCENT
-	battery_critical = battery_percent <= BATTERY_CRITICAL_PERCENT
-	battery_auto_landing = battery_percent <= BATTERY_AUTO_LAND_PERCENT
-	battery_exhausted = battery_percent <= 0.01
-	if battery_exhausted:
-		_apply_battery_lockout()
+func stop_battery_recharge() -> void:
+	if battery_manager:
+		battery_manager.battery_recharging = false
 
-func _update_battery(delta: float) -> void:
-	if battery_exhausted:
-		return
-
-	if battery_recharging:
-		battery_percent = min(100.0, battery_percent + (delta * 30.0))
-		if battery_percent >= 100.0:
-			recharge_battery()
-		return
-
-	var throttle_use: float = absf(smoothed_input.x)
-	var maneuver_use: float = absf(smoothed_input.y) + absf(smoothed_input.z) + absf(smoothed_input.w)
-	var drain_multiplier: float = 1.0
-
-	# Hovering and gentle flight are a little more efficient, aggressive movement drains faster.
-	if hover_enabled:
-		drain_multiplier *= BATTERY_HOVER_DRAIN_MULTIPLIER
-	if maneuver_use > 0.15 or throttle_use > 0.15:
-		drain_multiplier *= lerp(1.0, BATTERY_AGGRESSIVE_DRAIN_MULTIPLIER, clamp(max(throttle_use, maneuver_use) / 2.0, 0.0, 1.0))
-
-	# Higher speed multipliers represent heavier workloads and slightly faster battery loss.
-	drain_multiplier *= lerp(1.0, 1.12, clamp(speed_multiplier - 1.0, 0.0, 1.0))
-
-	battery_percent = max(0.0, battery_percent - (BATTERY_DRAIN_PER_SECOND * drain_multiplier * delta))
-
-	var was_low_warning = battery_low_warning
-	var was_critical = battery_critical
-	var was_auto_landing = battery_auto_landing
-
-	battery_low_warning = battery_percent <= BATTERY_LOW_WARNING_PERCENT
-	battery_critical = battery_percent <= BATTERY_CRITICAL_PERCENT
-	battery_auto_landing = battery_percent <= BATTERY_AUTO_LAND_PERCENT
-	if battery_percent <= 0.01:
-		battery_exhausted = true
-		battery_failed = true
-		battery_percent = 0.0
-
-	if battery_low_warning and not was_low_warning:
-		print("Drone: Battery low (", snappedf(battery_percent, 0.1), "%)")
-	if battery_critical and not was_critical:
-		print("Drone: Battery critical (", snappedf(battery_percent, 0.1), "%)")
-	if battery_auto_landing and not was_auto_landing:
-		print("Drone: Battery reserve reached - auto landing recommended.")
-
-	if battery_auto_landing:
-		# Reduce available power to mimic the final reserve behavior of consumer drones.
-		var low_battery_scale := _get_low_battery_control_scale()
-		speed_multiplier = min(speed_multiplier, low_battery_scale)
-		gravity_scale = 1.0
-		if not hover_enabled:
-			hover_enabled = true
-			apply_hover_mode()
-		# Keep the drone from drifting into a hard crash when the battery is nearly empty.
-		linear_velocity *= low_battery_scale
-		angular_velocity *= low_battery_scale
-
-	if battery_exhausted:
-		_apply_battery_lockout()
-
-func _get_low_battery_control_scale() -> float:
-	if battery_percent <= BATTERY_CONTROL_SLOWDOWN_START_PERCENT:
-		var t := clampf(battery_percent / BATTERY_CONTROL_SLOWDOWN_START_PERCENT, 0.0, 1.0)
-		return lerp(0.55, 1.0, t)
-	return 1.0
-
-func _apply_battery_lockout() -> void:
-	smoothed_input = Vector4.ZERO
-	smoothed_input_internal = Vector4.ZERO
-	linear_velocity = Vector3.ZERO
-	angular_velocity = Vector3.ZERO
-	gravity_scale = 0.0
-	hover_enabled = false
-	set_sleeping(true)
-
-
-func apply_hover_mode():
-	gravity_scale = 0.0 if hover_enabled else 1.0
-
-func set_wind_profile(direction: Vector3, strength: float, gust_factor: float, state_name: String) -> void:
-	wind_velocity = direction.normalized() if not direction.is_zero_approx() else Vector3.ZERO
-	wind_strength = maxf(strength, 0.0)
-	wind_gust_factor = clampf(gust_factor, 0.0, 1.0)
-	wind_state_name = state_name
-
-func set_wind(direction: Vector3, strength: float) -> void:
-	set_wind_profile(direction, strength, wind_gust_factor, wind_state_name)
-
-func get_propeller_count() -> int:
-	return propellers.size()
-
-func setup_show_lights():
-	if show_rig != null:
-		return
-
-	show_rig = DroneShowLightRig.new()
-	show_rig.name = "ShowLights"
-	show_rig.position = Vector3(0, -0.18, 0)
-	add_child(show_rig)
-	show_rig.configure(0, 1, true)
-	show_rig.set_low_cost_mode(low_cost_mode or speed_multiplier > 1.0)
-
-func _on_drone_collision(_body):
-	if _body and _body.has_method("set_input_vector"):
-		return
-	var impact = linear_velocity.length()
-	# Audio intentionally disabled: drone is silent.
-
-func _write_debug_hierarchy(node: Node, indent: String, file: FileAccess):
-	var line = indent + node.name + " (" + node.get_class() + ")"
-	if node is Node3D:
-		line += " pos=" + str(node.position) + " rot=" + str(node.rotation) + " scale=" + str(node.scale)
-	if node is MeshInstance3D:
-		line += " MESH aabb_center=" + str(node.get_aabb().get_center()) + " aabb_size=" + str(node.get_aabb().size)
-	file.store_line(line)
-	for child in node.get_children():
-		_write_debug_hierarchy(child, indent + "  ", file)
+func _on_drone_collision(_body: Node) -> void:
+	pass

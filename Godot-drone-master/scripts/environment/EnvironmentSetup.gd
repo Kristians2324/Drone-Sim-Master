@@ -18,14 +18,12 @@ var skybox_texture: Texture2D
 @export var fog_enabled: bool = true
 @export var fog_density: float = 0.0009
 
-
 func _ready() -> void:
 	ground_albedo = load(ground_albedo_path) as Texture2D
 	bark_albedo = load(bark_albedo_path) as Texture2D
 	rock_albedo = load(rock_albedo_path) as Texture2D
 	skybox_texture = load(skybox_texture_path) as Texture2D
 	_apply_environment()
-
 
 func _apply_environment() -> void:
 	var world_env := _get_or_create_world_environment()
@@ -42,13 +40,23 @@ func _apply_environment() -> void:
 	env.fog_enabled = fog_enabled
 	env.fog_density = fog_density
 
+	# Amp up Screen-Space Ambient Occlusion (SSAO) and Glow/Bloom
+	env.ssao_enabled = true
+	env.ssao_radius = 1.8
+	env.ssao_intensity = 2.2
+	env.ssao_detail = 0.8
+
+	env.glow_enabled = true
+	env.glow_intensity = 0.85
+	env.glow_bloom = 0.25
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFT
+
 	if skybox_texture != null:
 		var sky := Sky.new()
 		var panorama := PanoramaSkyMaterial.new()
 		panorama.panorama = skybox_texture
 		sky.sky_material = panorama
 		env.sky = sky
-		# Keep the scene's existing sky/lighting settings intact.
 
 	if ground_albedo != null:
 		env.ambient_light_color = Color(0.88, 0.92, 0.86)
@@ -59,9 +67,11 @@ func _apply_environment() -> void:
 	if sun != null:
 		sun.light_energy = 2.0
 		sun.shadow_enabled = true
-		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-		sun.directional_shadow_max_distance = 250.0
-
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		sun.directional_shadow_max_distance = 1200.0
+		sun.directional_shadow_split_1 = 0.08
+		sun.directional_shadow_split_2 = 0.22
+		sun.directional_shadow_split_3 = 0.55
 
 func _get_or_create_world_environment() -> WorldEnvironment:
 	if environment_node_path != NodePath():
@@ -78,7 +88,6 @@ func _get_or_create_world_environment() -> WorldEnvironment:
 	get_tree().current_scene.add_child(created)
 	created.owner = get_tree().current_scene
 	return created
-
 
 func _get_directional_light() -> DirectionalLight3D:
 	if directional_light_path != NodePath():

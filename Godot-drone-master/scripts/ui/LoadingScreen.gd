@@ -15,19 +15,21 @@ func _ready() -> void:
 	_setup_logo()
 	_update_pivot()
 
+func _exit_tree() -> void:
+	if progress_tween and progress_tween.is_valid():
+		progress_tween.kill()
+		progress_tween = null
+	if fade_tween and fade_tween.is_valid():
+		fade_tween.kill()
+		fade_tween = null
+
 func _setup_logo() -> void:
 	if not spinner_rect:
 		return
-	var logo_path = "res://assets/textures/drone_logo.png" if FileAccess.file_exists("res://assets/textures/drone_logo.png") else "res://icon.png"
-	if ResourceLoader.has_cached(logo_path):
-		var cached_tex = ResourceLoader.load(logo_path)
-		if cached_tex is Texture2D:
-			spinner_rect.texture = cached_tex
-			return
-	if FileAccess.file_exists(logo_path):
-		var img = Image.load_from_file(logo_path)
-		if img and not img.is_empty():
-			spinner_rect.texture = ImageTexture.create_from_image(img)
+	var logo_path = "res://assets/textures/drone_logo.png" if ResourceLoader.has_cached("res://assets/textures/drone_logo.png") else "res://icon.png"
+	var tex = load(logo_path)
+	if tex is Texture2D:
+		spinner_rect.texture = tex
 
 func _update_pivot() -> void:
 	if spinner_rect:
@@ -41,12 +43,11 @@ func show_loading(message: String = "Loading Environment...") -> void:
 	show()
 	is_loading = true
 	
-	if fade_tween and fade_tween.is_running():
+	if fade_tween and fade_tween.is_valid():
 		fade_tween.kill()
-	if progress_tween and progress_tween.is_running():
+	if progress_tween and progress_tween.is_valid():
 		progress_tween.kill()
 
-	# Explicitly restore opacity of ALL UI components
 	if dimmer:
 		dimmer.color.a = 0.96
 	if spinner_rect:
@@ -56,7 +57,7 @@ func show_loading(message: String = "Loading Environment...") -> void:
 	if status_label:
 		status_label.modulate.a = 1.0
 		status_label.text = message
-	if progress_bar:
+	if progress_bar and is_inside_tree():
 		progress_bar.modulate.a = 1.0
 		progress_bar.value = 10.0
 		progress_tween = create_tween()
@@ -71,7 +72,7 @@ func hide_loading() -> void:
 		hide()
 		return
 
-	if progress_tween and progress_tween.is_running():
+	if progress_tween and progress_tween.is_valid():
 		progress_tween.kill()
 
 	if progress_bar:

@@ -22,25 +22,29 @@ func _ready() -> void:
 	if tutorial_button and not tutorial_button.pressed.is_connected(_on_tutorial_button_pressed):
 		tutorial_button.pressed.connect(_on_tutorial_button_pressed)
 
+func _exit_tree() -> void:
+	if pulse_tween and pulse_tween.is_valid():
+		pulse_tween.kill()
+		pulse_tween = null
+
+func open_menu() -> void:
+	is_active = true
+	show()
+	_start_pulse_animation()
+
 func _setup_logo() -> void:
 	if not logo_rect:
 		return
-	var logo_path = "res://assets/textures/drone_logo.png" if FileAccess.file_exists("res://assets/textures/drone_logo.png") else "res://icon.png"
-	if ResourceLoader.has_cached(logo_path):
-		var cached_tex = ResourceLoader.load(logo_path)
-		if cached_tex is Texture2D:
-			logo_rect.texture = cached_tex
-			return
-	if FileAccess.file_exists(logo_path):
-		var img = Image.load_from_file(logo_path)
-		if img and not img.is_empty():
-			logo_rect.texture = ImageTexture.create_from_image(img)
+	if FileAccess.file_exists("res://icon.png"):
+		var tex = load("res://icon.png")
+		if tex is Texture2D:
+			logo_rect.texture = tex
 
 func _start_pulse_animation() -> void:
-	if pulse_tween and pulse_tween.is_running():
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.kill()
 	
-	if not start_prompt_label:
+	if not start_prompt_label or not is_inside_tree():
 		return
 		
 	pulse_tween = create_tween().set_loops()
@@ -50,52 +54,31 @@ func _start_pulse_animation() -> void:
 func _input(event: InputEvent) -> void:
 	if not is_active or not visible:
 		return
-		
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_SPACE or event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
-			start_simulation()
-			get_viewport().set_input_as_handled()
-	elif event is InputEventJoypadButton and event.pressed:
-		if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_A:
-			start_simulation()
-			get_viewport().set_input_as_handled()
+	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+		start_simulation()
 
 func _on_start_button_pressed() -> void:
-	if is_active:
-		start_simulation()
+	start_simulation()
+
+func _on_tutorial_button_pressed() -> void:
+	if not is_active:
+		return
+	is_active = false
+	if pulse_tween and pulse_tween.is_valid():
+		pulse_tween.kill()
+		pulse_tween = null
+	hide()
+	
+	var main_scene = get_tree().current_scene if get_tree() else null
+	if main_scene and main_scene.has_method("start_tutorial"):
+		main_scene.start_tutorial()
 
 func start_simulation() -> void:
 	if not is_active:
 		return
 	is_active = false
-	
-	if pulse_tween and pulse_tween.is_running():
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.kill()
-		
-	var fade_tween = create_tween().set_parallel(true)
-	if panel:
-		fade_tween.tween_property(panel, "modulate:a", 0.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		fade_tween.tween_property(panel, "position:y", panel.position.y - 20.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	if dimmer:
-		fade_tween.tween_property(dimmer, "color:a", 0.0, 0.35)
-		
-	await fade_tween.finished
+		pulse_tween = null
 	hide()
 	simulation_started.emit()
-
-func open_menu() -> void:
-	show()
-	is_active = true
-	if panel:
-		panel.modulate.a = 1.0
-	if dimmer:
-		dimmer.color.a = 0.65
-	_start_pulse_animation()
-	if start_button:
-		start_button.grab_focus()
-
-func _on_tutorial_button_pressed() -> void:
-	start_simulation()
-	var world = get_tree().current_scene
-	if world and world.has_method("start_tutorial"):
-		world.start_tutorial()

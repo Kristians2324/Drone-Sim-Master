@@ -1,6 +1,8 @@
 extends Node3D
 class_name BoidManager
 
+const SpatialHash3D = preload("res://scripts/swarm/SpatialHash3D.gd")
+
 @export var drone_scene: PackedScene = preload("res://scenes/Drone.tscn")
 @export var boid_count: int = 15
 @export var neighborhood_radius: float = 12.0
@@ -28,6 +30,10 @@ class_name BoidManager
 
 var boids: Array[RigidBody3D] = []
 var target_node: Node3D = null
+var _spatial_hash
+
+func _init() -> void:
+	_spatial_hash = SpatialHash3D.new(neighborhood_radius)
 
 func _get_target_velocity() -> Vector3:
 	if target_node is RigidBody3D:
@@ -49,11 +55,9 @@ func get_terrain_height_at(pos: Vector3) -> float:
 	var from = Vector3(pos.x, 300.0, pos.z)
 	var to = Vector3(pos.x, -50.0, pos.z)
 	var query = PhysicsRayQueryParameters3D.create(from, to)
-	query.collision_mask = 2 # ONLY collide with Terrain layer 2
+	query.collision_mask = 2
 	var result = space_state.intersect_ray(query)
-	if result.has("position"):
-		return result.position.y
-	return 0.0
+	return result.position.y if result.has("position") else 0.0
 
 func initialize(target: Node3D):
 	target_node = target
@@ -82,27 +86,28 @@ func spawn_boids():
 			drone_inst.show_rig.configure(i, boid_count, false)
 		boids.append(drone_inst)
 
-func _physics_process(delta):
-	if get_tree().paused:
-		return
-	if boids.size() == 0:
+func _physics_process(_delta):
+	if get_tree().paused or boids.size() == 0:
 		return
 
 	var target_pos = target_node.global_position if target_node else Vector3.ZERO
-
 	var positions: Array[Vector3] = []
 	var velocities: Array[Vector3] = []
 	positions.resize(boids.size())
 	velocities.resize(boids.size())
 
+	_spatial_hash.clear()
 	for i in range(boids.size()):
 		var b = boids[i]
 		if b and is_instance_valid(b):
 			positions[i] = b.global_position
 			velocities[i] = b.linear_velocity
+			_spatial_hash.insert(i, positions[i])
 		else:
 			positions[i] = Vector3.ZERO
 			velocities[i] = Vector3.ZERO
+
+	var nr_sq = neighborhood_radius * neighborhood_radius
 
 	for i in range(boids.size()):
 		var boid = boids[i]
@@ -121,19 +126,19 @@ func _physics_process(delta):
 		var separation_count = 0
 		var alignment_count = 0
 
-		# Nearest-neighbour culling: only consider closest max_neighbours within radius
+		var candidate_indices: Array[int] = _spatial_hash.get_neighbor_indices(pos, neighborhood_radius)
 		var neighbour_entries: Array = []
-		var nr_sq = neighborhood_radius * neighborhood_radius
-		for j in range(boids.size()):
-			if i == j:
-				continue
+		for j in candidate_indices:
+			if i == j: continue
 			var d_sq = pos.distance_squared_to(positions[j])
 			if d_sq < nr_sq:
 				neighbour_entries.append([d_sq, j])
-		neighbour_entries.sort_custom(func(a, b): return a[0] < b[0])
-		var neighbours = neighbour_entries.slice(0, max_neighbours)
 
-		for entry in neighbours:
+		if neighbour_entries.size() > max_neighbours:
+			neighbour_entries.sort_custom(func(a, b): return a[0] < b[0])
+			neighbour_entries = neighbour_entries.slice(0, max_neighbours)
+
+		for entry in neighbour_entries:
 			var j = entry[1]
 			var other_pos = positions[j]
 			var other_vel = velocities[j]
