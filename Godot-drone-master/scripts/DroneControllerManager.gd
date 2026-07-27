@@ -234,10 +234,9 @@ func _process(delta):
 	if spring_arm and is_instance_valid(spring_arm) and spring_arm.is_inside_tree():
 		if drone and is_instance_valid(drone) and drone.is_inside_tree():
 			var follow_pos = drone.global_position
-			if swarm_mode and swarm_controller and is_instance_valid(swarm_controller) and swarm_controller.has_method("get_swarm_centroid"):
+			if show_mode != ShowMode.NONE and swarm_controller and is_instance_valid(swarm_controller) and swarm_controller.has_method("get_swarm_centroid"):
 				follow_pos = swarm_controller.get_swarm_centroid()
-			elif show_mode != ShowMode.NONE and swarm_controller and is_instance_valid(swarm_controller) and swarm_controller.has_method("get_swarm_centroid"):
-				follow_pos = swarm_controller.get_swarm_centroid()
+
 			spring_arm.global_position = follow_pos + Vector3(0, 0.5, 0)
 			spring_arm.global_transform.basis = drone.global_transform.basis
 			spring_arm.rotate_object_local(Vector3.RIGHT, deg_to_rad(-20))
@@ -488,8 +487,9 @@ func enable_swarm_mode():
 	swarm_controller.name = "SwarmController"
 	get_parent().add_child(swarm_controller)
 
-	var spawn_pos = drone.global_position + Vector3(0, 5, 0) if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 15, 0)
-	swarm_controller.initialize_swarm(drone, 39, spawn_pos)
+	var spawn_pos = drone.global_position if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 15, 0)
+	swarm_controller.initialize_swarm(drone, 39, spawn_pos + Vector3(0, 3, 0))
+
 	if is_instance_valid(drone):
 		drone.set_swarm_mode_active(true)
 	print("DroneControllerManager: Swarm Mode ENABLED.")
@@ -505,6 +505,7 @@ func disable_swarm_mode():
 
 	if is_instance_valid(drone):
 		drone.set_swarm_mode_active(false)
+
 	print("DroneControllerManager: Swarm Mode DISABLED.")
 
 func update_show_camera():
