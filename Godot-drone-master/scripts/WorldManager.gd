@@ -114,6 +114,8 @@ var is_loading_environment: bool = false
 func load_environment(EnvironmentClass):
 	if is_loading_environment:
 		return
+	if current_environment and current_environment.get_script() == EnvironmentClass:
+		return
 	is_loading_environment = true
 
 	if loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":

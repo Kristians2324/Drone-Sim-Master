@@ -143,7 +143,38 @@ func _tests_swarm_controller() -> void:
 	spawn(sc)
 	assert_false(sc.active, "SwarmController starts inactive")
 	assert_eq(sc.drones.size(), 0, "SwarmController.drones starts empty")
-	sc.queue_free()
+
+	var leader = RigidBody3D.new()
+	leader.name = "MockLeader"
+	spawn(leader)
+	if leader.is_inside_tree():
+		leader.global_position = Vector3(0, 20, 0)
+	else:
+		leader.position = Vector3(0, 20, 0)
+
+	sc.initialize_swarm(leader, 10, Vector3(0, 20, 0))
+	assert_true(sc.active, "SwarmController active after initialize_swarm with leader drone")
+	assert_eq(sc.drones.size(), 10, "SwarmController spawned 10 follower drones")
+	assert_eq(sc.boid_scatter_offsets.size(), 10, "SwarmController generated boid scatter offsets")
+
+	var all_hover: bool = true
+	for d in sc.drones:
+		if d and d.get("hover_enabled") != true:
+			all_hover = false
+			break
+	assert_true(all_hover, "Swarm follower drones initialized with hover_enabled == true")
+
+	sc._physics_process(0.016)
+	var centroid = sc.get_swarm_centroid()
+	var leader_pos = leader.global_position if leader.is_inside_tree() else leader.position
+	assert_true(centroid.distance_to(leader_pos) < 35.0, "Swarm centroid tracked near leader drone")
+
+	sc.cleanup()
+	assert_false(sc.active, "SwarmController inactive after cleanup")
+	assert_eq(sc.drones.size(), 0, "SwarmController drones array cleared after cleanup")
+
+	leader.free()
+	sc.free()
 
 func _tests_start_menu() -> void:
 	var scene = load("res://scenes/StartMenu.tscn")
@@ -154,7 +185,7 @@ func _tests_start_menu() -> void:
 		assert_true(instance.is_active, "StartMenu starts with is_active == true")
 		instance.start_simulation()
 		assert_false(instance.is_active, "StartMenu is_active == false after start_simulation()")
-		instance.queue_free()
+		instance.free()
 
 func _tests_loading_screen() -> void:
 	var scene = load("res://scenes/LoadingScreen.tscn")
@@ -165,7 +196,7 @@ func _tests_loading_screen() -> void:
 		assert_true(instance.is_loading, "LoadingScreen is_loading == true")
 		instance.hide_loading()
 		assert_false(instance.is_loading, "LoadingScreen is_loading == false after hide_loading()")
-		instance.queue_free()
+		instance.free()
 
 func _tests_tutorial_overlay() -> void:
 	var scene = load("res://scenes/TutorialOverlay.tscn")
@@ -176,7 +207,7 @@ func _tests_tutorial_overlay() -> void:
 		assert_true(instance.is_active, "TutorialOverlay is_active == true")
 		instance.close_tutorial()
 		assert_false(instance.is_active, "TutorialOverlay is_active == false")
-		instance.queue_free()
+		instance.free()
 
 func _tests_minimap() -> void:
 	var scene = load("res://scenes/Minimap.tscn")
@@ -184,7 +215,7 @@ func _tests_minimap() -> void:
 		var instance = scene.instantiate()
 		spawn(instance)
 		assert_true(instance.get_node_or_null("Margin/Panel/ViewportContainer/SubViewport") != null, "Minimap SubViewport initialized")
-		instance.queue_free()
+		instance.free()
 
 func _tests_drone_controls() -> void:
 	var buttons = [KEY_ESCAPE, KEY_W, KEY_A, KEY_S, KEY_D, KEY_SPACE, KEY_B, KEY_R]
@@ -203,7 +234,7 @@ func _tests_drone_controls() -> void:
 		var input_vec = Vector4(1.0, 0.0, -1.0, 0.0)
 		drone.set_input_vector(input_vec)
 		assert_eq(drone.smoothed_input, input_vec, "Drone set_input_vector updates smoothed_input")
-		drone.queue_free()
+		drone.free()
 
 func _tests_formation_buttons() -> void:
 	var menu_scene = load("res://scenes/Menu.tscn")
@@ -216,4 +247,4 @@ func _tests_formation_buttons() -> void:
 				assert_true(menu.formation_buttons.has(shape), "Menu has formation button '%s'" % shape)
 		else:
 			assert_true(true, "Menu initialized")
-		menu.queue_free()
+		menu.free()

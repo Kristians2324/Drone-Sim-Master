@@ -2,25 +2,26 @@ extends Node3D
 
 @export var drone_scene: PackedScene = preload("res://scenes/Drone.tscn")
 @export var swarm_count: int = 15
-@export var neighborhood_radius: float = 12.0
-@export var separation_radius: float = 3.5
+@export var neighborhood_radius: float = 16.0
+@export var separation_radius: float = 7.5
 
 @export var max_speed: float = 24.0
 @export var min_speed: float = 6.0
-@export var max_force: float = 18.0
+@export var max_force: float = 22.0
 
-@export var weight_separation: float = 2.2
-@export var weight_cohesion: float = 1.0
-@export var weight_alignment: float = 1.2
-@export var weight_target: float = 2.8
+@export var weight_separation: float = 7.0
+@export var weight_cohesion: float = 1.8
+@export var weight_alignment: float = 1.5
+@export var weight_target: float = 3.2
 
-@export var update_divisor: int = 2
+@export var update_divisor: int = 1
 var update_phase: int = 0
 
-var leader_drone: RigidBody3D = null
+var leader_drone: Node = null
 var drones: Array[RigidBody3D] = []
 var drone_last_input_vectors: Array[Vector4] = []
 var drone_terrain_heights: Array[float] = []
+var boid_scatter_offsets: Array[Vector3] = []
 
 var active: bool = false
 var spatial_hash: SpatialHash3D = SpatialHash3D.new(8.0)
@@ -42,6 +43,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	spatial_cell_size = neighborhood_radius
 
+
 func clear_swarm():
 	active = false
 	formation_active = false
@@ -56,11 +58,11 @@ func clear_swarm():
 func cleanup():
 	clear_swarm()
 
-func initialize_swarm(leader: RigidBody3D, count: int = 15, spawn_pos: Vector3 = Vector3(0, 15, 0)):
+func initialize_swarm(leader: Node, count: int = 15, spawn_pos: Vector3 = Vector3(0, 15, 0)):
 	clear_swarm()
 	leader_drone = leader
 	swarm_count = count
-	update_divisor = 1 if swarm_count <= 18 else 2 if swarm_count <= 32 else 3
+	update_divisor = 1
 	update_phase = 0
 	active = true
 	formation_active = false
@@ -69,18 +71,34 @@ func initialize_swarm(leader: RigidBody3D, count: int = 15, spawn_pos: Vector3 =
 	drone_last_input_vectors.fill(Vector4.ZERO)
 	drone_terrain_heights.resize(swarm_count)
 	drone_terrain_heights.fill(0.0)
+	boid_scatter_offsets.clear()
 
 	target_position = spawn_pos
 
 	for i in range(swarm_count):
+		# Generate a spread-out offset around the leader (golden ratio spiral pattern)
+		var phi = acos(1.0 - 2.0 * (i + 0.5) / swarm_count)
+		var theta = PI * (1.0 + sqrt(5.0)) * i
+		var radius = lerpf(4.0, 16.0, float(i) / maxf(float(swarm_count), 1.0))
+		var offset = Vector3(
+			radius * sin(phi) * cos(theta),
+			randf_range(-1.5, 3.5),
+			radius * sin(phi) * sin(theta)
+		)
+		boid_scatter_offsets.append(offset)
+
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
 		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
-		var angle = randf() * TAU
-		var dist = randf_range(3.0, 12.0)
-		drone_inst.global_position = spawn_pos + Vector3(cos(angle) * dist, randf_range(-1.0, 3.0), sin(angle) * dist)
+		var target_spawn: Vector3 = spawn_pos + offset
+		if drone_inst.is_inside_tree():
+			drone_inst.global_position = target_spawn
+		else:
+			drone_inst.position = target_spawn
 		drone_inst.linear_velocity = Vector3.ZERO
 		drone_inst.angular_velocity = Vector3.ZERO
+		if drone_inst.has_method("set_hover_mode"):
+			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
 			drone_inst.set_input_vector(Vector4.ZERO)
 		drone_inst.collision_layer = 4
@@ -89,7 +107,7 @@ func initialize_swarm(leader: RigidBody3D, count: int = 15, spawn_pos: Vector3 =
 		if drone_inst.has_method("setup_show_lights") and drone_inst.get("show_rig") != null:
 			drone_inst.show_rig.configure(i, swarm_count, false)
 			drone_inst.show_rig.set_low_cost_mode(true)
-			drone_inst.show_rig.set_show_lighting_enabled(false)
+			drone_inst.show_rig.set_show_lighting_enabled(true)
 		if drone_inst.has_method("set_low_detail_visuals"):
 			drone_inst.set_low_detail_visuals(true)
 		if drone_inst.has_method("refresh_visual_state"):
@@ -100,11 +118,11 @@ func initialize_swarm(leader: RigidBody3D, count: int = 15, spawn_pos: Vector3 =
 	print("SwarmController: Swarm initialized with ", drones.size(), " follower drones.")
 	_rebuild_terrain_exclusions()
 
-func initialize_formation(leader: RigidBody3D, targets: Array[Vector3], spawn_pos: Vector3 = Vector3(0, 15, 0)):
+func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vector3 = Vector3(0, 15, 0)):
 	clear_swarm()
 	leader_drone = leader
 	swarm_count = targets.size()
-	update_divisor = 1 if swarm_count <= 18 else 2 if swarm_count <= 32 else 3
+	update_divisor = 1
 	update_phase = 0
 	active = true
 	formation_active = true
@@ -125,12 +143,16 @@ func initialize_formation(leader: RigidBody3D, targets: Array[Vector3], spawn_po
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
 		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
-		var target_spawn: Vector3 = targets[i]
-		drone_inst.global_position = Vector3(
-			target_spawn.x + randf_range(-1.5, 1.5),
+		var target_spawn_pos: Vector3 = targets[i]
+		var final_pos := Vector3(
+			target_spawn_pos.x + randf_range(-1.5, 1.5),
 			ground_y + randf_range(0.5, 2.5),
-			target_spawn.z + randf_range(-1.5, 1.5)
+			target_spawn_pos.z + randf_range(-1.5, 1.5)
 		)
+		if drone_inst.is_inside_tree():
+			drone_inst.global_position = final_pos
+		else:
+			drone_inst.position = final_pos
 		drone_inst.linear_velocity = Vector3.ZERO
 		drone_inst.angular_velocity = Vector3.ZERO
 		if drone_inst.has_method("set_hover_mode"):
@@ -154,6 +176,8 @@ func initialize_formation(leader: RigidBody3D, targets: Array[Vector3], spawn_po
 
 func _rebuild_terrain_exclusions() -> void:
 	terrain_exclusions.clear()
+	if not is_inside_tree() or get_tree() == null:
+		return
 	var main_scene = get_tree().current_scene if get_tree() else null
 	if not main_scene:
 		return
@@ -169,7 +193,7 @@ func _rebuild_terrain_exclusions() -> void:
 func _physics_process(delta: float) -> void:
 	if not active or drones.size() == 0:
 		return
-	if get_tree().paused:
+	if is_inside_tree() and get_tree() and get_tree().paused:
 		return
 
 	if formation_active:
@@ -181,10 +205,10 @@ func _physics_process(delta: float) -> void:
 
 	for i in range(drones.size()):
 		var d = drones[i]
-		if d and is_instance_valid(d):
+		if d and is_instance_valid(d) and d.is_inside_tree():
 			spatial_hash.insert(i, d.global_position)
 
-	if leader_drone and is_instance_valid(leader_drone):
+	if leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree():
 		target_position = leader_drone.global_position
 
 	for i in range(drones.size()):
@@ -195,7 +219,7 @@ func _physics_process(delta: float) -> void:
 			continue
 
 		var drone_inst: RigidBody3D = drones[i]
-		if not drone_inst or not is_instance_valid(drone_inst):
+		if not drone_inst or not is_instance_valid(drone_inst) or not drone_inst.is_inside_tree():
 			continue
 
 		var pos: Vector3 = drone_inst.global_position
@@ -213,7 +237,7 @@ func _physics_process(delta: float) -> void:
 			if idx == i or idx >= drones.size():
 				continue
 			var other: RigidBody3D = drones[idx]
-			if not other or not is_instance_valid(other):
+			if not other or not is_instance_valid(other) or not other.is_inside_tree():
 				continue
 
 			var other_pos: Vector3 = other.global_position
@@ -226,38 +250,71 @@ func _physics_process(delta: float) -> void:
 				ali_vel += other.linear_velocity
 
 				if dist < separation_radius:
-					sep_force += (diff.normalized() / dist)
+					var repulsion = (separation_radius - dist) / separation_radius
+					sep_force += diff.normalized() * (repulsion * 6.0 / maxf(dist, 0.2))
 					sep_count += 1
+
+		var steer_cohesion := Vector3.ZERO
+		var steer_alignment := Vector3.ZERO
+		var steer_separation := Vector3.ZERO
 
 		if neighbor_count > 0:
 			coh_pos /= float(neighbor_count)
 			ali_vel /= float(neighbor_count)
-			coh_pos = (coh_pos - pos).normalized() * max_speed
-			ali_vel = ali_vel.normalized() * max_speed
+			var desired_coh = (coh_pos - pos).normalized() * max_speed
+			steer_cohesion = (desired_coh - vel).limit_length(max_force)
+
+			var desired_ali = ali_vel.normalized() * max_speed
+			steer_alignment = (desired_ali - vel).limit_length(max_force)
 
 		if sep_count > 0:
-			sep_force = sep_force.normalized() * max_speed
+			var desired_sep = sep_force.normalized() * max_speed
+			steer_separation = (desired_sep - vel).limit_length(max_force * 2.0)
 
-		var target_vel: Vector3 = _get_target_velocity()
-		var steering: Vector3 = (
-			sep_force * weight_separation +
-			coh_pos * weight_cohesion +
-			ali_vel * weight_alignment +
-			target_vel * weight_target
+		# Target pursuit vector towards leader position + boid scatter offset + organic bird noise
+		var scatter_offset = boid_scatter_offsets[i] if boid_scatter_offsets.size() > i else Vector3.ZERO
+		var leader_basis: Basis = leader_drone.global_transform.basis if (leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree()) else Basis.IDENTITY
+		
+		var tick_sec: float = float(Time.get_ticks_msec()) * 0.001
+		var organic_noise = Vector3(
+			sin(tick_sec * 2.3 + float(i) * 1.7) * 3.5,
+			cos(tick_sec * 1.8 + float(i) * 2.3) * 2.0,
+			sin(tick_sec * 1.9 + float(i) * 3.1) * 3.5
+		)
+		var target_spot = target_position + (leader_basis * scatter_offset) + organic_noise
+		var leader_vel = _get_target_velocity()
+		var dist_to_leader = pos.distance_to(target_position)
+		
+		var pursuit_point = target_spot + (leader_vel * 0.45)
+		var dist_to_pursuit = pos.distance_to(pursuit_point)
+		var steer_target := Vector3.ZERO
+		
+		if dist_to_pursuit > 0.001:
+			var leader_speed = leader_vel.length()
+			var pursuit_speed = maxf(max_speed, leader_speed + 8.0)
+			if dist_to_leader > 15.0:
+				pursuit_speed = maxf(pursuit_speed, leader_speed * 1.5 + 16.0)
+			var desired_target = (pursuit_point - pos).normalized() * pursuit_speed
+			var catchup_force = max_force * (2.5 if dist_to_leader > 15.0 else 1.5)
+			steer_target = (desired_target - vel).limit_length(catchup_force)
+
+		var total_force: Vector3 = (
+			steer_separation * weight_separation +
+			steer_cohesion * weight_cohesion +
+			steer_alignment * weight_alignment +
+			steer_target * (weight_target * 1.5)
 		)
 
-		if steering.length() > max_force:
-			steering = steering.normalized() * max_force
+		var max_allowed_force = max_force * (2.5 if dist_to_leader > 15.0 else 1.0)
+		if total_force.length() > max_allowed_force:
+			total_force = total_force.normalized() * max_allowed_force
 
-		var desired_velocity: Vector3 = vel + steering * delta
-		if desired_velocity.length() > max_speed:
-			desired_velocity = desired_velocity.normalized() * max_speed
+		var desired_velocity: Vector3 = vel + total_force * delta
+		var speed_cap = maxf(max_speed, _get_target_velocity().length() + 12.0)
+		if desired_velocity.length() > speed_cap:
+			desired_velocity = desired_velocity.normalized() * speed_cap
 
-		var local_vel: Vector3 = drone_inst.global_transform.basis.inverse() * desired_velocity
-
-		var forward_force: float = clamp(-local_vel.z / max_speed, -1.0, 1.0)
-		var strafe_force: float = clamp(local_vel.x / max_speed, -1.0, 1.0)
-
+		# Altitude & terrain clearance adjustment
 		var target_y: float = target_position.y
 		if (i % 8) == 0:
 			var ray_y := get_terrain_height_at(pos)
@@ -276,19 +333,20 @@ func _physics_process(delta: float) -> void:
 			if xz_dist < radius:
 				target_y = max(target_y, center.y + height + ground_clearance)
 
-		var vert_diff: float = target_y - pos.y
-		var vertical_force: float = clamp(vert_diff * 0.15, -1.0, 1.0)
-		var throttle: float = clamp(0.5 + vertical_force * 0.5, 0.0, 1.0)
+		if pos.y < target_y:
+			desired_velocity.y = maxf(desired_velocity.y, lerpf(min_speed, max_speed * 0.8, clampf((target_y - pos.y) / 5.0, 0.0, 1.0)))
 
-		var local_force: Vector3 = drone_inst.global_transform.basis.inverse() * (desired_velocity - vel)
-		var yaw = clamp(local_force.x * 0.10, -1.0, 1.0)
-		var pitch = clamp(-local_force.z * 0.10, -1.0, 1.0)
-		var roll = clamp(local_force.x * 0.10, -1.0, 1.0)
+		# Apply velocity directly to boid drone physics body for instant, responsive flocking
+		drone_inst.linear_velocity = drone_inst.linear_velocity.lerp(desired_velocity, clampf(delta * 9.0, 0.05, 1.0))
 
-		var input_vector = Vector4(throttle, yaw, pitch, roll)
-		if drone_last_input_vectors.size() > i:
-			drone_last_input_vectors[i] = input_vector
-		drone_inst.set_input_vector(input_vector)
+		# Smoothly rotate boid facing direction towards velocity vector
+		if desired_velocity.length_squared() > 0.5:
+			var target_dir = desired_velocity.normalized()
+			var current_fwd = -drone_inst.global_transform.basis.z
+			var rot_axis = current_fwd.cross(target_dir)
+			if rot_axis.length_squared() > 0.001:
+				var angle = current_fwd.angle_to(target_dir)
+				drone_inst.rotate(rot_axis.normalized(), clampf(angle * delta * 6.0, 0.01, 0.5))
 
 func _process_formation(delta: float) -> void:
 	formation_transition_time = min(formation_transition_time + delta, formation_transition_duration)
@@ -326,6 +384,8 @@ func _process_formation(delta: float) -> void:
 			drone_inst.set_input_vector(Vector4.ZERO)
 
 func get_terrain_height_at(pos: Vector3) -> float:
+	if not is_inside_tree() or get_world_3d() == null:
+		return 0.0
 	var space_state = get_world_3d().direct_space_state
 	if not space_state:
 		return 0.0
@@ -342,16 +402,18 @@ func get_terrain_height_at(pos: Vector3) -> float:
 func _get_target_velocity() -> Vector3:
 	if not leader_drone or not is_instance_valid(leader_drone):
 		return Vector3.ZERO
-	return leader_drone.linear_velocity
+	if "linear_velocity" in leader_drone:
+		return leader_drone.linear_velocity
+	return Vector3.ZERO
 
 func get_swarm_centroid() -> Vector3:
 	var center = Vector3.ZERO
 	var count = 0
-	if leader_drone and is_instance_valid(leader_drone):
+	if leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree():
 		center += leader_drone.global_position
 		count += 1
 	for d in drones:
-		if d and is_instance_valid(d):
+		if d and is_instance_valid(d) and d.is_inside_tree():
 			center += d.global_position
 			count += 1
 	if count > 0:
@@ -361,11 +423,11 @@ func get_swarm_centroid() -> Vector3:
 func get_swarm_average_velocity() -> Vector3:
 	var avg_vel = Vector3.ZERO
 	var count = 0
-	if leader_drone and is_instance_valid(leader_drone):
+	if leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree():
 		avg_vel += leader_drone.linear_velocity
 		count += 1
 	for d in drones:
-		if d and is_instance_valid(d):
+		if d and is_instance_valid(d) and d.is_inside_tree():
 			avg_vel += d.linear_velocity
 			count += 1
 	if count > 0:
