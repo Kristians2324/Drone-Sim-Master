@@ -5,7 +5,7 @@ signal battery_changed(percent: float)
 signal battery_warning(message: String)
 signal battery_exhausted()
 
-const BATTERY_DRAIN_PER_SECOND := 0.12  # ~0.12% per second (~14 min full flight)
+const BATTERY_DRAIN_PER_SECOND := 0.0537  # Exact 31 minutes full flight time for 2250mAh LiPo (100% / 1860s)
 const BATTERY_AGGRESSIVE_DRAIN_MULTIPLIER := 1.8
 const BATTERY_HOVER_DRAIN_MULTIPLIER := 0.8
 const BATTERY_RECHARGE_RATE_PER_SECOND := 5.0 # ~20 seconds for 0% -> 100% full charge!
@@ -21,8 +21,24 @@ var battery_auto_landing: bool = false
 var battery_failed: bool = false
 var battery_exhausted_flag: bool = false
 var battery_recharging: bool = false
+var infinite_battery: bool = false
+
+func set_infinite_battery(enabled: bool) -> void:
+	infinite_battery = enabled
+	if infinite_battery:
+		reset()
 
 func update_battery(delta: float, input_vec: Vector4, hover_enabled: bool) -> void:
+	if infinite_battery:
+		battery_percent = 100.0
+		battery_low_warning = false
+		battery_critical = false
+		battery_auto_landing = false
+		battery_failed = false
+		battery_exhausted_flag = false
+		battery_changed.emit(100.0)
+		return
+
 	if battery_recharging:
 		recharge(delta * BATTERY_RECHARGE_RATE_PER_SECOND)
 		return
@@ -71,3 +87,9 @@ func reset() -> void:
 	battery_exhausted_flag = false
 	battery_recharging = false
 	battery_changed.emit(battery_percent)
+
+func is_exhausted() -> bool:
+	return battery_failed or battery_exhausted_flag
+
+func is_auto_landing() -> bool:
+	return battery_auto_landing

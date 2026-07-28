@@ -39,25 +39,30 @@ func _get_ground_height(x: float, z: float) -> float:
 	return hit.position.y
 
 func _create_fast_collision_for_node(node: Node3D, is_tree: bool = true) -> void:
+	var meshes: Array[MeshInstance3D] = []
+	_find_all_meshes_recursively(node, meshes)
+	
+	if meshes.size() == 0:
+		return
+
 	var static_body := StaticBody3D.new()
-	static_body.position = node.position
-	static_body.rotation = node.rotation
-	add_child(static_body)
+	static_body.name = "ExactNatureCollision"
+	node.add_child(static_body)
 
-	var col_shape := CollisionShape3D.new()
-	if is_tree:
-		var cyl := CylinderShape3D.new()
-		cyl.radius = 0.8 * maxf(node.scale.x, node.scale.z)
-		cyl.height = 12.0 * node.scale.y
-		col_shape.shape = cyl
-		col_shape.position = Vector3(0.0, cyl.height * 0.5, 0.0)
-	else:
-		var box := BoxShape3D.new()
-		box.size = Vector3(1.5, 1.2, 1.5) * node.scale
-		col_shape.shape = box
-		col_shape.position = Vector3(0.0, box.size.y * 0.5, 0.0)
+	for mesh_inst in meshes:
+		if mesh_inst.mesh:
+			var shape = mesh_inst.mesh.create_trimesh_shape()
+			if shape:
+				var col_shape := CollisionShape3D.new()
+				col_shape.shape = shape
+				col_shape.transform = node.global_transform.affine_inverse() * mesh_inst.global_transform
+				static_body.add_child(col_shape)
 
-	static_body.add_child(col_shape)
+func _find_all_meshes_recursively(node: Node, meshes: Array[MeshInstance3D]) -> void:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		meshes.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_find_all_meshes_recursively(child, meshes)
 
 func generate_world():
 	var all_glbs := _get_glb_files("res://assets/nature_kit")

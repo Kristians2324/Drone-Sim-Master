@@ -38,6 +38,13 @@ func set_visuals_enabled(enabled: bool) -> void:
 	_saved_visual_state = enabled
 	_apply_light_output_state()
 
+func set_color_all(color: Color) -> void:
+	palette_core = color
+	palette_secondary = color.lerp(Color.WHITE, 0.3)
+	palette_highlight = color.lerp(Color.WHITE, 0.6)
+	palette_body = color.darkened(0.5)
+	_apply_palette_to_visuals()
+
 func configure(index: int, total: int, player_drone: bool = false):
 	drone_index = max(index, 0)
 	drone_total = max(total, 1)
@@ -86,6 +93,7 @@ func _build_rig():
 	sphere.rings = 12
 	halo_mesh.mesh = sphere
 	halo_mesh.position = Vector3(0.0, -0.05, 0.0)
+	halo_mesh.visible = false
 	add_child(halo_mesh)
 
 	halo_material = StandardMaterial3D.new()

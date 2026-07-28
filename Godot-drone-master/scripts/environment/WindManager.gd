@@ -35,15 +35,46 @@ var _gust_peak: float = 0.0
 var _gust_phase: float = 0.0
 
 var _rng := RandomNumberGenerator.new()
+var is_manual_preset: bool = false
+
+func set_manual_wind_preset(preset_idx: int) -> void:
+	is_manual_preset = true
+	match preset_idx:
+		0: # Calm
+			current_state = WindState.CALM
+			wind_direction = Vector3(1, 0, 0)
+			wind_speed_mps = 0.0
+			gust_factor = 0.0
+		1: # Light Breeze
+			current_state = WindState.CALM
+			wind_direction = Vector3(1, 0, 0.5).normalized()
+			wind_speed_mps = 5.0
+			gust_factor = 0.15
+		2: # Moderate
+			current_state = WindState.NORMAL
+			wind_direction = Vector3(1, 0, 1).normalized()
+			wind_speed_mps = 12.0
+			gust_factor = 0.35
+		3: # Severe Storm
+			current_state = WindState.HEAVY
+			wind_direction = Vector3(-1, 0, 0.8).normalized()
+			wind_speed_mps = 25.0
+			gust_factor = 0.65
+
+	wind_changed.emit(wind_direction, get_wind_strength(), gust_factor, get_state_name())
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	_rng.randomize()
-	_pick_new_state(true)
+	set_manual_wind_preset(0) # Default to Calm (0 m/s)
 	call_deferred("_emit_current_state")
 
 func _physics_process(delta: float) -> void:
 	if not wind_enabled or (get_tree() and get_tree().paused):
+		return
+
+	if is_manual_preset:
+		wind_changed.emit(wind_direction, get_wind_strength(), gust_factor, get_state_name())
 		return
 
 	_state_timer -= delta

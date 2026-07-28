@@ -37,5 +37,5 @@ if "%EXITCODE%"=="0" (
 )
 
 popd
-pause
+if not "%1"=="--no-pause" pause
 exit /b %EXITCODE%

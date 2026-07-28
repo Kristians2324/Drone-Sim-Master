@@ -4,14 +4,16 @@ extends EnvironmentObject
 func setup_object():
 	object_name = "Drone Charging Station"
 	
-	# Create a simple visual representation
+	# Create visual and collision representation
 	var base = CSGBox3D.new()
 	base.size = Vector3(2, 0.2, 2)
+	base.use_collision = true
 	add_child(base)
 	
 	var pillar = CSGBox3D.new()
 	pillar.size = Vector3(0.5, 1.5, 0.5)
 	pillar.position = Vector3(0, 0.75, 0)
+	pillar.use_collision = true
 	add_child(pillar)
 	
 	var light = OmniLight3D.new()

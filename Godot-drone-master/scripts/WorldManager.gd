@@ -55,6 +55,7 @@ func _ready():
 	add_child(minimap_instance)
 
 	load_environment(MapEarthDay)
+	call_deferred("reapply_user_settings")
 
 	_setup_window_and_resolution()
 
@@ -133,10 +134,42 @@ func load_environment(EnvironmentClass):
 	current_environment.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(current_environment)
 
+	# Wait for physics and scene tree initialization on the new environment map
+	if get_tree():
+		await get_tree().process_frame
+		await get_tree().physics_frame
+		await get_tree().process_frame
+
+	# Re-apply all active user settings (fog, lighting, shadows, wind, drone physics, volume, etc.) to the new map
+	reapply_user_settings()
+
 	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
 		loading_screen_instance.hide_loading()
 
 	is_loading_environment = false
+
+func reapply_user_settings() -> void:
+	var opts = _find_options_menu(get_tree().root if get_tree() else self)
+	if opts and opts.has_method("apply_all_current_settings"):
+		opts.apply_all_current_settings()
+
+func _sync_env_setting(env_idx: int) -> void:
+	var opts = _find_options_menu(get_tree().root if get_tree() else self)
+	if opts and "settings" in opts:
+		opts.settings["environment"] = env_idx
+		if opts.has_method("_set_control_value"):
+			opts._set_control_value("environment", env_idx)
+
+func _find_options_menu(node: Node) -> Node:
+	if not is_instance_valid(node):
+		return null
+	if node.get_script() and node.get_script().resource_path.ends_with("DetailedOptionsMenu.gd"):
+		return node
+	for child in node.get_children():
+		var found = _find_options_menu(child)
+		if found != null:
+			return found
+	return null
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE):
@@ -151,12 +184,16 @@ func _input(event):
 			_toggle_fullscreen()
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_1:
+			_sync_env_setting(0)
 			load_environment(MapEarthDay)
 		elif event.keycode == KEY_2:
+			_sync_env_setting(1)
 			load_environment(MapEarthNight)
 		elif event.keycode == KEY_3:
+			_sync_env_setting(2)
 			load_environment(MapMoon)
 		elif event.keycode == KEY_4:
+			_sync_env_setting(3)
 			load_environment(MapIndoor)
 		elif event.keycode == KEY_R:
 			if menu_instance:

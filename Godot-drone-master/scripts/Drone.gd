@@ -19,6 +19,8 @@ const MAX_TILT_DEGREES = 35.0
 var smoothed_input = Vector4.ZERO
 var hover_enabled = false
 var speed_multiplier: float = 1.0
+var turn_sensitivity_multiplier: float = 1.0
+var custom_stabilize_force: float = 45.0
 
 var wind_velocity: Vector3 = Vector3.ZERO
 var wind_strength: float = 0.0
@@ -343,9 +345,10 @@ func _apply_input_forces(delta, input_vec: Vector4):
 					hover_force = clamp(hover_force, 0.0, HOVER_MAX_HOLD_FORCE)
 					apply_central_force(Vector3.UP * hover_force)
 
-	apply_torque(global_transform.basis.x * (-input_vec.z * TURN_POWER * speed_multiplier))
-	apply_torque(global_transform.basis.z * (-input_vec.w * TURN_POWER * speed_multiplier))
-	apply_torque(global_transform.basis.y * -input_vec.y * TURN_POWER * speed_multiplier)
+	var effective_turn_power = TURN_POWER * speed_multiplier * turn_sensitivity_multiplier
+	apply_torque(global_transform.basis.x * (-input_vec.z * effective_turn_power))
+	apply_torque(global_transform.basis.z * (-input_vec.w * effective_turn_power))
+	apply_torque(global_transform.basis.y * (-input_vec.y * effective_turn_power))
 
 	apply_torque(global_transform.basis.z * float(aero_res["bank_tilt_torque"]))
 	apply_torque(global_transform.basis.x * float(aero_res["pitch_tilt_torque"]))
@@ -354,12 +357,9 @@ func _apply_input_forces(delta, input_vec: Vector4):
 
 	var up = global_transform.basis.y
 	var correction = up.cross(Vector3.UP)
-	var current_stabilize = STABILIZE_FORCE
+	var current_stabilize = custom_stabilize_force
 	if abs(input_vec.z) < 0.05 and abs(input_vec.w) < 0.05:
-		current_stabilize = STABILIZE_FORCE * 3.0
-	if wind_strength > 0.0:
-		var stab_reduction := clampf(wind_strength * 0.06, 0.0, 0.40)
-		current_stabilize *= (1.0 - stab_reduction)
+		current_stabilize = custom_stabilize_force * 3.0
 	apply_torque(correction * current_stabilize)
 
 	var current_pitch = rad_to_deg(get_rotation().x)

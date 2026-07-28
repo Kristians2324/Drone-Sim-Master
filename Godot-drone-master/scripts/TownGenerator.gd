@@ -37,18 +37,32 @@ func _get_ground_height(x: float, z: float) -> float:
 		return 0.0
 	return hit.position.y
 
-func _create_fast_building_collision(node: Node3D, scale_vec: Vector3) -> void:
-	var static_body := StaticBody3D.new()
-	static_body.position = node.position
-	static_body.rotation = node.rotation
-	add_child(static_body)
+func _create_exact_building_collision(building: Node3D) -> void:
+	var meshes: Array[MeshInstance3D] = []
+	_find_all_meshes_recursively(building, meshes)
+	
+	if meshes.size() == 0:
+		return
 
-	var col_shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(1.0, 2.0, 1.0) * scale_vec
-	col_shape.shape = box
-	col_shape.position = Vector3(0.0, box.size.y * 0.5, 0.0)
-	static_body.add_child(col_shape)
+	var static_body := StaticBody3D.new()
+	static_body.name = "ExactBuildingCollision"
+	building.add_child(static_body)
+
+	for mesh_inst in meshes:
+		if mesh_inst.mesh:
+			var trimesh_shape = mesh_inst.mesh.create_trimesh_shape()
+			if trimesh_shape:
+				var col_shape := CollisionShape3D.new()
+				col_shape.shape = trimesh_shape
+				# Transform the collision shape to match the exact position, rotation, and scale of this sub-mesh relative to the building root
+				col_shape.transform = building.global_transform.affine_inverse() * mesh_inst.global_transform
+				static_body.add_child(col_shape)
+
+func _find_all_meshes_recursively(node: Node, meshes: Array[MeshInstance3D]) -> void:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		meshes.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_find_all_meshes_recursively(child, meshes)
 
 func generate() -> void:
 	if not is_inside_tree():
@@ -118,7 +132,7 @@ func _generate_buildings_assets(building_files: Array[String]) -> void:
 				building.scale = b_scale
 					
 				add_child(building)
-				_create_fast_building_collision(building, b_scale)
+				_create_exact_building_collision(building)
 
 	# 2. Spawn asphalt roads
 	var road_parent = Node3D.new()
@@ -202,6 +216,37 @@ func _create_streetlight(pos: Vector3, rot_y: float) -> void:
 	light_node.position = pos
 	light_node.rotation.y = rot_y
 	add_child(light_node)
+
+	var static_body := StaticBody3D.new()
+	static_body.name = "StreetLightCollision"
+	light_node.add_child(static_body)
+
+	# Pole collision
+	var pole_col := CollisionShape3D.new()
+	var pole_shape := CylinderShape3D.new()
+	pole_shape.radius = 0.18
+	pole_shape.height = 7.0
+	pole_col.shape = pole_shape
+	pole_col.position = Vector3(0, 3.5, 0)
+	static_body.add_child(pole_col)
+
+	# Arm collision
+	var arm_col := CollisionShape3D.new()
+	var arm_shape := CylinderShape3D.new()
+	arm_shape.radius = 0.08
+	arm_shape.height = 1.8
+	arm_col.shape = arm_shape
+	arm_col.position = Vector3(0.7, 6.9, 0)
+	arm_col.rotation_degrees.z = 90.0
+	static_body.add_child(arm_col)
+
+	# Bulb head collision
+	var bulb_col := CollisionShape3D.new()
+	var bulb_shape := SphereShape3D.new()
+	bulb_shape.radius = 0.35
+	bulb_col.shape = bulb_shape
+	bulb_col.position = Vector3(1.5, 6.7, 0)
+	static_body.add_child(bulb_col)
 	
 	var pole_mat := StandardMaterial3D.new()
 	pole_mat.albedo_color = Color(0.25, 0.25, 0.28)
@@ -332,4 +377,4 @@ func _generate_buildings_fallback() -> void:
 				var h_scale = Vector3(15.0, randf_range(12.0, 24.0), 15.0)
 				house.scale = h_scale
 				add_child(house)
-				_create_fast_building_collision(house, h_scale)
+				_create_exact_building_collision(house)

@@ -1,13 +1,13 @@
 extends CanvasLayer
 
-@onready var controls_label = $Center/Panel/Margin/Layout/Controls
-@onready var resume_button = $Center/Panel/Margin/Layout/Resume
+@onready var controls_label = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Controls")
+@onready var resume_button = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Resume")
 @onready var formation_buttons = {
-	"star": $Center/Panel/Margin/Layout/Formations/Row/Star,
-	"circle": $Center/Panel/Margin/Layout/Formations/Row/Circle,
-	"heart": $Center/Panel/Margin/Layout/Formations/Row/Heart,
-	"diamond": $Center/Panel/Margin/Layout/Formations/Row/Diamond,
-	"wave": $Center/Panel/Margin/Layout/Formations/Row/Wave,
+	"star": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Star"),
+	"circle": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Circle"),
+	"heart": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Heart"),
+	"diamond": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Diamond"),
+	"wave": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Wave"),
 }
 
 var last_input_was_controller: bool = false
@@ -46,7 +46,7 @@ func _ready():
 	_setup_stop_show_button()
 
 func _setup_stop_show_button() -> void:
-	var layout = get_node_or_null("Center/Panel/Margin/Layout/Formations")
+	var layout = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations")
 	if layout and stop_show_button == null:
 		stop_show_button = Button.new()
 		stop_show_button.name = "StopShowButton"

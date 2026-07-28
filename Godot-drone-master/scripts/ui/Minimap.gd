@@ -24,6 +24,15 @@ func _ready() -> void:
 	if sub_viewport:
 		sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
+	if map_camera:
+		var clean_env := Environment.new()
+		clean_env.background_mode = Environment.BG_CLEAR_COLOR
+		clean_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		clean_env.ambient_light_color = Color(1.0, 1.0, 1.0)
+		clean_env.fog_enabled = false
+		clean_env.volumetric_fog_enabled = false
+		map_camera.environment = clean_env
+
 func _process(delta: float) -> void:
 	_find_target_drone()
 	_update_camera(delta)
