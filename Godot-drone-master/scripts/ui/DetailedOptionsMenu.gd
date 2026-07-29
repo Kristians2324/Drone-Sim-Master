@@ -24,7 +24,7 @@ var settings: Dictionary = {
 	
 	# Environment & Weather
 	"environment": 1, # 0: Earth Day, 1: Earth Night, 2: Moon, 3: Indoor
-	"wind_preset": 0, # 0: Calm (0 m/s)
+	"wind_preset": 0, # 0: Dynamic Wind, 1: Calm, 2: Light Breeze, 3: Moderate, 4: Severe Storm
 	"light_energy": 1.0,
 	
 	# Swarm
@@ -214,7 +214,7 @@ func _build_env_tab() -> Control:
 	vbox.add_theme_constant_override("separation", 10)
 
 	vbox.add_child(_create_dropdown_row("environment", "Select Environment", ["Earth (Day)", "Earth (Night)", "Moon Base", "Indoor Arena"], 0, _on_environment_selected))
-	vbox.add_child(_create_dropdown_row("wind_preset", "Wind Simulation Profile", ["Calm (0 m/s)", "Light Breeze (5 m/s)", "Moderate (12 m/s)", "Severe Storm (25 m/s)"], 0, _on_wind_preset_changed))
+	vbox.add_child(_create_dropdown_row("wind_preset", "Wind Simulation Profile", ["Dynamic Wind", "Calm (0 m/s)", "Light Breeze (5 m/s)", "Moderate (12 m/s)", "Severe Storm (25 m/s)"], 0, _on_wind_preset_changed))
 	vbox.add_child(_create_slider_row("light_energy", "Light & Sun Energy", 0.1, 3.0, 0.1, 1.0, "%.1fx", func(v): return v, _on_light_energy_changed))
 
 	vbox.add_child(HSeparator.new())
@@ -620,17 +620,22 @@ func _apply_light_energy(val: float):
 
 func _apply_wind_preset(idx: int):
 	var scene = get_tree().current_scene if get_tree() else null
+	var wm: WindManager = null
 	if scene:
-		var wm = scene.find_child("WindManager", true, false) as WindManager
+		wm = scene.find_child("WindManager", true, false) as WindManager
 		if wm:
 			wm.set_manual_wind_preset(idx)
 	var drone = _get_player_drone()
 	if drone and drone.has_method("set_wind_profile"):
-		match idx:
-			0: drone.set_wind_profile(Vector3(1, 0, 0), 0.0, 0.0, "Calm")
-			1: drone.set_wind_profile(Vector3(1, 0, 0.5).normalized(), 5.0, 0.15, "Light Breeze")
-			2: drone.set_wind_profile(Vector3(1, 0, 1).normalized(), 12.0, 0.35, "Moderate Wind")
-			3: drone.set_wind_profile(Vector3(-1, 0, 0.8).normalized(), 25.0, 0.65, "Stormy Gusts")
+		if wm:
+			drone.set_wind_profile(wm.wind_direction, wm.get_wind_strength(), wm.gust_factor, wm.get_state_name())
+		else:
+			match idx:
+				0: drone.set_wind_profile(Vector3(1, 0, 0), 2.5, 0.25, "Dynamic")
+				1: drone.set_wind_profile(Vector3(1, 0, 0), 0.0, 0.0, "Calm")
+				2: drone.set_wind_profile(Vector3(1, 0, 0.5).normalized(), 5.0, 0.15, "Light Breeze")
+				3: drone.set_wind_profile(Vector3(1, 0, 1).normalized(), 12.0, 0.35, "Moderate Wind")
+				4: drone.set_wind_profile(Vector3(-1, 0, 0.8).normalized(), 25.0, 0.65, "Stormy Gusts")
 
 func _apply_master_volume(val: float):
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(val))
@@ -741,18 +746,7 @@ func _on_environment_selected(idx: int):
 	save_user_settings()
 
 func _on_wind_preset_changed(idx: int):
-	var scene = get_tree().current_scene
-	if scene:
-		var wm = scene.find_child("WindManager", true, false) as WindManager
-		if wm:
-			wm.set_manual_wind_preset(idx)
-	var drone = _get_player_drone()
-	if drone and drone.has_method("set_wind_profile"):
-		match idx:
-			0: drone.set_wind_profile(Vector3(1, 0, 0), 0.0, 0.0, "Calm")
-			1: drone.set_wind_profile(Vector3(1, 0, 0.5).normalized(), 5.0, 0.15, "Light Breeze")
-			2: drone.set_wind_profile(Vector3(1, 0, 1).normalized(), 12.0, 0.35, "Moderate Wind")
-			3: drone.set_wind_profile(Vector3(-1, 0, 0.8).normalized(), 25.0, 0.65, "Stormy Gusts")
+	_apply_wind_preset(idx)
 	settings["wind_preset"] = idx
 	save_user_settings()
 

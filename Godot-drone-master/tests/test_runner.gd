@@ -103,6 +103,15 @@ func _tests_aerodynamics() -> void:
 	var res = aero.calculate_wind_forces(Vector3.FORWARD, Vector3.RIGHT, Vector3(5, 0, 5), 5.0, 0.2, 0.0, false)
 	assert_true(res.has("wind_force"), "Aerodynamics returns force dictionary")
 
+	var WindManagerScript = load("res://scripts/environment/WindManager.gd")
+	var wm = WindManagerScript.new()
+	assert_eq(wm.is_manual_preset, false, "WindManager defaults to dynamic wind mode (preset 0)")
+	wm.set_manual_wind_preset(1)
+	assert_eq(wm.is_manual_preset, true, "WindManager set_manual_wind_preset(1) switches to manual Calm")
+	wm.set_manual_wind_preset(0)
+	assert_eq(wm.is_manual_preset, false, "WindManager set_manual_wind_preset(0) restores dynamic wind mode")
+	wm.free()
+
 func _tests_tricks_controller() -> void:
 	var tc = DroneTricksController.new()
 	assert_eq(tc.LOOP_DURATION, 2.2, "Loop duration configured to 2.2s")

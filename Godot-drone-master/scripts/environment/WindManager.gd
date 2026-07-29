@@ -38,24 +38,29 @@ var _rng := RandomNumberGenerator.new()
 var is_manual_preset: bool = false
 
 func set_manual_wind_preset(preset_idx: int) -> void:
+	if preset_idx == 0:
+		is_manual_preset = false
+		_pick_new_state(true)
+		return
+
 	is_manual_preset = true
 	match preset_idx:
-		0: # Calm
+		1: # Calm
 			current_state = WindState.CALM
 			wind_direction = Vector3(1, 0, 0)
 			wind_speed_mps = 0.0
 			gust_factor = 0.0
-		1: # Light Breeze
+		2: # Light Breeze
 			current_state = WindState.CALM
 			wind_direction = Vector3(1, 0, 0.5).normalized()
 			wind_speed_mps = 5.0
 			gust_factor = 0.15
-		2: # Moderate
+		3: # Moderate
 			current_state = WindState.NORMAL
 			wind_direction = Vector3(1, 0, 1).normalized()
 			wind_speed_mps = 12.0
 			gust_factor = 0.35
-		3: # Severe Storm
+		4: # Severe Storm
 			current_state = WindState.HEAVY
 			wind_direction = Vector3(-1, 0, 0.8).normalized()
 			wind_speed_mps = 25.0
@@ -66,7 +71,7 @@ func set_manual_wind_preset(preset_idx: int) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	_rng.randomize()
-	set_manual_wind_preset(0) # Default to Calm (0 m/s)
+	set_manual_wind_preset(0) # Default to Dynamic Wind
 	call_deferred("_emit_current_state")
 
 func _physics_process(delta: float) -> void:
