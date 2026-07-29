@@ -211,6 +211,8 @@ func _build_env_tab() -> Control:
 
 	return vbox
 
+var custom_img_path_edit: LineEdit = null
+
 func _build_swarm_tab() -> Control:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
@@ -222,9 +224,66 @@ func _build_swarm_tab() -> Control:
 	vbox.add_child(_create_dropdown_row("led_theme", "Airshow LED Color Scheme", ["Cyber Cyan", "Emerald Green", "Neon Amber", "Vibrant Magenta", "Pulsing Rainbow"], 0, _on_led_theme_changed))
 
 	vbox.add_child(HSeparator.new())
+
+	# --- PYTHON IMAGE TO DRONE FORMATION SECTION ---
+	var section_label = Label.new()
+	section_label.text = "★ PYTHON IMAGE EDGE FORMATION GENERATOR"
+	section_label.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
+	section_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(section_label)
+
+	var path_hbox = HBoxContainer.new()
+	path_hbox.add_theme_constant_override("separation", 8)
+
+	var path_lbl = Label.new()
+	path_lbl.text = "Image File Path:"
+	path_lbl.custom_minimum_size = Vector2(120, 0)
+	path_hbox.add_child(path_lbl)
+
+	custom_img_path_edit = LineEdit.new()
+	custom_img_path_edit.text = "res://assets/shapes/sample_star.png"
+	custom_img_path_edit.placeholder_text = "e.g. C:/image.png or res://assets/shapes/sample_star.png"
+	custom_img_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	path_hbox.add_child(custom_img_path_edit)
+
+	vbox.add_child(path_hbox)
+
+	var btn_hbox = HBoxContainer.new()
+	btn_hbox.add_theme_constant_override("separation", 8)
+
+	var star_btn = _create_styled_button("LOAD SAMPLE STAR PNG", func(): _launch_custom_image("res://assets/shapes/sample_star.png"), Color(0.12, 0.35, 0.45, 0.9))
+	star_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_hbox.add_child(star_btn)
+
+	var heart_btn = _create_styled_button("LOAD SAMPLE HEART PNG", func(): _launch_custom_image("res://assets/shapes/sample_heart.png"), Color(0.45, 0.15, 0.3, 0.9))
+	heart_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_hbox.add_child(heart_btn)
+
+	vbox.add_child(btn_hbox)
+
+	var run_btn = _create_styled_button("PROCESS IMAGE WITH PYTHON & LAUNCH SHOW", _on_run_python_custom_image, Color(0.1, 0.55, 0.4, 0.9))
+	vbox.add_child(run_btn)
+
+	vbox.add_child(HSeparator.new())
 	vbox.add_child(_create_styled_button("RESET SWARM DEFAULTS", _reset_swarm_defaults, Color(0.15, 0.25, 0.35, 0.9)))
 
 	return vbox
+
+func _on_run_python_custom_image() -> void:
+	var path = custom_img_path_edit.text.strip_edges() if custom_img_path_edit else "res://assets/shapes/sample_star.png"
+	if path.is_empty():
+		path = "res://assets/shapes/sample_star.png"
+	_launch_custom_image(path)
+
+func _launch_custom_image(image_path: String) -> void:
+	var mgr = get_tree().current_scene.get_node_or_null("DroneControllerManager") if get_tree() and get_tree().current_scene else null
+	if mgr and mgr.has_method("start_custom_image_shape"):
+		mgr.start_custom_image_shape(image_path)
+		var menu = get_parent()
+		while menu and not (menu is CanvasLayer and menu.has_method("resume")):
+			menu = menu.get_parent()
+		if menu and menu.has_method("resume"):
+			menu.resume()
 
 func _build_audio_cam_tab() -> Control:
 	var vbox = VBoxContainer.new()

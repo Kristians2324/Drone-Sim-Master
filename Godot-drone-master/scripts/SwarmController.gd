@@ -126,7 +126,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 	update_phase = 0
 	active = true
 	formation_active = true
-	formation_settling = true
+	formation_settling = false
 	formation_transition_time = 0.0
 	formation_targets = targets.duplicate()
 
@@ -138,21 +138,15 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 	target_position = spawn_pos
 	formation_hold_altitude = spawn_pos.y + 28.0
 
-	var ground_y = spawn_pos.y
 	for i in range(swarm_count):
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
 		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
 		var target_spawn_pos: Vector3 = targets[i]
-		var final_pos := Vector3(
-			target_spawn_pos.x + randf_range(-1.5, 1.5),
-			ground_y + randf_range(0.5, 2.5),
-			target_spawn_pos.z + randf_range(-1.5, 1.5)
-		)
 		if drone_inst.is_inside_tree():
-			drone_inst.global_position = final_pos
+			drone_inst.global_position = target_spawn_pos
 		else:
-			drone_inst.position = final_pos
+			drone_inst.position = target_spawn_pos
 		drone_inst.linear_velocity = Vector3.ZERO
 		drone_inst.angular_velocity = Vector3.ZERO
 		if drone_inst.has_method("set_hover_mode"):
@@ -171,7 +165,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 			drone_inst.refresh_visual_state()
 		drones.append(drone_inst)
 
-	print("SwarmController: Formation initialized with ", drones.size(), " drones at ground launch height.")
+	print("SwarmController: Formation initialized with ", drones.size(), " drones pre-positioned directly in sky formation.")
 	_rebuild_terrain_exclusions()
 
 func _rebuild_terrain_exclusions() -> void:

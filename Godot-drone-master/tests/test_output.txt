@@ -83,16 +83,6 @@ SwarmController: Swarm initialized with 10 follower drones.
   ✅  ALL TESTS PASSED WITH 0 ERRORS
 ════════════════════════════════════════════════════
 
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
-Drone: Using low-detail procedural model for follower drone.
 ERROR: 1 RID allocations of type 'P12GodotShape3D' were leaked at exit.
 ERROR: 3 RID allocations of type 'N13RendererDummy9DummyMeshE' were leaked at exit.
 ERROR: 3 RID allocations of type 'N13RendererDummy15MaterialStorage13DummyMaterialE' were leaked at exit.

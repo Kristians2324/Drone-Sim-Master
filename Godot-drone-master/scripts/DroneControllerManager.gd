@@ -428,6 +428,42 @@ func set_show_mode(mode_id: int):
 	else:
 		start_show_mode(mode_id)
 
+func start_custom_image_shape(image_path: String, custom_points_override: Array[Vector3] = []) -> void:
+	var center = drone.global_position + Vector3(0, 15, 0) if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 20, 0)
+	var custom_points: Array[Vector3] = custom_points_override.duplicate()
+
+	if custom_points.size() == 0:
+		var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
+		custom_points = ImageEdgeDetectorClass.process_image_to_formation(image_path, 0, 28.0)
+
+	if custom_points.size() == 0:
+		print("DroneControllerManager: Custom image edge detection returned 0 points for: ", image_path)
+		return
+
+	var targets: Array[Vector3] = []
+	for p in custom_points:
+		targets.append(center + p)
+
+	show_mode = 99 # Custom Image Edge Mode
+
+	if not swarm_controller or not is_instance_valid(swarm_controller):
+		swarm_controller = preload("res://scripts/SwarmController.gd").new()
+		swarm_controller.name = "SwarmController"
+		get_parent().add_child(swarm_controller)
+
+	swarm_controller.initialize_formation(drone, targets, center)
+
+	if swarm_controller and is_instance_valid(swarm_controller):
+		for d in swarm_controller.drones:
+			if is_instance_valid(d) and d.has_method("set_show_lighting_enabled"):
+				d.set_show_lighting_enabled(true)
+
+	if is_instance_valid(drone) and drone.has_method("set_show_lighting_enabled"):
+		drone.set_show_lighting_enabled(false)
+
+	update_camera_views()
+	print("DroneControllerManager: Python Custom Image Shape Airshow started with ", targets.size(), " drones forming shape from image: ", image_path)
+
 func start_show_mode(mode_id: int):
 	show_mode = mode_id
 	var count = 39

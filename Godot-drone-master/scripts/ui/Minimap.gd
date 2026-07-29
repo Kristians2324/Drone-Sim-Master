@@ -18,13 +18,16 @@ func _ready() -> void:
 	_canvas = Control.new()
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_canvas.draw.connect(_on_draw)
+	if not _canvas.draw.is_connected(_on_draw):
+		_canvas.draw.connect(_on_draw)
 	add_child(_canvas)
 	
 	if sub_viewport:
 		sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 	if map_camera:
+		map_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+		map_camera.size = 180.0
 		var clean_env := Environment.new()
 		clean_env.background_mode = Environment.BG_CLEAR_COLOR
 		clean_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR

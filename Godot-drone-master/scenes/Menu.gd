@@ -45,16 +45,114 @@ func _ready():
 	connect_formation_buttons()
 	_setup_stop_show_button()
 
+var file_dialog: FileDialog = null
+var select_file_button: Button = null
+var go_button: Button = null
+var status_label: Label = null
+
+var selected_image_path: String = ""
+var processed_formation_points: Array[Vector3] = []
+var detected_shape_name: String = ""
+var required_drone_count: int = 0
+
 func _setup_stop_show_button() -> void:
 	var layout = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations")
-	if layout and stop_show_button == null:
-		stop_show_button = Button.new()
-		stop_show_button.name = "StopShowButton"
-		stop_show_button.text = "STOP AIRSHOW FORMATION"
-		stop_show_button.custom_minimum_size = Vector2(0, 36)
-		stop_show_button.pressed.connect(_on_stop_show_pressed)
-		layout.add_child(stop_show_button)
-		stop_show_button.visible = false
+	if layout:
+		if file_dialog == null:
+			_setup_custom_image_ui(layout)
+
+		if stop_show_button == null:
+			stop_show_button = Button.new()
+			stop_show_button.name = "StopShowButton"
+			stop_show_button.text = "STOP AIRSHOW FORMATION"
+			stop_show_button.custom_minimum_size = Vector2(0, 36)
+			stop_show_button.pressed.connect(_on_stop_show_pressed)
+			layout.add_child(stop_show_button)
+			stop_show_button.visible = false
+
+func _setup_custom_image_ui(parent_layout: Control) -> void:
+	file_dialog = FileDialog.new()
+	file_dialog.name = "ImageFileDialog"
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	file_dialog.filters = PackedStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Supported Images (*.png, *.jpg, *.jpeg, *.webp, *.bmp)"])
+	file_dialog.use_native_dialog = true
+	file_dialog.file_selected.connect(_on_image_file_selected)
+	add_child(file_dialog)
+
+	var sep = HSeparator.new()
+	parent_layout.add_child(sep)
+
+	var title = Label.new()
+	title.text = "CUSTOM IMAGE EDGE LIGHT SHOW"
+	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
+	title.add_theme_font_size_override("font_size", 13)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	parent_layout.add_child(title)
+
+	select_file_button = Button.new()
+	select_file_button.name = "SelectFileButton"
+	select_file_button.text = "📁 CHOOSE IMAGE FROM COMPUTER (.PNG, .JPG)"
+	select_file_button.custom_minimum_size = Vector2(0, 34)
+	select_file_button.pressed.connect(_on_select_file_pressed)
+	parent_layout.add_child(select_file_button)
+
+	status_label = Label.new()
+	status_label.name = "ImageStatusLabel"
+	status_label.text = "Status: Select an image file to detect shape & edges"
+	status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
+	status_label.add_theme_font_size_override("font_size", 11)
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	parent_layout.add_child(status_label)
+
+	go_button = Button.new()
+	go_button.name = "GoFormShapeButton"
+	go_button.text = "🚀 FORM SHAPE & START SHOW (GO!)"
+	go_button.custom_minimum_size = Vector2(0, 36)
+	go_button.disabled = true
+	go_button.pressed.connect(_on_go_form_shape_pressed)
+	parent_layout.add_child(go_button)
+
+func _on_select_file_pressed() -> void:
+	if file_dialog:
+		file_dialog.popup_centered(Vector2i(800, 600))
+
+func _on_image_file_selected(path: String) -> void:
+	selected_image_path = path
+	if status_label:
+		status_label.text = "Processing image with Python edge detection..."
+		status_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2, 1.0))
+	
+	await get_tree().process_frame
+
+	var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
+	var data: Dictionary = ImageEdgeDetectorClass.process_image_to_formation_data(path, 0, 28.0)
+
+	if data.get("success", false) and data.get("points", []).size() > 0:
+		processed_formation_points = data["points"]
+		detected_shape_name = String(data.get("shape_type", "Custom Shape"))
+		required_drone_count = processed_formation_points.size()
+
+		if status_label:
+			status_label.text = "READY! Detected shape: %s (%d Drones required). Click GO!" % [detected_shape_name, required_drone_count]
+			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+		if go_button:
+			go_button.disabled = false
+	else:
+		if status_label:
+			status_label.text = "❌ Error: Could not detect valid edges in selected image."
+			status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
+		if go_button:
+			go_button.disabled = true
+
+func _on_go_form_shape_pressed() -> void:
+	if processed_formation_points.size() == 0:
+		return
+	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
+	if manager and manager.has_method("start_custom_image_shape"):
+		manager.start_custom_image_shape(selected_image_path, processed_formation_points)
+		resume()
 
 func _input(event):
 	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
