@@ -17,73 +17,97 @@ def process_image_to_drone_formation(image_path, target_count=0, output_json_pat
 
     h, w = img_bgra.shape[:2]
 
-    # 1. Background vs Subject Shape binary mask
+    # --- 1. UNIVERSAL MULTI-STRATEGY IMAGE SEGMENTATION ---
     has_alpha = False
-    binary = None
+    binary_mask = None
 
+    # Strategy A: Alpha Channel (for transparent PNGs/WebPs)
     if len(img_bgra.shape) == 3 and img_bgra.shape[2] == 4:
         alpha = img_bgra[:, :, 3]
-        if np.min(alpha) < 200: # Transparent PNG background
+        if np.min(alpha) < 220:
             has_alpha = True
-            _, binary = cv2.threshold(alpha, 30, 255, cv2.THRESH_BINARY)
+            _, binary_mask = cv2.threshold(alpha, 25, 255, cv2.THRESH_BINARY)
             img_bgr = img_bgra[:, :, :3]
         else:
             img_bgr = img_bgra[:, :, :3]
     else:
         img_bgr = img_bgra
 
-    if not has_alpha or binary is None:
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        border_pixels = np.concatenate([gray[0, :], gray[h-1, :], gray[:, 0], gray[:, w-1]])
-        bg_val = int(np.median(border_pixels))
-        
-        diff = cv2.absdiff(gray, bg_val)
-        _, binary = cv2.threshold(diff, 18, 255, cv2.THRESH_BINARY)
-        
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    # Strategy B: Color Distance + Adaptive Border Sampling (for opaque JPGs/PNGs)
+    if not has_alpha or binary_mask is None:
+        # Sample border pixels around all 4 edges to detect background color
+        border_pixels = np.concatenate([img_bgr[0, :, :], img_bgr[h-1, :, :], img_bgr[:, 0, :], img_bgr[:, w-1, :]])
+        bg_color = np.median(border_pixels, axis=0)
 
-    # 2. Extract ONLY main external contour
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # 3-channel Euclidean color distance from background color
+        color_diff = np.linalg.norm(img_bgr.astype(np.float32) - bg_color, axis=2)
+        _, binary_mask = cv2.threshold(color_diff.astype(np.uint8), 18, 255, cv2.THRESH_BINARY)
 
+        # Micro 2x2 kernel to preserve narrow wing/body gaps and fine organic details
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
+
+    # Strategy C: Multi-scale Canny Fallback if mask is empty
+    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if len(contours) == 0:
-        gray_fb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray_fb, (5, 5), 0)
-        canny = cv2.Canny(blurred, 40, 120)
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        blurred = cv2.GaussianBlur(enhanced, (3, 3), 0)
+        canny = cv2.Canny(blurred, 30, 110)
         contours, _ = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     if len(contours) == 0:
-        print("Error: No outer contours found in image.")
+        print("Error: No valid outer contours found in image.")
         return False
 
-    valid_contours = [c for c in contours if cv2.arcLength(c, True) > 40.0]
+    # --- 2. MULTI-CONTOUR & FEATURE ANALYSIS ---
+    # Filter tiny noise contours (perimeter > 30px)
+    valid_contours = [c for c in contours if cv2.arcLength(c, True) > 30.0]
     if len(valid_contours) == 0:
         valid_contours = contours
 
-    main_contour = max(valid_contours, key=cv2.contourArea)
-    peri = float(cv2.arcLength(main_contour, True))
+    # Calculate total perimeter & area across all major contours (multi-part shape support!)
+    max_area = max(cv2.contourArea(c) for c in valid_contours)
+    significant_contours = [c for c in valid_contours if cv2.contourArea(c) >= max_area * 0.02 or len(valid_contours) == 1]
+    if len(significant_contours) == 0:
+        significant_contours = [max(valid_contours, key=cv2.contourArea)]
 
-    # Check if shape is a Rectangle / Box
-    approx = cv2.approxPolyDP(main_contour, 0.03 * peri, True)
-    is_rectangle = (len(approx) == 4)
+    total_perimeter = sum(cv2.arcLength(c, True) for c in significant_contours)
+    main_contour = max(significant_contours, key=cv2.contourArea)
 
-    shape_type = "Custom Outline"
+    # Shape type & corner detection
+    approx_corners = cv2.approxPolyDP(main_contour, 0.005 * total_perimeter, True)
+    num_corners = len(approx_corners)
+    is_rectangle = (len(significant_contours) == 1 and len(cv2.approxPolyDP(main_contour, 0.03 * total_perimeter, True)) == 4)
+
+    shape_type = "Universal Object / Logo"
     if is_rectangle:
         shape_type = "Rectangle / Box"
-    elif len(approx) == 3:
+    elif num_corners == 3:
         shape_type = "Triangle"
-    elif len(approx) >= 5 and len(approx) <= 12:
+    elif num_corners >= 5 and num_corners <= 12:
         shape_type = "Polygon / Star"
+    elif len(significant_contours) > 1:
+        shape_type = f"Multi-Part Shape ({len(significant_contours)} parts)"
+
+    # --- 3. DYNAMIC DRONE COUNT SCALING (24 to 100 Drones) ---
+    if target_count <= 0:
+        if is_rectangle:
+            target_count = 40
+        else:
+            # Scale count based on perimeter length & total corner complexity (up to 100 drones!)
+            target_count = max(36, min(100, int(total_perimeter / 16.0) + num_corners * 2))
 
     sampled_2d_pts = []
 
+    # --- 4. POINT SAMPLING ENGINE ---
     if is_rectangle:
-        # Bounding box calculation for perfect symmetrical 4-side distribution
+        # Symmetrical 4-side distribution for rectangles
         rect = cv2.minAreaRect(main_contour)
         box = cv2.boxPoints(rect)
         box = np.int32(box)
         
-        # Sort corners: top-left, top-right, bottom-right, bottom-left
         pts_sum = box.sum(axis=1)
         top_left = box[np.argmin(pts_sum)]
         bot_right = box[np.argmax(pts_sum)]
@@ -94,68 +118,112 @@ def process_image_to_drone_formation(image_path, target_count=0, output_json_pat
         side_w = float(np.linalg.norm(top_right - top_left))
         side_h = float(np.linalg.norm(bot_left - top_left))
 
-        # Calculate exact optimal drones for top/bottom and left/right
-        nh = max(5, int(round(side_w / 35.0))) if target_count <= 0 else max(3, int(round(target_count * (side_w / (side_w + side_h)) / 2.0)))
-        nv = max(3, int(round(side_h / 35.0))) if target_count <= 0 else max(2, int(round(target_count * (side_h / (side_w + side_h)) / 2.0)))
+        nh = max(6, int(round(target_count * (side_w / (side_w + side_h)) / 2.0)))
+        nv = max(3, int(round(target_count * (side_h / (side_w + side_h)) / 2.0)))
 
-        # 1. Top side (top-left to top-right)
         for i in range(nh):
             t = (i + 0.5) / float(nh)
             sampled_2d_pts.append(top_left + t * (top_right - top_left))
-
-        # 2. Right side (top-right to bottom-right)
         for i in range(nv):
             t = (i + 0.5) / float(nv)
             sampled_2d_pts.append(top_right + t * (bot_right - top_right))
-
-        # 3. Bottom side (bottom-right to bottom-left)
         for i in range(nh):
             t = (i + 0.5) / float(nh)
             sampled_2d_pts.append(bot_right + t * (bot_left - bot_right))
-
-        # 4. Left side (bottom-left to top-left)
         for i in range(nv):
             t = (i + 0.5) / float(nv)
             sampled_2d_pts.append(bot_left + t * (top_left - bot_left))
 
     else:
-        # General closed contour midpoint arc-length sampling
-        if target_count <= 0:
-            target_count = max(24, min(60, int(peri / 22.0)))
+        # Multi-Contour & Curvature-Adaptive Point Allocation
+        for contour in significant_contours:
+            c_peri = float(cv2.arcLength(contour, True))
+            if c_peri <= 0:
+                continue
 
-        contour_pts = main_contour[:, 0, :]
-        num_pts = len(contour_pts)
-        
-        segment_lengths = [0.0]
-        for i in range(num_pts):
-            p1 = contour_pts[i]
-            p2 = contour_pts[(i + 1) % num_pts]
-            dist = float(np.linalg.norm(p2 - p1))
-            segment_lengths.append(segment_lengths[-1] + dist)
+            # Proportion of drones allocated to this contour part
+            c_drones = max(4, int(round(target_count * (c_peri / max(total_perimeter, 1e-5)))))
+            c_approx = cv2.approxPolyDP(contour, 0.005 * c_peri, True)
+            corners = c_approx[:, 0, :]
+            contour_pts = contour[:, 0, :]
+            num_contour = len(contour_pts)
 
-        total_len = segment_lengths[-1]
+            # Map corners to contour indices for anchor preservation
+            corner_indices = []
+            for c in corners:
+                dists = np.linalg.norm(contour_pts - c, axis=1)
+                corner_indices.append(int(np.argmin(dists)))
 
-        if total_len > 0.0:
-            step_len = total_len / float(target_count)
-            for k in range(target_count):
-                target_dist = ((k + 0.5) * step_len) % total_len # Midpoint sampling
-                idx = 0
-                while idx < num_pts and segment_lengths[idx + 1] < target_dist:
-                    idx += 1
-                if idx >= num_pts:
-                    idx = num_pts - 1
+            corner_indices = sorted(list(set(corner_indices)))
+            num_anchors = len(corner_indices)
+
+            if num_anchors > 2:
+                segments = []
+                seg_total_len = 0.0
+                for i in range(num_anchors):
+                    idx1 = corner_indices[i]
+                    idx2 = corner_indices[(i + 1) % num_anchors]
                     
-                seg_start_dist = segment_lengths[idx]
-                seg_end_dist = segment_lengths[idx + 1]
-                seg_len = seg_end_dist - seg_start_dist
-                
-                t = (target_dist - seg_start_dist) / max(seg_len, 1e-5)
-                p1 = contour_pts[idx]
-                p2 = contour_pts[(idx + 1) % num_pts]
-                interpolated_pt = p1 + t * (p2 - p1)
-                sampled_2d_pts.append(interpolated_pt)
+                    length = 0.0
+                    curr = idx1
+                    while curr != idx2:
+                        next_idx = (curr + 1) % num_contour
+                        length += float(np.linalg.norm(contour_pts[next_idx] - contour_pts[curr]))
+                        curr = next_idx
+                        
+                    segments.append({'start': idx1, 'end': idx2, 'length': length})
+                    seg_total_len += length
 
-    # Convert 2D pixel coordinates to centered 3D world coordinates
+                for seg in segments:
+                    seg_drones = max(1, int(round(c_drones * (seg['length'] / max(seg_total_len, 1e-5)))))
+                    start_idx = seg['start']
+                    end_idx = seg['end']
+
+                    curr_pts = []
+                    curr = start_idx
+                    while curr != end_idx:
+                        curr_pts.append(contour_pts[curr])
+                        curr = (curr + 1) % num_contour
+                    curr_pts.append(contour_pts[end_idx])
+
+                    seg_len = seg['length']
+                    if seg_len > 0 and len(curr_pts) > 1:
+                        step_d = seg_len / float(seg_drones)
+                        for d in range(seg_drones):
+                            target_d = (d + 0.5) * step_d
+                            accum = 0.0
+                            for p in range(len(curr_pts) - 1):
+                                p1 = curr_pts[p]
+                                p2 = curr_pts[p + 1]
+                                d_step = float(np.linalg.norm(p2 - p1))
+                                if accum + d_step >= target_d:
+                                    t = (target_d - accum) / max(d_step, 1e-5)
+                                    sampled_2d_pts.append(p1 + t * (p2 - p1))
+                                    break
+                                accum += d_step
+                    else:
+                        sampled_2d_pts.append(contour_pts[start_idx])
+            else:
+                segment_lengths = [0.0]
+                for i in range(num_contour):
+                    p1 = contour_pts[i]
+                    p2 = contour_pts[(i + 1) % num_contour]
+                    segment_lengths.append(segment_lengths[-1] + float(np.linalg.norm(p2 - p1)))
+                seg_total_len = segment_lengths[-1]
+                step_len = seg_total_len / float(c_drones)
+                for k in range(c_drones):
+                    target_dist = ((k + 0.5) * step_len) % seg_total_len
+                    idx = 0
+                    while idx < num_contour and segment_lengths[idx + 1] < target_dist:
+                        idx += 1
+                    if idx >= num_contour: idx = num_contour - 1
+                    seg_len = segment_lengths[idx + 1] - segment_lengths[idx]
+                    t = (target_dist - segment_lengths[idx]) / max(seg_len, 1e-5)
+                    p1 = contour_pts[idx]
+                    p2 = contour_pts[(idx + 1) % num_contour]
+                    sampled_2d_pts.append(p1 + t * (p2 - p1))
+
+    # --- 5. 3D CENTERING & ASPECT RATIO CONVERSION ---
     max_dim = float(max(w, h))
     pts_3d = []
 
@@ -166,7 +234,7 @@ def process_image_to_drone_formation(image_path, target_count=0, output_json_pat
         b, g, r = img_bgr[iy, ix]
 
         norm_x = (px - (w / 2.0)) / max_dim
-        norm_y = ((h / 2.0) - py) / max_dim
+        norm_y = ((h / 2.0) - py) / max_dim # Invert Y for 3D altitude
 
         world_x = norm_x * scale_size
         world_y = norm_y * scale_size
@@ -193,7 +261,7 @@ def process_image_to_drone_formation(image_path, target_count=0, output_json_pat
         os.makedirs(os.path.dirname(os.path.abspath(output_json_path)), exist_ok=True)
         with open(output_json_path, "w") as f:
             json.dump(result_data, f, indent=2)
-        print(f"Successfully processed {shape_type}: {len(pts_3d)} drones forming clean perimeter -> '{output_json_path}'")
+        print(f"Successfully processed {shape_type}: {len(pts_3d)} universal drones -> '{output_json_path}'")
 
     return True
 

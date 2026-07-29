@@ -54,7 +54,8 @@ func _ready():
 	minimap_instance = minimap_scene.instantiate()
 	add_child(minimap_instance)
 
-	load_environment(MapEarthDay)
+	load_environment(MapEarthNight)
+	_sync_env_setting(1)
 	call_deferred("reapply_user_settings")
 
 	_setup_window_and_resolution()

@@ -30,14 +30,12 @@ var show_camera_mode: int = 0
 var show_camera_timer: float = 0.0
 var show_camera_switch_interval: float = 3.5
 var show_camera_presets: Array[Vector3] = [
-	Vector3(0, -22, 10),
-	Vector3(0, 58, 0.1),
-	Vector3(0, 5, 48),
-	Vector3(48, 16, 20),
-	Vector3(-48, 16, -20),
-	Vector3(32, 42, 32),
-	Vector3(-32, 10, 38),
-	Vector3(18, -14, 30),
+	Vector3(0, 0, 36),     # Preset 0: Direct Head-On Face View (Perfect 2D Front View)
+	Vector3(0, 8, 48),     # Preset 1: Wide Low-Angle Ground View
+	Vector3(38, 12, 28),   # Preset 2: Right 45-Degree View
+	Vector3(-38, 12, 28),  # Preset 3: Left 45-Degree View
+	Vector3(0, 52, 0.1),   # Preset 4: Overhead Top-Down Bird's Eye View
+	Vector3(0, -18, 28),   # Preset 5: Low Uplook Perspective View
 ]
 var launch_pad: StaticBody3D = null
 var launch_pad_mesh: MeshInstance3D = null
@@ -241,12 +239,18 @@ func _process(delta):
 			spring_arm.global_transform.basis = drone.global_transform.basis
 			spring_arm.rotate_object_local(Vector3.RIGHT, deg_to_rad(-20))
 
-	if show_mode != ShowMode.NONE and show_camera and is_instance_valid(show_camera):
-		show_camera_timer += delta
-		if show_camera_timer >= show_camera_switch_interval:
-			show_camera_timer = 0.0
-			show_camera_mode = (show_camera_mode + 1) % show_camera_presets.size()
+	if show_mode != ShowMode.NONE or show_camera_active:
 		update_show_camera()
+		if Input.is_key_pressed(KEY_RIGHT) and camera_toggle_cooldown <= 0:
+			camera_toggle_cooldown = 0.25
+			show_camera_mode = (show_camera_mode + 1) % show_camera_presets.size()
+			update_show_camera()
+			print("Show Camera View switched to Preset ", show_camera_mode)
+		elif Input.is_key_pressed(KEY_LEFT) and camera_toggle_cooldown <= 0:
+			camera_toggle_cooldown = 0.25
+			show_camera_mode = (show_camera_mode - 1 + show_camera_presets.size()) % show_camera_presets.size()
+			update_show_camera()
+			print("Show Camera View switched to Preset ", show_camera_mode)
 
 	if fp_camera and is_instance_valid(fp_camera) and fp_camera.is_inside_tree():
 		if drone and is_instance_valid(drone) and drone.is_inside_tree():
@@ -458,9 +462,12 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 			if is_instance_valid(d) and d.has_method("set_show_lighting_enabled"):
 				d.set_show_lighting_enabled(true)
 
-	if is_instance_valid(drone) and drone.has_method("set_show_lighting_enabled"):
-		drone.set_show_lighting_enabled(false)
+	if is_instance_valid(drone):
+		if drone.has_method("set_show_lighting_enabled"):
+			drone.set_show_lighting_enabled(false)
+		drone.visible = false
 
+	set_hud_visible(false)
 	update_camera_views()
 	print("DroneControllerManager: Python Custom Image Shape Airshow started with ", targets.size(), " drones forming shape from image: ", image_path)
 
@@ -482,9 +489,12 @@ func start_show_mode(mode_id: int):
 			if is_instance_valid(d) and d.has_method("set_show_lighting_enabled"):
 				d.set_show_lighting_enabled(true)
 
-	if is_instance_valid(drone) and drone.has_method("set_show_lighting_enabled"):
-		drone.set_show_lighting_enabled(true)
+	if is_instance_valid(drone):
+		if drone.has_method("set_show_lighting_enabled"):
+			drone.set_show_lighting_enabled(false)
+		drone.visible = false
 
+	set_hud_visible(false)
 	update_camera_views()
 	print("DroneControllerManager: Airshow mode ", mode_id, " started with ", targets.size(), " target positions.")
 
@@ -495,12 +505,43 @@ func stop_show_mode():
 		swarm_controller.queue_free()
 		swarm_controller = null
 
-	if is_instance_valid(drone) and drone.has_method("set_show_lighting_enabled"):
-		drone.set_show_lighting_enabled(false)
+	if is_instance_valid(drone):
+		if drone.has_method("set_show_lighting_enabled"):
+			drone.set_show_lighting_enabled(false)
+		drone.visible = true
 
+	set_hud_visible(true)
 	show_camera_active = false
 	update_camera_views()
 	print("DroneControllerManager: Airshow mode stopped.")
+
+func set_hud_visible(visible_flag: bool) -> void:
+	var world = get_tree().current_scene if get_tree() else null
+	if not world:
+		return
+
+	if "minimap_instance" in world and is_instance_valid(world.minimap_instance):
+		world.minimap_instance.visible = visible_flag
+
+	if "tutorial_instance" in world and is_instance_valid(world.tutorial_instance):
+		var tut = world.tutorial_instance
+		if not visible_flag:
+			tut.visible = false
+		else:
+			if tut.get("is_active") == true:
+				tut.visible = true
+
+	var canvas_nodes = world.find_children("", "CanvasLayer", true, false)
+	for cl in canvas_nodes:
+		var n_name = cl.name
+		if n_name == "Menu" or n_name == "OptionsMenu" or n_name == "ImageFileDialog" or n_name == "StartMenu" or n_name == "LoadingScreen" or n_name == "FPSCounter":
+			continue
+
+		if n_name == "DebugOverlay":
+			if cl.has_method("set_battery_hud_visible"):
+				cl.set_battery_hud_visible(visible_flag)
+		else:
+			cl.visible = visible_flag
 
 func process_show_mode(_delta):
 	pass

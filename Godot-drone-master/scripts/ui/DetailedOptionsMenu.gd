@@ -23,7 +23,7 @@ var settings: Dictionary = {
 	"infinite_battery": false,
 	
 	# Environment & Weather
-	"environment": 0, # 0: Earth Day, 1: Earth Night, 2: Moon, 3: Indoor
+	"environment": 1, # 0: Earth Day, 1: Earth Night, 2: Moon, 3: Indoor
 	"wind_preset": 0, # 0: Calm (0 m/s)
 	"light_energy": 1.0,
 	
@@ -46,11 +46,22 @@ var tab_buttons: Dictionary = {}
 var tab_contents: Dictionary = {}
 var ui_controls: Dictionary = {}
 var current_tab: String = "graphics"
+var _is_initializing_ui: bool = true
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_is_initializing_ui = true
+	_load_config_from_disk()
 	_setup_ui()
-	call_deferred("load_user_settings")
+	_is_initializing_ui = false
+	apply_all_current_settings()
+
+func _load_config_from_disk() -> void:
+	var config = ConfigFile.new()
+	if config.load(CONFIG_FILE_PATH) == OK:
+		for key in settings.keys():
+			if config.has_section_key("settings", key):
+				settings[key] = config.get_value("settings", key)
 
 func _setup_ui():
 	var root_vbox = VBoxContainer.new()
@@ -224,66 +235,9 @@ func _build_swarm_tab() -> Control:
 	vbox.add_child(_create_dropdown_row("led_theme", "Airshow LED Color Scheme", ["Cyber Cyan", "Emerald Green", "Neon Amber", "Vibrant Magenta", "Pulsing Rainbow"], 0, _on_led_theme_changed))
 
 	vbox.add_child(HSeparator.new())
-
-	# --- PYTHON IMAGE TO DRONE FORMATION SECTION ---
-	var section_label = Label.new()
-	section_label.text = "★ PYTHON IMAGE EDGE FORMATION GENERATOR"
-	section_label.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
-	section_label.add_theme_font_size_override("font_size", 14)
-	vbox.add_child(section_label)
-
-	var path_hbox = HBoxContainer.new()
-	path_hbox.add_theme_constant_override("separation", 8)
-
-	var path_lbl = Label.new()
-	path_lbl.text = "Image File Path:"
-	path_lbl.custom_minimum_size = Vector2(120, 0)
-	path_hbox.add_child(path_lbl)
-
-	custom_img_path_edit = LineEdit.new()
-	custom_img_path_edit.text = "res://assets/shapes/sample_star.png"
-	custom_img_path_edit.placeholder_text = "e.g. C:/image.png or res://assets/shapes/sample_star.png"
-	custom_img_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	path_hbox.add_child(custom_img_path_edit)
-
-	vbox.add_child(path_hbox)
-
-	var btn_hbox = HBoxContainer.new()
-	btn_hbox.add_theme_constant_override("separation", 8)
-
-	var star_btn = _create_styled_button("LOAD SAMPLE STAR PNG", func(): _launch_custom_image("res://assets/shapes/sample_star.png"), Color(0.12, 0.35, 0.45, 0.9))
-	star_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn_hbox.add_child(star_btn)
-
-	var heart_btn = _create_styled_button("LOAD SAMPLE HEART PNG", func(): _launch_custom_image("res://assets/shapes/sample_heart.png"), Color(0.45, 0.15, 0.3, 0.9))
-	heart_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn_hbox.add_child(heart_btn)
-
-	vbox.add_child(btn_hbox)
-
-	var run_btn = _create_styled_button("PROCESS IMAGE WITH PYTHON & LAUNCH SHOW", _on_run_python_custom_image, Color(0.1, 0.55, 0.4, 0.9))
-	vbox.add_child(run_btn)
-
-	vbox.add_child(HSeparator.new())
 	vbox.add_child(_create_styled_button("RESET SWARM DEFAULTS", _reset_swarm_defaults, Color(0.15, 0.25, 0.35, 0.9)))
 
 	return vbox
-
-func _on_run_python_custom_image() -> void:
-	var path = custom_img_path_edit.text.strip_edges() if custom_img_path_edit else "res://assets/shapes/sample_star.png"
-	if path.is_empty():
-		path = "res://assets/shapes/sample_star.png"
-	_launch_custom_image(path)
-
-func _launch_custom_image(image_path: String) -> void:
-	var mgr = get_tree().current_scene.get_node_or_null("DroneControllerManager") if get_tree() and get_tree().current_scene else null
-	if mgr and mgr.has_method("start_custom_image_shape"):
-		mgr.start_custom_image_shape(image_path)
-		var menu = get_parent()
-		while menu and not (menu is CanvasLayer and menu.has_method("resume")):
-			menu = menu.get_parent()
-		if menu and menu.has_method("resume"):
-			menu.resume()
 
 func _build_audio_cam_tab() -> Control:
 	var vbox = VBoxContainer.new()
@@ -367,7 +321,11 @@ func _create_dropdown_row(key: String, label_text: String, options: Array, defau
 	opt.custom_minimum_size = Vector2(160, 32)
 	for item in options:
 		opt.add_item(item)
-	opt.select(default_idx)
+	var cur_idx = int(settings.get(key, default_idx))
+	if cur_idx >= 0 and cur_idx < opt.item_count:
+		opt.select(cur_idx)
+	elif default_idx >= 0 and default_idx < opt.item_count:
+		opt.select(default_idx)
 
 	var opt_style = StyleBoxFlat.new()
 	opt_style.bg_color = Color(0.12, 0.16, 0.22, 0.9)
@@ -395,6 +353,8 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 2)
 
+	var cur_val = float(settings.get(key, default_val))
+
 	var header_hbox = HBoxContainer.new()
 	var lbl = Label.new()
 	lbl.text = label_text
@@ -404,7 +364,7 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	header_hbox.add_child(lbl)
 
 	var val_lbl = Label.new()
-	val_lbl.text = val_format % val_transform.call(default_val)
+	val_lbl.text = val_format % val_transform.call(cur_val)
 	val_lbl.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	val_lbl.add_theme_font_size_override("font_size", 13)
 	header_hbox.add_child(val_lbl)
@@ -415,7 +375,7 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	slider.min_value = min_val
 	slider.max_value = max_val
 	slider.step = step_val
-	slider.value = default_val
+	slider.value = cur_val
 	slider.custom_minimum_size = Vector2(0, 24)
 
 	slider.value_changed.connect(func(v):
@@ -440,6 +400,8 @@ func _create_toggle_row(key: String, label_text: String, default_val: bool, call
 	var hbox = HBoxContainer.new()
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
+	var cur_bool = bool(settings.get(key, default_val))
+
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -448,7 +410,7 @@ func _create_toggle_row(key: String, label_text: String, default_val: bool, call
 	hbox.add_child(lbl)
 
 	var check = CheckButton.new()
-	check.button_pressed = default_val
+	check.button_pressed = cur_bool
 	check.toggled.connect(callback)
 	hbox.add_child(check)
 
@@ -464,6 +426,8 @@ func _create_toggle_row(key: String, label_text: String, default_val: bool, call
 # --- PERSISTENT LOCAL DEVICE SETTINGS (CONFIGFILE) ---
 
 func save_user_settings():
+	if _is_initializing_ui:
+		return
 	var config = ConfigFile.new()
 	for key in settings.keys():
 		config.set_value("settings", key, settings[key])
@@ -523,9 +487,11 @@ func _set_control_ui_only(key: String, val: Variant):
 				val_lbl.text = item["format"] % item["transform"].call(float(val))
 		"dropdown":
 			var opt: OptionButton = item["node"]
-			opt.set_block_signals(true)
-			opt.select(int(val))
-			opt.set_block_signals(false)
+			var idx = int(val)
+			if idx >= 0 and idx < opt.item_count:
+				opt.set_block_signals(true)
+				opt.select(idx)
+				opt.set_block_signals(false)
 		"toggle":
 			var check: CheckButton = item["node"]
 			check.set_block_signals(true)

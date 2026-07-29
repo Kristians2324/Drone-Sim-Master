@@ -407,5 +407,9 @@ func stop_battery_recharge() -> void:
 	if battery_manager:
 		battery_manager.battery_recharging = false
 
+func set_infinite_battery_enabled(enabled: bool) -> void:
+	if battery_manager:
+		battery_manager.set_infinite_battery(enabled)
+
 func _on_drone_collision(_body: Node) -> void:
 	pass

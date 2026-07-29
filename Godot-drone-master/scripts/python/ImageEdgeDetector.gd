@@ -9,7 +9,7 @@ static func process_image_to_formation_data(image_path: String, target_drone_cou
 		"points": []
 	}
 
-	# 1. Try Python edge detection script
+	# 1. Try Python edge detection script first
 	var python_success = _try_python_edge_detection(image_path, target_drone_count, scale_size)
 	if python_success:
 		var py_data = _load_generated_json_data()
@@ -17,12 +17,12 @@ static func process_image_to_formation_data(image_path: String, target_drone_cou
 			print("ImageEdgeDetector: Successfully processed via Python. Shape: ", py_data.get("shape_type", "Custom Shape"), ", Drones: ", py_data.get("drone_count", 0))
 			return py_data
 
-	# 2. Native GDScript fallback if Python fails
-	print("ImageEdgeDetector: Running fallback GDScript native image edge detection...")
-	var native_points = _process_image_native_gdscript(image_path, target_drone_count if target_drone_count > 0 else 39, scale_size)
+	# 2. Continuous 8-neighbor boundary walk GDScript native fallback
+	print("ImageEdgeDetector: Running native GDScript continuous perimeter walk fallback...")
+	var native_points = _process_image_native_gdscript(image_path, target_drone_count if target_drone_count > 0 else 45, scale_size)
 	if native_points.size() > 0:
 		res["success"] = true
-		res["shape_type"] = "Custom Shape"
+		res["shape_type"] = "Custom Outline"
 		res["drone_count"] = native_points.size()
 		res["points"] = native_points
 	return res
@@ -53,7 +53,13 @@ static func _try_python_edge_detection(image_path: String, drone_count: int, sca
 	if exit_code == 0 and FileAccess.file_exists("user://custom_image_formation.json"):
 		return true
 
+	output.clear()
 	exit_code = OS.execute("py", args, output, true)
+	if exit_code == 0 and FileAccess.file_exists("user://custom_image_formation.json"):
+		return true
+
+	output.clear()
+	exit_code = OS.execute("python3", args, output, true)
 	return (exit_code == 0 and FileAccess.file_exists("user://custom_image_formation.json"))
 
 static func _load_generated_json_data() -> Dictionary:
@@ -104,48 +110,82 @@ static func _process_image_native_gdscript(image_path: String, target_count: int
 
 	var width = img.get_width()
 	var height = img.get_height()
-	var edge_coords: Array[Vector2] = []
+	var raw_boundary_pts: Array[Vector2i] = []
 
-	# Check background color by sampling top-left, top-right, bot-left, bot-right corners
+	# Check background color by sampling 4 corners
 	var corner_a = (img.get_pixel(0, 0).a + img.get_pixel(width - 1, 0).a + img.get_pixel(0, height - 1).a + img.get_pixel(width - 1, height - 1).a) / 4.0
 	var has_alpha = corner_a < 0.5
 	var bg_lum = (img.get_pixel(0, 0).get_luminance() + img.get_pixel(width - 1, 0).get_luminance() + img.get_pixel(0, height - 1).get_luminance() + img.get_pixel(width - 1, height - 1).get_luminance()) / 4.0
 
-	# Scan for outer boundary transition pixels
+	var boundary_dict: Dictionary = {}
+
+	# Collect all boundary transition pixels
 	for y in range(1, height - 1):
 		for x in range(1, width - 1):
 			var c = img.get_pixel(x, y)
-			
-			var is_fg = false
-			if has_alpha:
-				is_fg = c.a > 0.3
-			else:
-				is_fg = abs(c.get_luminance() - bg_lum) > 0.12
-
+			var is_fg = (c.a > 0.3) if has_alpha else (abs(c.get_luminance() - bg_lum) > 0.12)
 			if not is_fg:
 				continue
 
-			# Check if adjacent to background
 			var left_fg = (img.get_pixel(x - 1, y).a > 0.3) if has_alpha else (abs(img.get_pixel(x - 1, y).get_luminance() - bg_lum) > 0.12)
 			var right_fg = (img.get_pixel(x + 1, y).a > 0.3) if has_alpha else (abs(img.get_pixel(x + 1, y).get_luminance() - bg_lum) > 0.12)
 			var top_fg = (img.get_pixel(x, y - 1).a > 0.3) if has_alpha else (abs(img.get_pixel(x, y - 1).get_luminance() - bg_lum) > 0.12)
 			var bot_fg = (img.get_pixel(x, y + 1).a > 0.3) if has_alpha else (abs(img.get_pixel(x, y + 1).get_luminance() - bg_lum) > 0.12)
 
-			var is_boundary = (not left_fg or not right_fg or not top_fg or not bot_fg)
-			if is_boundary:
-				edge_coords.append(Vector2(x, y))
+			if not left_fg or not right_fg or not top_fg or not bot_fg:
+				var pos = Vector2i(x, y)
+				raw_boundary_pts.append(pos)
+				boundary_dict[pos] = true
 
-	if edge_coords.size() == 0:
+	if raw_boundary_pts.size() == 0:
 		return res
 
-	var total_pts = edge_coords.size()
-	var count = target_count if target_count > 0 else 39
-	var step = float(total_pts) / float(count)
+	# CONTINUOUS 8-NEIGHBOR BOUNDARY CONTOUR WALK (Eliminates raster scan spiral jumps!)
+	var ordered_path: Array[Vector2] = []
+	var visited: Dictionary = {}
+	var curr = raw_boundary_pts[0]
+
+	var offsets = [
+		Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1),
+		Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)
+	]
+
+	var total_boundary = raw_boundary_pts.size()
+	for _step in range(total_boundary):
+		ordered_path.append(Vector2(curr.x, curr.y))
+		visited[curr] = true
+		var found_next = false
+		for off in offsets:
+			var nxt = curr + off
+			if boundary_dict.has(nxt) and not visited.has(nxt):
+				curr = nxt
+				found_next = true
+				break
+		if not found_next:
+			var min_d: float = 9999999.0
+			var best_nxt = Vector2i(-1, -1)
+			for pt in raw_boundary_pts:
+				if not visited.has(pt):
+					var d = Vector2(curr).distance_squared_to(Vector2(pt))
+					if d < min_d:
+						min_d = d
+						best_nxt = pt
+			if best_nxt.x != -1:
+				curr = best_nxt
+			else:
+				break
+
+	if ordered_path.size() == 0:
+		return res
+
+	# Uniform arc-length sampling along continuous ordered path
+	var path_size = ordered_path.size()
+	var count = target_count if target_count > 0 else 45
 	var max_dim = float(max(width, height))
 
 	for i in range(count):
-		var idx = int(i * step) % total_pts
-		var p = edge_coords[idx]
+		var idx = int((float(i) + 0.5) * (float(path_size) / float(count))) % path_size
+		var p = ordered_path[idx]
 		var norm_x = (p.x - (width / 2.0)) / max_dim
 		var norm_y = ((height / 2.0) - p.y) / max_dim
 		res.append(Vector3(norm_x * scale_size, norm_y * scale_size, 0.0))

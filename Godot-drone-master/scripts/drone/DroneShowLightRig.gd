@@ -66,20 +66,20 @@ func _build_rig():
 
 	halo_light = OmniLight3D.new()
 	halo_light.name = "UnderglowLight"
-	halo_light.omni_range = 35.0
-	halo_light.omni_attenuation = 0.85
-	halo_light.light_energy = 12.0
+	halo_light.omni_range = 14.0
+	halo_light.omni_attenuation = 1.0
+	halo_light.light_energy = 5.5
 	halo_light.shadow_enabled = false
 	halo_light.visible = false
 	add_child(halo_light)
 
 	down_light = SpotLight3D.new()
 	down_light.name = "UnderglowSpot"
-	down_light.position = Vector3(0.0, -0.1, 0.0)
+	down_light.position = Vector3(0.0, -0.05, 0.0)
 	down_light.rotation_degrees.x = -90.0
-	down_light.spot_angle = 75.0
-	down_light.spot_attenuation = 0.9
-	down_light.light_energy = 14.0
+	down_light.spot_angle = 65.0
+	down_light.spot_attenuation = 0.95
+	down_light.light_energy = 6.0
 	down_light.shadow_enabled = false
 	down_light.visible = false
 	add_child(down_light)
@@ -87,8 +87,8 @@ func _build_rig():
 	halo_mesh = MeshInstance3D.new()
 	halo_mesh.name = "UnderglowSphere"
 	var sphere = SphereMesh.new()
-	sphere.radius = 0.35
-	sphere.height = 0.7
+	sphere.radius = 0.38
+	sphere.height = 0.76
 	sphere.radial_segments = 16
 	sphere.rings = 12
 	halo_mesh.mesh = sphere
@@ -99,24 +99,33 @@ func _build_rig():
 	halo_material = StandardMaterial3D.new()
 	halo_material.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
 	halo_material.transparency = StandardMaterial3D.TRANSPARENCY_ALPHA
-	halo_material.albedo_color = Color(1, 1, 1, 0.95)
+	halo_material.albedo_color = Color(1, 1, 1, 0.96)
 	halo_material.emission_enabled = true
 	halo_material.emission = Color.WHITE
-	halo_material.emission_energy_multiplier = 18.0
+	halo_material.emission_energy_multiplier = 10.0
 	halo_mesh.material_override = halo_material
 
 func _rebuild_palette():
 	var count: int = int(drone_total)
 	if count < 1:
 		count = 1
-	var ratio: float = float(int(drone_index) % count) / float(count)
 
-	var hue = fmod(ratio * 1.15 + 0.05, 1.0)
-	palette_core = Color.from_hsv(hue, 1.0, 1.0)
-	palette_secondary = Color.from_hsv(fmod(hue + 0.33, 1.0), 1.0, 1.0)
-	palette_highlight = Color.from_hsv(fmod(hue + 0.66, 1.0), 0.85, 1.0)
-	palette_body = Color.from_hsv(hue, 0.40, 0.25)
-	phase_offset = ratio * TAU * 2.5
+	phase_offset = float(drone_index) * (TAU / float(count))
+
+	var color_options = [
+		Color(0.2, 0.85, 1.0),  # Cyan
+		Color(0.1, 0.9, 0.3),   # Emerald Green
+		Color(1.0, 0.6, 0.1),   # Amber
+		Color(0.95, 0.2, 0.8),  # Magenta
+		Color(1.0, 0.9, 0.2),   # Bright Yellow
+		Color(0.3, 0.5, 1.0)    # Deep Blue
+	]
+
+	var palette_idx = drone_index % color_options.size()
+	palette_core = color_options[palette_idx]
+	palette_secondary = color_options[(palette_idx + 1) % color_options.size()]
+	palette_highlight = Color.WHITE
+	palette_body = palette_core.darkened(0.6)
 
 func _apply_palette_to_visuals():
 	if halo_light == null or halo_material == null:
@@ -128,7 +137,7 @@ func _apply_palette_to_visuals():
 		down_light.light_color = base_color.lerp(Color.WHITE, 0.15)
 	halo_material.albedo_color = Color(base_color.r, base_color.g, base_color.b, 0.98)
 	halo_material.emission = base_color
-	halo_material.emission_energy_multiplier = 18.0
+	halo_material.emission_energy_multiplier = 10.0
 	_apply_light_output_state()
 
 func _process(delta: float):
@@ -149,15 +158,15 @@ func _process(delta: float):
 
 	if halo_light:
 		halo_light.light_color = color
-		halo_light.light_energy = 12.0 + slow_wave * 4.0
+		halo_light.light_energy = 4.0 + slow_wave * 1.5
 	if down_light:
 		down_light.light_color = color.lerp(Color.WHITE, 0.12)
-		down_light.light_energy = 14.0 + slow_wave * 5.0
+		down_light.light_energy = 4.5 + slow_wave * 1.5
 
 	if halo_material:
 		halo_material.albedo_color = Color(color.r, color.g, color.b, 0.98)
 		halo_material.emission = color
-		halo_material.emission_energy_multiplier = 18.0 + fast_wave * 6.0
+		halo_material.emission_energy_multiplier = 10.0 + fast_wave * 3.0
 
 func set_low_cost_mode(enabled: bool) -> void:
 	_low_cost_cached = enabled
@@ -175,11 +184,11 @@ func _apply_light_output_state() -> void:
 	var active = _show_lighting_enabled and visuals_enabled
 	if halo_light:
 		halo_light.visible = active
-		halo_light.light_energy = 12.0 if active else 0.0
+		halo_light.light_energy = 4.0 if active else 0.0
 	if down_light:
 		down_light.visible = active
-		down_light.light_energy = 14.0 if active else 0.0
+		down_light.light_energy = 4.5 if active else 0.0
 	if halo_mesh:
 		halo_mesh.visible = active
 	if halo_material:
-		halo_material.emission_energy_multiplier = 18.0 if active else 0.0
+		halo_material.emission_energy_multiplier = 10.0 if active else 0.0

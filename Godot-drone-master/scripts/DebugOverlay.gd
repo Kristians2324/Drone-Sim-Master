@@ -244,6 +244,10 @@ func _apply_visibility() -> void:
 	_fps_label.visible = true
 	_battery_panel.visible = true
 
+func set_battery_hud_visible(visible_flag: bool) -> void:
+	if _battery_panel and is_instance_valid(_battery_panel):
+		_battery_panel.visible = visible_flag
+
 func _update_battery_display() -> void:
 	var drone: Node = null
 	var main_scene = get_tree().current_scene if get_tree() else null

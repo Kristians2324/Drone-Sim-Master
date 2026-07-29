@@ -92,7 +92,7 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 
 	select_file_button = Button.new()
 	select_file_button.name = "SelectFileButton"
-	select_file_button.text = "📁 CHOOSE IMAGE FROM COMPUTER (.PNG, .JPG)"
+	select_file_button.text = "CHOOSE IMAGE FROM COMPUTER (.PNG, .JPG)"
 	select_file_button.custom_minimum_size = Vector2(0, 34)
 	select_file_button.pressed.connect(_on_select_file_pressed)
 	parent_layout.add_child(select_file_button)
@@ -108,7 +108,7 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 
 	go_button = Button.new()
 	go_button.name = "GoFormShapeButton"
-	go_button.text = "🚀 FORM SHAPE & START SHOW (GO!)"
+	go_button.text = "FORM SHAPE & START SHOW"
 	go_button.custom_minimum_size = Vector2(0, 36)
 	go_button.disabled = true
 	go_button.pressed.connect(_on_go_form_shape_pressed)
@@ -135,13 +135,13 @@ func _on_image_file_selected(path: String) -> void:
 		required_drone_count = processed_formation_points.size()
 
 		if status_label:
-			status_label.text = "READY! Detected shape: %s (%d Drones required). Click GO!" % [detected_shape_name, required_drone_count]
+			status_label.text = "READY! Detected shape: %s (%d Drones required)." % [detected_shape_name, required_drone_count]
 			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
 		if go_button:
 			go_button.disabled = false
 	else:
 		if status_label:
-			status_label.text = "❌ Error: Could not detect valid edges in selected image."
+			status_label.text = "Error: Could not detect valid edges in selected image."
 			status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
 		if go_button:
 			go_button.disabled = true

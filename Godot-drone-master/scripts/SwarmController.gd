@@ -149,6 +149,8 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 			drone_inst.position = target_spawn_pos
 		drone_inst.linear_velocity = Vector3.ZERO
 		drone_inst.angular_velocity = Vector3.ZERO
+		drone_inst.scale = Vector3(0.55, 0.55, 0.55)
+		drone_inst.freeze = true
 		if drone_inst.has_method("set_hover_mode"):
 			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
