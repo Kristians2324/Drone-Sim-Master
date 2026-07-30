@@ -18,10 +18,7 @@ func _enter_tree():
 	if not loading_screen_instance:
 		loading_screen_instance = loading_screen_scene.instantiate()
 		add_child(loading_screen_instance)
-		if DisplayServer.get_name() != "headless":
-			loading_screen_instance.show_loading("Loading simulation...")
-		else:
-			loading_screen_instance.hide()
+		loading_screen_instance.hide()
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -33,10 +30,7 @@ func _ready():
 	if not loading_screen_instance:
 		loading_screen_instance = loading_screen_scene.instantiate()
 		add_child(loading_screen_instance)
-		if DisplayServer.get_name() != "headless":
-			loading_screen_instance.show_loading("Loading simulation...")
-		else:
-			loading_screen_instance.hide()
+		loading_screen_instance.hide()
 
 	vr_manager = load("res://scripts/VRManager.gd").new()
 	vr_manager.name = "VRManager"
@@ -70,6 +64,10 @@ func _ready():
 
 func _on_simulation_started():
 	get_tree().paused = false
+	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
+		loading_screen_instance.hide_loading()
+	elif loading_screen_instance:
+		loading_screen_instance.hide()
 
 func open_start_menu():
 	if menu_instance and menu_instance.visible:
@@ -120,7 +118,8 @@ func load_environment(EnvironmentClass):
 		return
 	is_loading_environment = true
 
-	if loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
+	# Only show animated loading screen when switching maps mid-game (not on initial boot)
+	if current_environment != null and loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
 		loading_screen_instance.show_loading("Loading environment...")
 		if get_tree():
 			await get_tree().process_frame
@@ -146,6 +145,8 @@ func load_environment(EnvironmentClass):
 
 	if loading_screen_instance and loading_screen_instance.has_method("hide_loading"):
 		loading_screen_instance.hide_loading()
+	elif loading_screen_instance:
+		loading_screen_instance.hide()
 
 	is_loading_environment = false
 
