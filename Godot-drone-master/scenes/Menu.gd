@@ -49,6 +49,7 @@ var file_dialog: FileDialog = null
 var select_file_button: Button = null
 var go_button: Button = null
 var status_label: Label = null
+var drone_count_spinbox: SpinBox = null
 
 var selected_image_path: String = ""
 var processed_formation_points: Array[Vector3] = []
@@ -97,6 +98,27 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	select_file_button.pressed.connect(_on_select_file_pressed)
 	parent_layout.add_child(select_file_button)
 
+	var count_hbox = HBoxContainer.new()
+	count_hbox.name = "DroneCountHBox"
+
+	var count_label = Label.new()
+	count_label.text = "Drone Count (0 = Auto):"
+	count_label.add_theme_font_size_override("font_size", 11)
+	count_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0, 0.9))
+	count_hbox.add_child(count_label)
+
+	drone_count_spinbox = SpinBox.new()
+	drone_count_spinbox.name = "DroneCountSpinBox"
+	drone_count_spinbox.min_value = 0
+	drone_count_spinbox.max_value = 500
+	drone_count_spinbox.step = 1
+	drone_count_spinbox.value = 0
+	drone_count_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	drone_count_spinbox.value_changed.connect(_on_drone_count_changed)
+	count_hbox.add_child(drone_count_spinbox)
+
+	parent_layout.add_child(count_hbox)
+
 	status_label = Label.new()
 	status_label.name = "ImageStatusLabel"
 	status_label.text = "Status: Select an image file to detect shape & edges"
@@ -118,6 +140,10 @@ func _on_select_file_pressed() -> void:
 	if file_dialog:
 		file_dialog.popup_centered(Vector2i(800, 600))
 
+func _on_drone_count_changed(_val: float) -> void:
+	if selected_image_path != "":
+		_on_image_file_selected(selected_image_path)
+
 func _on_image_file_selected(path: String) -> void:
 	selected_image_path = path
 	if status_label:
@@ -126,8 +152,9 @@ func _on_image_file_selected(path: String) -> void:
 	
 	await get_tree().process_frame
 
+	var target_count = int(drone_count_spinbox.value) if drone_count_spinbox else 0
 	var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
-	var data: Dictionary = ImageEdgeDetectorClass.process_image_to_formation_data(path, 0, 28.0)
+	var data: Dictionary = ImageEdgeDetectorClass.process_image_to_formation_data(path, target_count, 28.0)
 
 	if data.get("success", false) and data.get("points", []).size() > 0:
 		processed_formation_points = data["points"]
@@ -135,7 +162,8 @@ func _on_image_file_selected(path: String) -> void:
 		required_drone_count = processed_formation_points.size()
 
 		if status_label:
-			status_label.text = "READY! Detected shape: %s (%d Drones required)." % [detected_shape_name, required_drone_count]
+			var mode_str = "Auto-detected" if target_count == 0 else "Manual override"
+			status_label.text = "READY! Shape: %s (%s: %d Drones)." % [detected_shape_name, mode_str, required_drone_count]
 			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
 		if go_button:
 			go_button.disabled = false

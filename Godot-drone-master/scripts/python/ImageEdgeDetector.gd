@@ -180,8 +180,10 @@ static func _process_image_native_gdscript(image_path: String, target_count: int
 
 	# Uniform arc-length sampling along continuous ordered path
 	var path_size = ordered_path.size()
-	var count = target_count if target_count > 0 else 45
 	var max_dim = float(max(width, height))
+	var norm_path_size = float(path_size) / max_dim
+	var dynamic_count = int(round(norm_path_size * 50.0))
+	var count = target_count if target_count > 0 else max(80, min(450, dynamic_count))
 
 	for i in range(count):
 		var idx = int((float(i) + 0.5) * (float(path_size) / float(count))) % path_size
