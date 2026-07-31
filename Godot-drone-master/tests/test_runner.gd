@@ -256,4 +256,19 @@ func _tests_formation_buttons() -> void:
 				assert_true(menu.formation_buttons.has(shape), "Menu has formation button '%s'" % shape)
 		else:
 			assert_true(true, "Menu initialized")
+
+		assert_true(menu.get_node_or_null("Center/MainLayout/FunctionsPanel") != null, "3-Column ESC Menu: FunctionsPanel exists on far left")
+		assert_true(menu.get_node_or_null("Center/MainLayout/Panel") != null, "3-Column ESC Menu: Main Panel exists in center")
+		assert_true(menu.get_node_or_null("Center/MainLayout/GraphMenuPanel") != null, "3-Column ESC Menu: GraphMenuPanel exists on far right")
 		menu.free()
+
+	var manager_script = load("res://scripts/DroneControllerManager.gd")
+	if manager_script != null:
+		var mgr = manager_script.new()
+		spawn(mgr)
+		assert_eq(mgr.is_cinematic_mode, true, "DroneControllerManager: is_cinematic_mode defaults to true")
+		mgr.set_cinematic_camera_enabled(false)
+		assert_eq(mgr.is_cinematic_mode, false, "set_cinematic_camera_enabled(false) switches to still mode")
+		mgr.set_cinematic_camera_enabled(true)
+		assert_eq(mgr.is_cinematic_mode, true, "set_cinematic_camera_enabled(true) re-enables cinematic mode")
+		mgr.free()

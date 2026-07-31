@@ -79,10 +79,18 @@ SwarmController: Swarm initialized with 10 follower drones.
 
 ── Menu Formations   – ESC pause menu formation buttons ──
   ✅ PASS  Menu initialized
+  ✅ PASS  3-Column ESC Menu: FunctionsPanel exists on far left
+  ✅ PASS  3-Column ESC Menu: Main Panel exists in center
+  ✅ PASS  3-Column ESC Menu: GraphMenuPanel exists on far right
+  ✅ PASS  DroneControllerManager: is_cinematic_mode defaults to true
+DroneControllerManager: Still camera mode ENABLED.
+  ✅ PASS  set_cinematic_camera_enabled(false) switches to still mode
+DroneControllerManager: Cinematic camera mode ENABLED.
+  ✅ PASS  set_cinematic_camera_enabled(true) re-enables cinematic mode
 
 
 ════════════════════════════════════════════════════
-  Results: 42 / 42 passed
+  Results: 48 / 48 passed
   ✅  ALL TESTS PASSED WITH 0 ERRORS
 ════════════════════════════════════════════════════
 

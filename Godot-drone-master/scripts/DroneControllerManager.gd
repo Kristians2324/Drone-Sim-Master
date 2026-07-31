@@ -37,6 +37,11 @@ var show_camera_presets: Array[Vector3] = [
 	Vector3(0, 52, 0.1),   # Preset 4: Overhead Top-Down Bird's Eye View
 	Vector3(0, -18, 28),   # Preset 5: Low Uplook Perspective View
 ]
+var is_cinematic_mode: bool = true
+var cinematic_angle: float = 0.0
+var cinematic_speed: float = 0.22
+var cinematic_radius: float = 38.0
+var cinematic_height: float = 14.0
 var launch_pad: StaticBody3D = null
 var launch_pad_mesh: MeshInstance3D = null
 var launch_pad_marker: MeshInstance3D = null
@@ -240,17 +245,20 @@ func _process(delta):
 			spring_arm.rotate_object_local(Vector3.RIGHT, deg_to_rad(-20))
 
 	if show_mode != ShowMode.NONE or show_camera_active:
-		update_show_camera()
-		if Input.is_key_pressed(KEY_RIGHT) and camera_toggle_cooldown <= 0:
+		var any_arrow_pressed = Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_DOWN)
+		if any_arrow_pressed and camera_toggle_cooldown <= 0:
 			camera_toggle_cooldown = 0.25
-			show_camera_mode = (show_camera_mode + 1) % show_camera_presets.size()
-			update_show_camera()
-			print("Show Camera View switched to Preset ", show_camera_mode)
-		elif Input.is_key_pressed(KEY_LEFT) and camera_toggle_cooldown <= 0:
-			camera_toggle_cooldown = 0.25
-			show_camera_mode = (show_camera_mode - 1 + show_camera_presets.size()) % show_camera_presets.size()
-			update_show_camera()
-			print("Show Camera View switched to Preset ", show_camera_mode)
+			if is_cinematic_mode:
+				is_cinematic_mode = false
+				print("Show Camera: Arrow key hit -> Switched from Cinematic Mode to Still Mode (Preset ", show_camera_mode, ")")
+			else:
+				if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_UP):
+					show_camera_mode = (show_camera_mode + 1) % show_camera_presets.size()
+				elif Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_DOWN):
+					show_camera_mode = (show_camera_mode - 1 + show_camera_presets.size()) % show_camera_presets.size()
+				print("Show Camera View switched to Preset ", show_camera_mode)
+
+		update_show_camera(delta)
 
 	if fp_camera and is_instance_valid(fp_camera) and fp_camera.is_inside_tree():
 		if drone and is_instance_valid(drone) and drone.is_inside_tree():
@@ -449,6 +457,8 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 		targets.append(center + p)
 
 	show_mode = 99 # Custom Image Edge Mode
+	is_cinematic_mode = true
+	cinematic_angle = 0.0
 
 	if not swarm_controller or not is_instance_valid(swarm_controller):
 		swarm_controller = preload("res://scripts/SwarmController.gd").new()
@@ -473,6 +483,8 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 
 func start_show_mode(mode_id: int):
 	show_mode = mode_id
+	is_cinematic_mode = true
+	cinematic_angle = 0.0
 	var count = 39
 	var center = drone.global_position + Vector3(0, 15, 0) if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 20, 0)
 	var targets = show_mode_controller.generate_formation(mode_id, count, center)
@@ -514,6 +526,14 @@ func stop_show_mode():
 	show_camera_active = false
 	update_camera_views()
 	print("DroneControllerManager: Airshow mode stopped.")
+
+func set_cinematic_camera_enabled(enabled: bool) -> void:
+	is_cinematic_mode = enabled
+	cinematic_angle = 0.0
+	if enabled:
+		print("DroneControllerManager: Cinematic camera mode ENABLED.")
+	else:
+		print("DroneControllerManager: Still camera mode ENABLED.")
 
 func set_hud_visible(visible_flag: bool) -> void:
 	var world = get_tree().current_scene if get_tree() else null
@@ -585,7 +605,7 @@ func disable_swarm_mode():
 
 	print("DroneControllerManager: Swarm Mode DISABLED.")
 
-func update_show_camera():
+func update_show_camera(delta: float = 0.016):
 	if not show_camera or not is_instance_valid(show_camera): return
 	var live_center = Vector3.ZERO
 	if swarm_controller and is_instance_valid(swarm_controller) and swarm_controller.has_method("get_swarm_centroid"):
@@ -595,9 +615,20 @@ func update_show_camera():
 	else:
 		live_center = drone.global_position if is_instance_valid(drone) and drone.is_inside_tree() else Vector3.ZERO
 
-	var preset_offset = show_camera_presets[show_camera_mode]
-	show_camera_rig.global_position = show_camera_rig.global_position.lerp(live_center, 0.12)
-	show_camera.global_position = show_camera_rig.global_position + preset_offset
+	show_camera_rig.global_position = show_camera_rig.global_position.lerp(live_center, clamp(6.0 * delta, 0.05, 0.5))
+
+	if is_cinematic_mode:
+		cinematic_angle += delta * cinematic_speed
+		var offset = Vector3(
+			sin(cinematic_angle) * cinematic_radius,
+			cinematic_height + sin(cinematic_angle * 0.7) * 3.5,
+			cos(cinematic_angle) * cinematic_radius
+		)
+		show_camera.global_position = show_camera_rig.global_position + offset
+	else:
+		var preset_offset = show_camera_presets[show_camera_mode]
+		show_camera.global_position = show_camera_rig.global_position + preset_offset
+
 	show_camera.look_at(show_camera_rig.global_position, Vector3.UP)
 
 func create_launch_pad() -> void:

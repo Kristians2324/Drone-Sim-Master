@@ -3,14 +3,15 @@ extends CanvasLayer
 @onready var controls_label = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Controls")
 @onready var resume_button = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Resume")
 @onready var formation_buttons = {
-	"star": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Star"),
-	"circle": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Circle"),
-	"heart": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Heart"),
-	"diamond": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Diamond"),
-	"wave": get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations/Row/Wave"),
+	"star": get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/Row1/Star"),
+	"circle": get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/Row1/Circle"),
+	"heart": get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/Row1/Heart"),
+	"diamond": get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/Row2/Diamond"),
+	"wave": get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/Row2/Wave"),
 }
 
 var last_input_was_controller: bool = false
+var cinematic_camera_button: Button = null
 var stop_show_button: Button = null
 
 const KEYBOARD_TEXT = "--- KEYBOARD CONTROLS ---
@@ -19,14 +20,14 @@ W / S : Pitch Forward/Back
 A / D : Roll Left/Right
 Q / E : Yaw Rotate
 C : Switch Camera View
+ARROWS : Still Camera Angle (Light Show)
 H : Toggle Hover Mode
 B : Exit Light Show (Back to Flight)
 V : Toggle Debug Mode
 R : Reset Level
 1-4 : Switch Environments
-5 : Toggle Autopilot (Track Flight)
-6 : Trigger Loop-de-Loop Trick
-7 : Trigger Barrel Roll Trick
+5 : Toggle Autopilot
+6 / 7 : Aerial Tricks
 TAB : Toggle Swarm (Boids Mode)"
 
 const CONTROLLER_TEXT = "--- XBOX CONTROLLER ---
@@ -57,16 +58,25 @@ var detected_shape_name: String = ""
 var required_drone_count: int = 0
 
 func _setup_stop_show_button() -> void:
-	var layout = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Formations")
+	var layout = get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout")
 	if layout:
 		if file_dialog == null:
 			_setup_custom_image_ui(layout)
+
+		if cinematic_camera_button == null:
+			cinematic_camera_button = Button.new()
+			cinematic_camera_button.name = "CinematicCameraButton"
+			cinematic_camera_button.text = "ENABLE CINEMATIC CAMERA"
+			cinematic_camera_button.custom_minimum_size = Vector2(0, 34)
+			cinematic_camera_button.pressed.connect(_on_cinematic_camera_pressed)
+			layout.add_child(cinematic_camera_button)
+			cinematic_camera_button.visible = false
 
 		if stop_show_button == null:
 			stop_show_button = Button.new()
 			stop_show_button.name = "StopShowButton"
 			stop_show_button.text = "STOP AIRSHOW FORMATION"
-			stop_show_button.custom_minimum_size = Vector2(0, 36)
+			stop_show_button.custom_minimum_size = Vector2(0, 34)
 			stop_show_button.pressed.connect(_on_stop_show_pressed)
 			layout.add_child(stop_show_button)
 			stop_show_button.visible = false
@@ -85,16 +95,16 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	parent_layout.add_child(sep)
 
 	var title = Label.new()
-	title.text = "CUSTOM IMAGE EDGE LIGHT SHOW"
+	title.text = "CUSTOM IMAGE LIGHT SHOW"
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
-	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_font_size_override("font_size", 12)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	parent_layout.add_child(title)
 
 	select_file_button = Button.new()
 	select_file_button.name = "SelectFileButton"
-	select_file_button.text = "CHOOSE IMAGE FROM COMPUTER (.PNG, .JPG)"
-	select_file_button.custom_minimum_size = Vector2(0, 34)
+	select_file_button.text = "CHOOSE IMAGE (.PNG, .JPG)"
+	select_file_button.custom_minimum_size = Vector2(0, 32)
 	select_file_button.pressed.connect(_on_select_file_pressed)
 	parent_layout.add_child(select_file_button)
 
@@ -121,9 +131,9 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 
 	status_label = Label.new()
 	status_label.name = "ImageStatusLabel"
-	status_label.text = "Status: Select an image file to detect shape & edges"
+	status_label.text = "Select an image file to detect shape & edges"
 	status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
-	status_label.add_theme_font_size_override("font_size", 11)
+	status_label.add_theme_font_size_override("font_size", 10)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	parent_layout.add_child(status_label)
@@ -131,10 +141,13 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	go_button = Button.new()
 	go_button.name = "GoFormShapeButton"
 	go_button.text = "FORM SHAPE & START SHOW"
-	go_button.custom_minimum_size = Vector2(0, 36)
+	go_button.custom_minimum_size = Vector2(0, 34)
 	go_button.disabled = true
 	go_button.pressed.connect(_on_go_form_shape_pressed)
 	parent_layout.add_child(go_button)
+
+	var sep2 = HSeparator.new()
+	parent_layout.add_child(sep2)
 
 func _on_select_file_pressed() -> void:
 	if file_dialog:
@@ -163,7 +176,7 @@ func _on_image_file_selected(path: String) -> void:
 
 		if status_label:
 			var mode_str = "Auto-detected" if target_count == 0 else "Manual override"
-			status_label.text = "READY! Shape: %s (%s: %d Drones)." % [detected_shape_name, mode_str, required_drone_count]
+			status_label.text = "READY! %s (%s: %d Drones)." % [detected_shape_name, mode_str, required_drone_count]
 			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
 		if go_button:
 			go_button.disabled = false
@@ -208,6 +221,12 @@ func _on_formation_pressed(shape_name: String) -> void:
 		manager.select_show_shape(shape_name)
 		resume()
 
+func _on_cinematic_camera_pressed() -> void:
+	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
+	if manager and manager.has_method("set_cinematic_camera_enabled"):
+		manager.set_cinematic_camera_enabled(true)
+	resume()
+
 func _on_stop_show_pressed() -> void:
 	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
 	if manager and manager.has_method("stop_show_mode"):
@@ -225,11 +244,17 @@ func pause():
 	update_controls_display()
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	
+
 	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
-	if stop_show_button:
-		var has_show = manager and manager.get("show_mode") != 0
-		stop_show_button.visible = has_show
+	if manager:
+		var has_show = manager.get("show_mode") != 0
+		if stop_show_button:
+			stop_show_button.visible = has_show
+		if cinematic_camera_button:
+			cinematic_camera_button.visible = has_show
+			var is_cin = manager.get("is_cinematic_mode") == true
+			cinematic_camera_button.text = "CINEMATIC CAMERA [ACTIVE]" if is_cin else "ENABLE CINEMATIC CAMERA"
+			cinematic_camera_button.disabled = is_cin
 
 	if resume_button:
 		resume_button.grab_focus()
