@@ -182,6 +182,8 @@ func _input(event):
 				menu_instance.pause()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo:
+		if (menu_instance and menu_instance.visible) or get_tree().paused or (get_viewport() and get_viewport().gui_get_focus_owner() != null):
+			return
 		if event.keycode == KEY_F11 or (event.keycode == KEY_ENTER and event.alt_pressed):
 			_toggle_fullscreen()
 			get_viewport().set_input_as_handled()

@@ -222,6 +222,9 @@ func _process(delta):
 			drone.hover_enabled = !drone.hover_enabled
 		print("DroneControllerManager: Hover mode ", "enabled" if drone.hover_enabled else "disabled")
 
+	if get_tree().paused or (get_viewport() and get_viewport().gui_get_focus_owner() != null):
+		return
+
 	if Input.is_key_pressed(KEY_5) and state_toggle_cooldown <= 0:
 		state_toggle_cooldown = 0.3
 		toggle_autopilot()
@@ -446,7 +449,7 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 
 	if custom_points.size() == 0:
 		var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
-		custom_points = ImageEdgeDetectorClass.process_image_to_formation(image_path, 0, 28.0)
+		custom_points = ImageEdgeDetectorClass.process_image_to_formation(image_path, 0, 20.0)
 
 	if custom_points.size() == 0:
 		print("DroneControllerManager: Custom image edge detection returned 0 points for: ", image_path)

@@ -117,6 +117,9 @@ func _process(delta):
 		drone.apply_hover_mode()
 		print("SingleDroneController: Hover mode ", "enabled" if drone.hover_enabled else "disabled")
 
+	if get_tree().paused or (get_viewport() and get_viewport().gui_get_focus_owner() != null):
+		return
+
 	# Autopilot toggle
 	if Input.is_key_pressed(KEY_5) and state_toggle_cooldown <= 0:
 		state_toggle_cooldown = 0.3

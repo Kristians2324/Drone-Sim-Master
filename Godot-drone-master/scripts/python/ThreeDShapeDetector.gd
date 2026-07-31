@@ -237,7 +237,7 @@ static func _normalize_and_sample_3d_points(raw_points: Array[Vector3], target_c
 
 	var scale_factor = scale_size / max_dim
 
-	# 3. Center and scale all 360-degree surface points
+	# 3. Center and scale all points
 	var scaled_candidates: Array[Vector3] = []
 	for p in non_zero_pts:
 		var centered = (p - center) * scale_factor
@@ -247,74 +247,51 @@ static func _normalize_and_sample_3d_points(raw_points: Array[Vector3], target_c
 		for p in raw_points:
 			scaled_candidates.append((p - center) * scale_factor)
 
-	# Target count: Default to 150 for Auto mode (target_count == 0), or user override!
-	var desired_count = target_count if target_count > 0 else 150
-	desired_count = min(desired_count, scaled_candidates.size())
+	# 4. FILTER ONLY OUTER SURFACE SHELL (DISCARD INTERIOR/INNER BITS!)
+	var outer_shell_pts = _filter_outer_surface_shell_only(scaled_candidates)
 
-	# Shuffle candidates spatially to eliminate OBJ sequential group/line bias
-	var shuffled: Array[Vector3] = scaled_candidates.duplicate()
-	var n_cand = shuffled.size()
-	for i in range(n_cand - 1, 0, -1):
-		var j = randi() % (i + 1)
-		var tmp = shuffled[i]
-		shuffled[i] = shuffled[j]
-		shuffled[j] = tmp
+	# SMART AUTO-DETECT DRONE COUNT (Calculated from 3D surface area & curvature complexity!)
+	var desired_count = target_count
+	if desired_count <= 0:
+		desired_count = _calculate_smart_optimal_3d_drone_count(outer_shell_pts, scale_size)
 
-	# STAGE 1: FORM THE OVERALL SHAPE FIRST (First 65% of drones with wide spatial spacing)
-	var stage1_target = max(10, int(round(desired_count * 0.65)))
-	var stage1_min_dist = maxf(0.6, 2.0 * sqrt(25.0 / float(desired_count)))
-	var stage1_min_dist_sq = stage1_min_dist * stage1_min_dist
+	desired_count = min(desired_count, outer_shell_pts.size())
 
-	for cand in shuffled:
-		if res.size() >= stage1_target:
+	# FAST MINIMUM SEPARATION SAMPLING (1.35m minimum separation to eliminate drone clumping!)
+	var min_dist = maxf(1.35, 1.8 * sqrt(20.0 / float(desired_count)))
+	var min_dist_sq = min_dist * min_dist
+
+	var total_outer = outer_shell_pts.size()
+	var indices: Array[int] = []
+	for i in range(total_outer):
+		indices.append(i)
+	indices.shuffle()
+
+	for idx in indices:
+		if res.size() >= desired_count:
 			break
+		var pt = outer_shell_pts[idx]
 		var too_close = false
 		for existing in res:
-			if cand.distance_squared_to(existing) < stage1_min_dist_sq:
+			if pt.distance_squared_to(existing) < min_dist_sq:
 				too_close = true
 				break
 		if not too_close:
-			res.append(cand)
+			res.append(pt)
 
-	# STAGE 2: FILL LARGEST GAPS WITH REMAINING DRONES (Farthest Point Sampling)
-	var remaining_needed = desired_count - res.size()
-	if remaining_needed > 0 and shuffled.size() > res.size():
-		var sample_limit = min(shuffled.size(), desired_count * 8)
-		for _step in range(remaining_needed):
-			var best_cand = Vector3.ZERO
-			var best_max_dist_sq = -1.0
-			var found = false
-
-			for idx in range(sample_limit):
-				var cand = shuffled[idx]
-				var min_d_sq = 999999.0
-				for existing in res:
-					var d_sq = cand.distance_squared_to(existing)
-					if d_sq < min_d_sq:
-						min_d_sq = d_sq
-
-				if min_d_sq > best_max_dist_sq and min_d_sq > 0.04:
-					best_max_dist_sq = min_d_sq
-					best_cand = cand
-					found = true
-
-			if found:
-				res.append(best_cand)
-			else:
-				break
-
-	# Fallback pass to reach exact desired count
 	if res.size() < desired_count:
-		for cand in shuffled:
+		var fb_dist_sq = 1.0 # Strict 1.0 meter floor distance
+		for idx in indices:
 			if res.size() >= desired_count:
 				break
+			var pt = outer_shell_pts[idx]
 			var too_close = false
 			for existing in res:
-				if cand.distance_squared_to(existing) < 0.04:
+				if pt.distance_squared_to(existing) < fb_dist_sq:
 					too_close = true
 					break
 			if not too_close:
-				res.append(cand)
+				res.append(pt)
 
 	return res
 
@@ -377,3 +354,67 @@ static func _load_generated_json_data() -> Dictionary:
 		res["drone_count"] = points_vec3.size()
 		res["points"] = points_vec3
 	return res
+
+static func _filter_outer_surface_shell_only(candidates: Array[Vector3]) -> Array[Vector3]:
+	var outer_pts: Array[Vector3] = []
+	if candidates.size() < 20:
+		return candidates
+
+	var dir_max_r: Dictionary = {}
+	var dir_items: Dictionary = {}
+
+	for p in candidates:
+		var r = p.length()
+		if r < 0.001:
+			continue
+		var u = p / r
+		var key = Vector3i(int(round(u.x * 6.0)), int(round(u.y * 6.0)), int(round(u.z * 6.0)))
+		
+		if not dir_max_r.has(key) or r > float(dir_max_r[key]):
+			dir_max_r[key] = r
+
+		if not dir_items.has(key):
+			dir_items[key] = []
+		dir_items[key].append(p)
+
+	for key in dir_items.keys():
+		var max_r: float = float(dir_max_r[key])
+		var shell_min_r = max_r * 0.85
+		var pts_list: Array = dir_items[key]
+		for p in pts_list:
+			if (p as Vector3).length() >= shell_min_r:
+				outer_pts.append(p)
+
+	if outer_pts.size() < 15:
+		return candidates
+
+	return outer_pts
+
+static func _calculate_smart_optimal_3d_drone_count(pts: Array[Vector3], scale_size: float = 28.0) -> int:
+	if pts.size() < 10:
+		return 80
+
+	var min_p = pts[0]
+	var max_p = pts[0]
+	for p in pts:
+		min_p.x = min(min_p.x, p.x)
+		min_p.y = min(min_p.y, p.y)
+		min_p.z = min(min_p.z, p.z)
+		max_p.x = max(max_p.x, p.x)
+		max_p.y = max(max_p.y, p.y)
+		max_p.z = max(max_p.z, p.z)
+
+	var dims = max_p - min_p
+	var max_dim = max(dims.x, max(dims.y, dims.z))
+	if max_dim <= 0.001:
+		max_dim = 1.0
+
+	var sx = (dims.x / max_dim) * scale_size
+	var sy = (dims.y / max_dim) * scale_size
+	var sz = (dims.z / max_dim) * scale_size
+
+	var estimated_surface_area = 2.0 * (sx * sy + sy * sz + sz * sx)
+	var target_area_per_drone = 1.25
+	var raw_optimal = estimated_surface_area / target_area_per_drone
+
+	return int(round(clampf(raw_optimal, 60.0, 380.0)))

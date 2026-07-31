@@ -143,6 +143,33 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	parent_layout.add_child(status_label)
 
+	var transform_hbox = HBoxContainer.new()
+	transform_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	transform_hbox.add_theme_constant_override("separation", 4)
+
+	var flip_y_btn = Button.new()
+	flip_y_btn.text = "↕️ FLIP VERTICAL"
+	flip_y_btn.add_theme_font_size_override("font_size", 9)
+	flip_y_btn.custom_minimum_size = Vector2(100, 26)
+	flip_y_btn.pressed.connect(_on_flip_y_pressed)
+	transform_hbox.add_child(flip_y_btn)
+
+	var flip_x_btn = Button.new()
+	flip_x_btn.text = "↔️ FLIP HORIZ"
+	flip_x_btn.add_theme_font_size_override("font_size", 9)
+	flip_x_btn.custom_minimum_size = Vector2(90, 26)
+	flip_x_btn.pressed.connect(_on_flip_x_pressed)
+	transform_hbox.add_child(flip_x_btn)
+
+	var rotate_btn = Button.new()
+	rotate_btn.text = "🔄 ROTATE 90°"
+	rotate_btn.add_theme_font_size_override("font_size", 9)
+	rotate_btn.custom_minimum_size = Vector2(90, 26)
+	rotate_btn.pressed.connect(_on_rotate_90_pressed)
+	transform_hbox.add_child(rotate_btn)
+
+	parent_layout.add_child(transform_hbox)
+
 	go_button = Button.new()
 	go_button.name = "GoFormShapeButton"
 	go_button.text = "FORM SHAPE & START SHOW"
@@ -203,6 +230,34 @@ func _on_image_file_selected(path: String) -> void:
 			status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
 		if go_button:
 			go_button.disabled = true
+
+func _on_flip_y_pressed() -> void:
+	if processed_formation_points.size() == 0:
+		return
+	for i in range(processed_formation_points.size()):
+		processed_formation_points[i].y = -processed_formation_points[i].y
+	if status_label:
+		status_label.text = "↕️ Flipped Y (Up/Down) successfully! Drones: %d" % processed_formation_points.size()
+		status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+
+func _on_flip_x_pressed() -> void:
+	if processed_formation_points.size() == 0:
+		return
+	for i in range(processed_formation_points.size()):
+		processed_formation_points[i].x = -processed_formation_points[i].x
+	if status_label:
+		status_label.text = "↔️ Flipped X (Left/Right) successfully! Drones: %d" % processed_formation_points.size()
+		status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+
+func _on_rotate_90_pressed() -> void:
+	if processed_formation_points.size() == 0:
+		return
+	for i in range(processed_formation_points.size()):
+		var p = processed_formation_points[i]
+		processed_formation_points[i] = Vector3(-p.y, p.x, p.z)
+	if status_label:
+		status_label.text = "🔄 Rotated 90° successfully! Drones: %d" % processed_formation_points.size()
+		status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
 
 func _on_go_form_shape_pressed() -> void:
 	if processed_formation_points.size() == 0:
