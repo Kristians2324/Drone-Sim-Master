@@ -489,6 +489,8 @@ func start_show_mode(mode_id: int):
 	is_cinematic_mode = true
 	cinematic_angle = 0.0
 	var count = 39
+	if swarm_controller and is_instance_valid(swarm_controller) and swarm_controller.drones.size() > 0:
+		count = swarm_controller.drones.size()
 	var center = drone.global_position + Vector3(0, 15, 0) if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 20, 0)
 	var targets = show_mode_controller.generate_formation(mode_id, count, center)
 

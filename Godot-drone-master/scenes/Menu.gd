@@ -13,6 +13,26 @@ extends CanvasLayer
 var last_input_was_controller: bool = false
 var cinematic_camera_button: Button = null
 var stop_show_button: Button = null
+var record_show_button: Button = null
+var screenshot_button: Button = null
+
+const VideoRecorderManager = preload("res://scripts/ui/VideoRecorderManager.gd")
+const ScreenshotManager = preload("res://scripts/ui/ScreenshotManager.gd")
+
+# Decoupled Modules
+var video_recorder = null
+
+var rec_hud_layer: CanvasLayer = null
+var rec_hud_container: Control = null
+var rec_dot_label: Label = null
+var rec_timer_label: Label = null
+
+# Responsive Tab Navigation State
+var current_tab_index: int = 1 # 0: Flight Controls, 1: Light Shows & Custom Shapes, 2: Graphics & Options
+var tab_btn_controls: Button = null
+var tab_btn_show: Button = null
+var tab_btn_options: Button = null
+var tab_bar_container: HBoxContainer = null
 
 const KEYBOARD_TEXT = "--- KEYBOARD CONTROLS ---
 SPACE / SHIFT : Thrust Up/Down
@@ -23,6 +43,7 @@ C : Switch Camera View
 ARROWS : Still Camera Angle (Light Show)
 H : Toggle Hover Mode
 B : Exit Light Show (Back to Flight)
+F12 / P : Take Screenshot to Downloads
 V : Toggle Debug Mode
 R : Reset Level
 1-4 : Switch Environments
@@ -42,9 +63,120 @@ BACK : Restart Level"
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	hide()
+	video_recorder = VideoRecorderManager.new()
+	add_child(video_recorder)
+
 	update_controls_display()
 	connect_formation_buttons()
 	_setup_stop_show_button()
+	_setup_recording_hud()
+	_setup_tabbed_interface()
+
+	if resume_button and not resume_button.pressed.is_connected(resume):
+		resume_button.pressed.connect(resume)
+	var quit_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Quit")
+	if quit_btn and not quit_btn.pressed.is_connected(_on_quit_pressed):
+		quit_btn.pressed.connect(_on_quit_pressed)
+
+func _setup_tabbed_interface() -> void:
+	var main_layout = get_node_or_null("Center/MainLayout")
+	var center_node = get_node_or_null("Center")
+	if not main_layout or not center_node:
+		return
+
+	if tab_bar_container == null:
+		var parent_vbox = VBoxContainer.new()
+		parent_vbox.name = "TabbedVBox"
+		parent_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		parent_vbox.add_theme_constant_override("separation", 10)
+
+		tab_bar_container = HBoxContainer.new()
+		tab_bar_container.name = "TopTabBar"
+		tab_bar_container.alignment = BoxContainer.ALIGNMENT_CENTER
+		tab_bar_container.add_theme_constant_override("separation", 8)
+
+		tab_btn_controls = Button.new()
+		tab_btn_controls.text = "FLIGHT CONTROLS"
+		tab_btn_controls.custom_minimum_size = Vector2(160, 36)
+		tab_btn_controls.add_theme_font_size_override("font_size", 11)
+		tab_btn_controls.pressed.connect(select_tab.bind(0))
+		tab_bar_container.add_child(tab_btn_controls)
+
+		tab_btn_show = Button.new()
+		tab_btn_show.text = "LIGHT SHOW & FORMATIONS"
+		tab_btn_show.custom_minimum_size = Vector2(210, 36)
+		tab_btn_show.add_theme_font_size_override("font_size", 11)
+		tab_btn_show.pressed.connect(select_tab.bind(1))
+		tab_bar_container.add_child(tab_btn_show)
+
+		tab_btn_options = Button.new()
+		tab_btn_options.text = "GRAPHICS & OPTIONS"
+		tab_btn_options.custom_minimum_size = Vector2(170, 36)
+		tab_btn_options.add_theme_font_size_override("font_size", 11)
+		tab_btn_options.pressed.connect(select_tab.bind(2))
+		tab_bar_container.add_child(tab_btn_options)
+
+		parent_vbox.add_child(tab_bar_container)
+
+		if main_layout.get_parent() != parent_vbox:
+			main_layout.get_parent().remove_child(main_layout)
+			parent_vbox.add_child(main_layout)
+
+		center_node.add_child(parent_vbox)
+
+	select_tab(1)
+
+func select_tab(tab_idx: int) -> void:
+	current_tab_index = tab_idx
+
+	var functions_panel = get_node_or_null("Center/TabbedVBox/MainLayout/FunctionsPanel")
+	var main_panel = get_node_or_null("Center/TabbedVBox/MainLayout/Panel")
+	var graph_panel = get_node_or_null("Center/TabbedVBox/MainLayout/GraphMenuPanel")
+
+	if not functions_panel or not main_panel or not graph_panel:
+		functions_panel = get_node_or_null("Center/MainLayout/FunctionsPanel")
+		main_panel = get_node_or_null("Center/MainLayout/Panel")
+		graph_panel = get_node_or_null("Center/MainLayout/GraphMenuPanel")
+
+	if functions_panel and main_panel and graph_panel:
+		main_panel.visible = (tab_idx == 0)
+		functions_panel.visible = (tab_idx == 1)
+		graph_panel.visible = (tab_idx == 2)
+
+		var active_panel = [main_panel, functions_panel, graph_panel][tab_idx]
+		if active_panel:
+			active_panel.custom_minimum_size = Vector2(560, 520)
+
+	_update_tab_button_styles()
+
+func _update_tab_button_styles() -> void:
+	var btns = [tab_btn_controls, tab_btn_show, tab_btn_options]
+	for i in range(btns.size()):
+		var btn = btns[i]
+		if btn and is_instance_valid(btn):
+			if i == current_tab_index:
+				btn.add_theme_color_override("font_color", Color(0.2, 0.95, 1.0, 1.0))
+			else:
+				btn.remove_theme_color_override("font_color")
+
+func _process(delta: float) -> void:
+	if video_recorder and video_recorder.is_recording:
+		video_recorder.process_recording(delta, get_viewport())
+
+		# Smooth position anchor in Bottom-Right corner
+		if rec_hud_container and get_viewport():
+			var vp_size = get_viewport().get_visible_rect().size
+			rec_hud_container.position = Vector2(vp_size.x - 145, vp_size.y - 50)
+
+		var mins = int(video_recorder.recording_time) / 60
+		var secs = int(video_recorder.recording_time) % 60
+		if rec_timer_label:
+			rec_timer_label.text = "%02d:%02d" % [mins, secs]
+
+		# Smooth heartbeat pulse opacity easing (ZERO layout shifting or text jitter!)
+		if rec_dot_label:
+			var alpha = 0.35 + 0.65 * (sin(video_recorder.rec_blink_timer * 3.5) * 0.5 + 0.5)
+			rec_dot_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2, alpha))
 
 var file_dialog: FileDialog = null
 var select_file_button: Button = null
@@ -60,6 +192,30 @@ var required_drone_count: int = 0
 func _setup_stop_show_button() -> void:
 	var layout = get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout")
 	if layout:
+		if record_show_button == null:
+			var rec_hbox = HBoxContainer.new()
+			rec_hbox.add_theme_constant_override("separation", 4)
+
+			record_show_button = Button.new()
+			record_show_button.name = "RecordShowButton"
+			record_show_button.text = "RECORD SHOW"
+			record_show_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			record_show_button.custom_minimum_size = Vector2(0, 34)
+			record_show_button.add_theme_font_size_override("font_size", 10)
+			record_show_button.pressed.connect(_on_record_show_pressed)
+			rec_hbox.add_child(record_show_button)
+
+			screenshot_button = Button.new()
+			screenshot_button.name = "ScreenshotButton"
+			screenshot_button.text = "TAKE SCREENSHOT"
+			screenshot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			screenshot_button.custom_minimum_size = Vector2(0, 34)
+			screenshot_button.add_theme_font_size_override("font_size", 10)
+			screenshot_button.pressed.connect(take_screenshot)
+			rec_hbox.add_child(screenshot_button)
+
+			layout.add_child(rec_hbox)
+
 		if file_dialog == null:
 			_setup_custom_image_ui(layout)
 
@@ -80,6 +236,60 @@ func _setup_stop_show_button() -> void:
 			stop_show_button.pressed.connect(_on_stop_show_pressed)
 			layout.add_child(stop_show_button)
 			stop_show_button.visible = false
+
+func _setup_recording_hud() -> void:
+	if rec_hud_container != null:
+		return
+
+	rec_hud_layer = CanvasLayer.new()
+	rec_hud_layer.name = "RecordingHUDLayer"
+	rec_hud_layer.layer = 120
+	rec_hud_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(rec_hud_layer)
+
+	rec_hud_container = PanelContainer.new()
+	rec_hud_container.name = "RecordingHUD"
+	rec_hud_container.position = Vector2(600, 600)
+	rec_hud_container.visible = false
+
+	var stylebox = StyleBoxFlat.new()
+	stylebox.bg_color = Color(0.04, 0.04, 0.08, 0.92)
+	stylebox.border_color = Color(0.95, 0.15, 0.15, 0.95)
+	stylebox.border_width_left = 2
+	stylebox.border_width_top = 2
+	stylebox.border_width_right = 2
+	stylebox.border_width_bottom = 2
+	stylebox.corner_radius_top_left = 6
+	stylebox.corner_radius_top_right = 6
+	stylebox.corner_radius_bottom_right = 6
+	stylebox.corner_radius_bottom_left = 6
+	stylebox.content_margin_left = 10
+	stylebox.content_margin_top = 5
+	stylebox.content_margin_right = 12
+	stylebox.content_margin_bottom = 5
+	rec_hud_container.add_theme_stylebox_override("panel", stylebox)
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 6)
+
+	rec_dot_label = Label.new()
+	rec_dot_label.text = "REC"
+	rec_dot_label.custom_minimum_size = Vector2(40, 22)
+	rec_dot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rec_dot_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25, 1.0))
+	rec_dot_label.add_theme_font_size_override("font_size", 12)
+	hbox.add_child(rec_dot_label)
+
+	rec_timer_label = Label.new()
+	rec_timer_label.text = "00:00"
+	rec_timer_label.custom_minimum_size = Vector2(50, 22)
+	rec_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rec_timer_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	rec_timer_label.add_theme_font_size_override("font_size", 12)
+	hbox.add_child(rec_timer_label)
+
+	rec_hud_container.add_child(hbox)
+	rec_hud_layer.add_child(rec_hud_container)
 
 func _setup_custom_image_ui(parent_layout: Control) -> void:
 	file_dialog = FileDialog.new()
@@ -128,47 +338,19 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	drone_count_spinbox.max_value = 500
 	drone_count_spinbox.step = 1
 	drone_count_spinbox.value = 0
-	drone_count_spinbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	drone_count_spinbox.custom_minimum_size = Vector2(85, 28)
 	drone_count_spinbox.value_changed.connect(_on_drone_count_changed)
 	count_hbox.add_child(drone_count_spinbox)
-
 	parent_layout.add_child(count_hbox)
 
 	status_label = Label.new()
-	status_label.name = "ImageStatusLabel"
-	status_label.text = "Select any PNG/JPG image or 3D model (.obj, .gltf, .stl)"
+	status_label.name = "CustomShapeStatusLabel"
+	status_label.text = "Select a 3D model or 2D image file to scan formation."
 	status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
 	status_label.add_theme_font_size_override("font_size", 10)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	parent_layout.add_child(status_label)
-
-	var transform_hbox = HBoxContainer.new()
-	transform_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	transform_hbox.add_theme_constant_override("separation", 4)
-
-	var flip_y_btn = Button.new()
-	flip_y_btn.text = "↕️ FLIP VERTICAL"
-	flip_y_btn.add_theme_font_size_override("font_size", 9)
-	flip_y_btn.custom_minimum_size = Vector2(100, 26)
-	flip_y_btn.pressed.connect(_on_flip_y_pressed)
-	transform_hbox.add_child(flip_y_btn)
-
-	var flip_x_btn = Button.new()
-	flip_x_btn.text = "↔️ FLIP HORIZ"
-	flip_x_btn.add_theme_font_size_override("font_size", 9)
-	flip_x_btn.custom_minimum_size = Vector2(90, 26)
-	flip_x_btn.pressed.connect(_on_flip_x_pressed)
-	transform_hbox.add_child(flip_x_btn)
-
-	var rotate_btn = Button.new()
-	rotate_btn.text = "🔄 ROTATE 90°"
-	rotate_btn.add_theme_font_size_override("font_size", 9)
-	rotate_btn.custom_minimum_size = Vector2(90, 26)
-	rotate_btn.pressed.connect(_on_rotate_90_pressed)
-	transform_hbox.add_child(rotate_btn)
-
-	parent_layout.add_child(transform_hbox)
 
 	go_button = Button.new()
 	go_button.name = "GoFormShapeButton"
@@ -207,10 +389,10 @@ func _on_image_file_selected(path: String) -> void:
 	var data: Dictionary = {}
 
 	if is_3d:
-		data = ThreeDShapeDetectorClass.process_3d_file_to_formation_data(path, target_count, 28.0)
+		data = ThreeDShapeDetectorClass.process_3d_file_to_formation_data(path, target_count, 20.0)
 	else:
 		var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
-		data = ImageEdgeDetectorClass.process_image_to_formation_data(path, target_count, 28.0)
+		data = ImageEdgeDetectorClass.process_image_to_formation_data(path, target_count, 20.0)
 
 	if data.get("success", false) and data.get("points", []).size() > 0:
 		processed_formation_points = data["points"]
@@ -231,33 +413,39 @@ func _on_image_file_selected(path: String) -> void:
 		if go_button:
 			go_button.disabled = true
 
-func _on_flip_y_pressed() -> void:
-	if processed_formation_points.size() == 0:
-		return
-	for i in range(processed_formation_points.size()):
-		processed_formation_points[i].y = -processed_formation_points[i].y
-	if status_label:
-		status_label.text = "↕️ Flipped Y (Up/Down) successfully! Drones: %d" % processed_formation_points.size()
-		status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+func _on_record_show_pressed() -> void:
+	if video_recorder and video_recorder.is_recording:
+		stop_recording()
+	else:
+		start_recording()
 
-func _on_flip_x_pressed() -> void:
-	if processed_formation_points.size() == 0:
-		return
-	for i in range(processed_formation_points.size()):
-		processed_formation_points[i].x = -processed_formation_points[i].x
-	if status_label:
-		status_label.text = "↔️ Flipped X (Left/Right) successfully! Drones: %d" % processed_formation_points.size()
-		status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+func start_recording() -> void:
+	if video_recorder:
+		video_recorder.start_recording()
 
-func _on_rotate_90_pressed() -> void:
-	if processed_formation_points.size() == 0:
+	if rec_hud_container:
+		rec_hud_container.visible = true
+	if record_show_button:
+		record_show_button.text = "STOP RECORDING"
+		record_show_button.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
+	resume()
+
+func stop_recording() -> void:
+	if not video_recorder or not video_recorder.is_recording:
 		return
-	for i in range(processed_formation_points.size()):
-		var p = processed_formation_points[i]
-		processed_formation_points[i] = Vector3(-p.y, p.x, p.z)
-	if status_label:
-		status_label.text = "🔄 Rotated 90° successfully! Drones: %d" % processed_formation_points.size()
-		status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+
+	if rec_hud_container:
+		rec_hud_container.visible = false
+	if record_show_button:
+		record_show_button.text = "RECORD SHOW"
+		record_show_button.remove_theme_color_override("font_color")
+
+	video_recorder.stop_recording(status_label)
+
+func take_screenshot() -> void:
+	ScreenshotManager.take_pristine_screenshot(get_tree(), status_label)
+	if visible:
+		resume()
 
 func _on_go_form_shape_pressed() -> void:
 	if processed_formation_points.size() == 0:
@@ -300,6 +488,7 @@ func _on_cinematic_camera_pressed() -> void:
 	resume()
 
 func _on_stop_show_pressed() -> void:
+	stop_recording()
 	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
 	if manager and manager.has_method("stop_show_mode"):
 		manager.stop_show_mode()
@@ -316,6 +505,8 @@ func pause():
 	update_controls_display()
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+	select_tab(current_tab_index)
 
 	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
 	if manager:
@@ -334,26 +525,8 @@ func pause():
 func resume():
 	hide()
 	get_tree().paused = false
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-func _on_resume_pressed():
-	resume()
-
-func _on_tutorial_pressed():
-	resume()
-	var world = get_tree().current_scene
-	if world and world.has_method("start_tutorial"):
-		world.start_tutorial()
-
-func _on_main_menu_pressed():
-	resume()
-	var world = get_tree().current_scene
-	if world and world.has_method("open_start_menu"):
-		world.open_start_menu()
-
-func _on_restart_pressed():
-	resume()
-	get_tree().reload_current_scene()
-
-func _on_quit_pressed():
+func _on_quit_pressed() -> void:
+	stop_recording()
 	get_tree().quit()

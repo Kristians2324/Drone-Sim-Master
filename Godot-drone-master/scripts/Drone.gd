@@ -96,11 +96,23 @@ func set_low_cost_mode(enabled: bool) -> void:
 
 func set_low_detail_visuals(enabled: bool) -> void:
 	low_detail_visuals = enabled
+	contact_monitor = false
+	max_contacts_reported = 0
+	set_process(false)
+	set_physics_process(false)
+
 	if is_instance_valid(design):
-		design.visible = true
+		design.visible = not enabled
 	if is_instance_valid(show_rig):
 		show_rig.visible = true
-		show_rig.set_show_lighting_enabled(false)
+
+	_disable_shadow_casting_recursive(self)
+
+static func _disable_shadow_casting_recursive(node: Node) -> void:
+	if node is GeometryInstance3D:
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child in node.get_children():
+		_disable_shadow_casting_recursive(child)
 
 func set_show_lighting_enabled(enabled: bool) -> void:
 	if is_instance_valid(show_rig):

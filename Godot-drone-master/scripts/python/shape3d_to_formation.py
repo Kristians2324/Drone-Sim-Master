@@ -155,6 +155,17 @@ def process_3d_shape(file_path, target_count=0, output_json_path=None, scale_siz
 
     center = (p_min + p_max) * 0.5
     dims = p_max - p_min
+
+    # AUTOMATIC UPRIGHT ORIENTATION ENFORCEMENT
+    # If 3D CAD model height was saved along Z-axis (Z-Up CAD standard), swap Y and Z
+    # so the backrest of chairs and roofs of vehicles stand 100% upright by default!
+    if dims[2] > dims[1] * 1.15:
+        pts_arr[:, [1, 2]] = pts_arr[:, [2, 1]]
+        p_min = np.min(pts_arr, axis=0)
+        p_max = np.max(pts_arr, axis=0)
+        center = (p_min + p_max) * 0.5
+        dims = p_max - p_min
+
     max_dim = float(np.max(dims))
     if max_dim <= 0.0001:
         max_dim = 1.0

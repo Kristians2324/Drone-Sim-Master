@@ -231,6 +231,26 @@ static func _normalize_and_sample_3d_points(raw_points: Array[Vector3], target_c
 
 	var center = (min_p + max_p) * 0.5
 	var bbox_size = max_p - min_p
+
+	# AUTOMATIC UPRIGHT ORIENTATION ENFORCEMENT
+	# If 3D CAD model height was saved along Z-axis (Z-Up CAD standard), swap Y and Z
+	# so chair backrests and vehicle roofs stand 100% upright by default!
+	if bbox_size.z > bbox_size.y * 1.15:
+		for i in range(non_zero_pts.size()):
+			var old = non_zero_pts[i]
+			non_zero_pts[i] = Vector3(old.x, old.z, old.y)
+		min_p = non_zero_pts[0]
+		max_p = non_zero_pts[0]
+		for p in non_zero_pts:
+			min_p.x = min(min_p.x, p.x)
+			min_p.y = min(min_p.y, p.y)
+			min_p.z = min(min_p.z, p.z)
+			max_p.x = max(max_p.x, p.x)
+			max_p.y = max(max_p.y, p.y)
+			max_p.z = max(max_p.z, p.z)
+		center = (min_p + max_p) * 0.5
+		bbox_size = max_p - min_p
+
 	var max_dim = max(bbox_size.x, max(bbox_size.y, bbox_size.z))
 	if max_dim <= 0.0001:
 		max_dim = 1.0

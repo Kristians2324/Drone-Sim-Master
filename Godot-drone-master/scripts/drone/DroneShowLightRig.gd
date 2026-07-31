@@ -182,12 +182,13 @@ func set_show_lighting_enabled(enabled: bool) -> void:
 
 func _apply_light_output_state() -> void:
 	var active = _show_lighting_enabled and visuals_enabled
+	var use_dynamic_lights = active and not _low_cost_cached
 	if halo_light:
-		halo_light.visible = active
-		halo_light.light_energy = 4.0 if active else 0.0
+		halo_light.visible = use_dynamic_lights
+		halo_light.light_energy = 4.0 if use_dynamic_lights else 0.0
 	if down_light:
-		down_light.visible = active
-		down_light.light_energy = 4.5 if active else 0.0
+		down_light.visible = use_dynamic_lights
+		down_light.light_energy = 4.5 if use_dynamic_lights else 0.0
 	if halo_mesh:
 		halo_mesh.visible = active
 	if halo_material:

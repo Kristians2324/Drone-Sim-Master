@@ -1,111 +1,106 @@
-extends Node3D
+extends Node
 
-@export var drone_scene: PackedScene = preload("res://scenes/Drone.tscn")
-@export var swarm_count: int = 15
-@export var neighborhood_radius: float = 16.0
-@export var separation_radius: float = 7.5
+## Swarm Controller & Drone Formation Manager
+## Handles boid flocking, ground takeoff staging, and smooth 3D shape-to-shape transitions with Spatial Nearest Assignment.
 
-@export var max_speed: float = 24.0
-@export var min_speed: float = 6.0
-@export var max_force: float = 22.0
+const SpatialHash3D = preload("res://scripts/swarm/SpatialHash3D.gd")
 
-@export var weight_separation: float = 7.0
-@export var weight_cohesion: float = 1.8
-@export var weight_alignment: float = 1.5
-@export var weight_target: float = 3.2
-
-@export var update_divisor: int = 1
-var update_phase: int = 0
-
+var drones: Array[Node] = []
 var leader_drone: Node = null
-var drones: Array[RigidBody3D] = []
-var drone_last_input_vectors: Array[Vector4] = []
-var drone_terrain_heights: Array[float] = []
+var target_position: Vector3 = Vector3.ZERO
+
+# Boid flocking parameters
+var neighborhood_radius: float = 12.0
+var separation_radius: float = 3.5
+var max_speed: float = 18.0
+var min_speed: float = 4.0
+var max_force: float = 12.0
+
+var boid_count: int = 15
+var update_divisor: int = 2
+var update_phase: int = 0
+var spatial_hash: SpatialHash3D
+var active: bool = false
 var boid_scatter_offsets: Array[Vector3] = []
 
-var active: bool = false
-var spatial_hash: SpatialHash3D = SpatialHash3D.new(8.0)
-var spatial_cell_size: float = 8.0
-
+# Formation parameters
 var formation_active: bool = false
-var formation_targets: Array[Vector3] = []
 var formation_settling: bool = false
 var formation_transition_time: float = 0.0
-var formation_transition_duration: float = 4.0
-var formation_arrival_radius: float = 1.5
-var formation_hold_altitude: float = 30.0
-var formation_hold_tolerance: float = 0.5
-var ground_clearance: float = 2.5
-var target_position: Vector3 = Vector3.ZERO
+var formation_transition_duration: float = 3.2
+var formation_targets: Array[Vector3] = []
+var formation_hold_altitude: float = 25.0
+
+# Smooth Flying Transition State
+var is_transitioning: bool = false
+var transition_elapsed: float = 0.0
+var start_positions: Array[Vector3] = []
+var target_positions: Array[Vector3] = []
+
+var drone_scene: PackedScene = preload("res://scenes/Drone.tscn")
+var drone_last_input_vectors: Array[Vector4] = []
+var drone_terrain_heights: Array[float] = []
 var terrain_exclusions: Array[Dictionary] = []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
-	spatial_cell_size = neighborhood_radius
+	spatial_hash = SpatialHash3D.new(8.0)
 
+func cleanup() -> void:
+	clear_swarm()
 
-func clear_swarm():
+func clear_swarm() -> void:
 	active = false
 	formation_active = false
+	is_transitioning = false
 	for d in drones:
 		if d and is_instance_valid(d):
 			d.queue_free()
 	drones.clear()
+	formation_targets.clear()
+	start_positions.clear()
+	target_positions.clear()
+	boid_scatter_offsets.clear()
 	drone_last_input_vectors.clear()
 	drone_terrain_heights.clear()
-	formation_targets.clear()
 
-func cleanup():
+func initialize_swarm(leader: Node, count: int = 15, spawn_center: Vector3 = Vector3.ZERO) -> void:
 	clear_swarm()
-
-func initialize_swarm(leader: Node, count: int = 15, spawn_pos: Vector3 = Vector3(0, 15, 0)):
-	clear_swarm()
+	if spatial_hash == null:
+		spatial_hash = SpatialHash3D.new(8.0)
 	leader_drone = leader
-	swarm_count = count
-	update_divisor = 1
+	boid_count = count
+	update_divisor = 1 if boid_count <= 25 else (2 if boid_count <= 80 else 4)
 	update_phase = 0
 	active = true
 	formation_active = false
 
-	drone_last_input_vectors.resize(swarm_count)
+	var center = spawn_center if spawn_center != Vector3.ZERO else (leader.global_position if leader else Vector3(0, 10, 0))
+
+	drone_last_input_vectors.resize(boid_count)
 	drone_last_input_vectors.fill(Vector4.ZERO)
-	drone_terrain_heights.resize(swarm_count)
+	drone_terrain_heights.resize(boid_count)
 	drone_terrain_heights.fill(0.0)
-	boid_scatter_offsets.clear()
 
-	target_position = spawn_pos
-
-	for i in range(swarm_count):
-		# Generate a spread-out offset around the leader (golden ratio spiral pattern)
-		var phi = acos(1.0 - 2.0 * (i + 0.5) / swarm_count)
-		var theta = PI * (1.0 + sqrt(5.0)) * i
-		var radius = lerpf(4.0, 16.0, float(i) / maxf(float(swarm_count), 1.0))
-		var offset = Vector3(
-			radius * sin(phi) * cos(theta),
-			randf_range(-1.5, 3.5),
-			radius * sin(phi) * sin(theta)
-		)
-		boid_scatter_offsets.append(offset)
-
+	for i in range(boid_count):
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
 		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
-		var target_spawn: Vector3 = spawn_pos + offset
-		if drone_inst.is_inside_tree():
-			drone_inst.global_position = target_spawn
-		else:
-			drone_inst.position = target_spawn
-		drone_inst.linear_velocity = Vector3.ZERO
-		drone_inst.angular_velocity = Vector3.ZERO
+		var offset = Vector3(randf_range(-15, 15), randf_range(2, 10), randf_range(-15, 15))
+		boid_scatter_offsets.append(offset)
+		drone_inst.global_position = center + offset
+		drone_inst.scale = Vector3(0.6, 0.6, 0.6)
+		drone_inst.freeze = true
+		drone_inst.collision_layer = 0
+		drone_inst.collision_mask = 0
+		
 		if drone_inst.has_method("set_hover_mode"):
 			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
 			drone_inst.set_input_vector(Vector4.ZERO)
-		drone_inst.collision_layer = 4
-		drone_inst.collision_mask = 1
 		
 		if drone_inst.has_method("setup_show_lights") and drone_inst.get("show_rig") != null:
-			drone_inst.show_rig.configure(i, swarm_count, false)
+			drone_inst.show_rig.configure(i, boid_count, false)
 			drone_inst.show_rig.set_low_cost_mode(true)
 			drone_inst.show_rig.set_show_lighting_enabled(true)
 		if drone_inst.has_method("set_low_detail_visuals"):
@@ -119,53 +114,197 @@ func initialize_swarm(leader: Node, count: int = 15, spawn_pos: Vector3 = Vector
 	_rebuild_terrain_exclusions()
 
 func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vector3 = Vector3(0, 15, 0)):
-	clear_swarm()
 	leader_drone = leader
-	swarm_count = targets.size()
-	update_divisor = 1
-	update_phase = 0
-	active = true
-	formation_active = true
-	formation_settling = false
-	formation_transition_time = 0.0
-	formation_targets = targets.duplicate()
-
-	drone_last_input_vectors.resize(swarm_count)
-	drone_last_input_vectors.fill(Vector4.ZERO)
-	drone_terrain_heights.resize(swarm_count)
-	drone_terrain_heights.fill(0.0)
-
+	var new_swarm_count = targets.size()
 	target_position = spawn_pos
 	formation_hold_altitude = spawn_pos.y + 28.0
 
-	for i in range(swarm_count):
-		var drone_inst: RigidBody3D = drone_scene.instantiate()
-		drone_inst.low_detail_visuals = true
-		get_parent().add_child(drone_inst)
-		var target_spawn_pos: Vector3 = targets[i]
-		drone_inst.global_position = target_spawn_pos
-		drone_inst.linear_velocity = Vector3.ZERO
-		drone_inst.angular_velocity = Vector3.ZERO
-		drone_inst.scale = Vector3(0.55, 0.55, 0.55)
-		drone_inst.freeze = true
-		if drone_inst.has_method("set_hover_mode"):
-			drone_inst.set_hover_mode(true)
-		if drone_inst.has_method("set_input_vector"):
-			drone_inst.set_input_vector(Vector4.ZERO)
-		drone_inst.collision_layer = 0
-		drone_inst.collision_mask = 0
-		if drone_inst.has_method("setup_show_lights") and drone_inst.get("show_rig") != null:
-			drone_inst.show_rig.configure(i, swarm_count, false)
-			drone_inst.show_rig.set_low_cost_mode(true)
-			drone_inst.show_rig.set_show_lighting_enabled(true)
-		if drone_inst.has_method("set_low_detail_visuals"):
-			drone_inst.set_low_detail_visuals(true)
-		if drone_inst.has_method("refresh_visual_state"):
-			drone_inst.refresh_visual_state()
-		drones.append(drone_inst)
+	active = true
+	formation_active = true
 
-	print("SwarmController: Formation initialized with ", drones.size(), " drones pre-positioned directly in sky formation.")
+	var ground_y = get_terrain_height_at(spawn_pos) + 1.0
+
+	# Case A: First time starting formation (no drones in sky yet) -> Spawn all on ground staging pad
+	if drones.size() == 0:
+		boid_count = new_swarm_count
+		drone_last_input_vectors.resize(new_swarm_count)
+		drone_last_input_vectors.fill(Vector4.ZERO)
+		drone_terrain_heights.resize(new_swarm_count)
+		drone_terrain_heights.fill(0.0)
+
+		var grid_cols = int(ceil(sqrt(float(new_swarm_count))))
+		var grid_spacing = 1.8
+		var from_ground_pts: Array[Vector3] = []
+
+		for i in range(new_swarm_count):
+			var col = i % grid_cols
+			var row = i / grid_cols
+			var x = (col - grid_cols / 2.0) * grid_spacing
+			var z = (row - grid_cols / 2.0) * grid_spacing
+			var ground_xz = Vector3(spawn_pos.x + x, 0.0, spawn_pos.z + z)
+			var real_ground_y = get_terrain_height_at(ground_xz) + 0.6
+			var ground_pos = Vector3(spawn_pos.x + x, real_ground_y, spawn_pos.z + z)
+			from_ground_pts.append(ground_pos)
+
+			var drone_inst: RigidBody3D = drone_scene.instantiate()
+			drone_inst.low_detail_visuals = true
+			get_parent().add_child(drone_inst)
+			drone_inst.global_position = ground_pos
+			drone_inst.linear_velocity = Vector3.ZERO
+			drone_inst.angular_velocity = Vector3.ZERO
+			drone_inst.scale = Vector3(0.55, 0.55, 0.55)
+			drone_inst.freeze = true
+			drone_inst.collision_layer = 0
+			drone_inst.collision_mask = 0
+
+			if drone_inst.has_method("set_hover_mode"):
+				drone_inst.set_hover_mode(true)
+			if drone_inst.has_method("set_input_vector"):
+				drone_inst.set_input_vector(Vector4.ZERO)
+			if drone_inst.has_method("setup_show_lights") and drone_inst.get("show_rig") != null:
+				drone_inst.show_rig.configure(i, new_swarm_count, false)
+				drone_inst.show_rig.set_low_cost_mode(true)
+				drone_inst.show_rig.set_show_lighting_enabled(true)
+			if drone_inst.has_method("set_low_detail_visuals"):
+				drone_inst.set_low_detail_visuals(true)
+			if drone_inst.has_method("refresh_visual_state"):
+				drone_inst.refresh_visual_state()
+
+			drones.append(drone_inst)
+
+		_start_smooth_transition(from_ground_pts, targets)
+
+	# Case B: Drones ALREADY in mid-air -> Seamlessly transition from current 3D positions!
+	else:
+		var current_pts: Array[Vector3] = []
+
+		# If new shape needs MORE drones (e.g. 50 -> 120):
+		if drones.size() < new_swarm_count:
+			var extra_needed = new_swarm_count - drones.size()
+			var grid_cols = int(ceil(sqrt(float(extra_needed))))
+			var grid_spacing = 1.8
+
+			for d in drones:
+				current_pts.append(d.global_position if (d and is_instance_valid(d)) else spawn_pos)
+
+			# Spawn additional drones on ground staging pad to fly up and join the formation
+			for i in range(extra_needed):
+				var col = i % grid_cols
+				var row = i / grid_cols
+				var x = (col - grid_cols / 2.0) * grid_spacing
+				var z = (row - grid_cols / 2.0) * grid_spacing
+				var ground_xz = Vector3(spawn_pos.x + x, 0.0, spawn_pos.z + z)
+				var real_ground_y = get_terrain_height_at(ground_xz) + 0.6
+				var ground_pos = Vector3(spawn_pos.x + x, real_ground_y, spawn_pos.z + z)
+				current_pts.append(ground_pos)
+
+				var drone_inst: RigidBody3D = drone_scene.instantiate()
+				drone_inst.low_detail_visuals = true
+				get_parent().add_child(drone_inst)
+				drone_inst.global_position = ground_pos
+				drone_inst.linear_velocity = Vector3.ZERO
+				drone_inst.angular_velocity = Vector3.ZERO
+				drone_inst.scale = Vector3(0.55, 0.55, 0.55)
+				drone_inst.freeze = true
+				drone_inst.collision_layer = 0
+				drone_inst.collision_mask = 0
+
+				if drone_inst.has_method("set_hover_mode"):
+					drone_inst.set_hover_mode(true)
+				if drone_inst.has_method("set_input_vector"):
+					drone_inst.set_input_vector(Vector4.ZERO)
+				if drone_inst.has_method("setup_show_lights") and drone_inst.get("show_rig") != null:
+					drone_inst.show_rig.configure(drones.size(), new_swarm_count, false)
+					drone_inst.show_rig.set_low_cost_mode(true)
+					drone_inst.show_rig.set_show_lighting_enabled(true)
+				if drone_inst.has_method("set_low_detail_visuals"):
+					drone_inst.set_low_detail_visuals(true)
+				if drone_inst.has_method("refresh_visual_state"):
+					drone_inst.refresh_visual_state()
+
+				drones.append(drone_inst)
+
+		# If new shape needs FEWER drones (e.g. 120 -> 50):
+		elif drones.size() > new_swarm_count:
+			var surplus = drones.size() - new_swarm_count
+			for k in range(surplus):
+				var extra_drone = drones.pop_back()
+				if extra_drone and is_instance_valid(extra_drone):
+					extra_drone.queue_free()
+
+			for d in drones:
+				current_pts.append(d.global_position if (d and is_instance_valid(d)) else spawn_pos)
+
+		else:
+			for d in drones:
+				current_pts.append(d.global_position if (d and is_instance_valid(d)) else spawn_pos)
+
+		boid_count = drones.size()
+		drone_last_input_vectors.resize(boid_count)
+		drone_terrain_heights.resize(boid_count)
+
+		_start_smooth_transition(current_pts, targets)
+
 	_rebuild_terrain_exclusions()
+
+func _start_smooth_transition(from_pts: Array[Vector3], to_targets_raw: Array[Vector3]) -> void:
+	is_transitioning = true
+	transition_elapsed = 0.0
+	formation_transition_duration = 3.2
+
+	var count = min(from_pts.size(), to_targets_raw.size())
+
+	# Calculate absolute sky targets
+	var sky_targets: Array[Vector3] = []
+	for i in range(to_targets_raw.size()):
+		var pt = to_targets_raw[i]
+		if pt.y < 5.0:
+			pt = Vector3(pt.x, target_position.y + 25.0 + pt.y, pt.z)
+		sky_targets.append(pt)
+
+	# SPATIAL NEAREST MATCHING ALGORITHM
+	# Pairs each drone to its closest target point in the new shape.
+	# Eliminates crossing paths, shape distortion, and geometric degradation!
+	var matched_targets = match_drones_to_targets(from_pts, sky_targets)
+
+	start_positions.resize(count)
+	target_positions.resize(count)
+
+	for i in range(count):
+		start_positions[i] = from_pts[i]
+		target_positions[i] = matched_targets[i]
+
+	formation_targets = matched_targets.duplicate()
+
+static func match_drones_to_targets(drone_positions: Array[Vector3], new_targets: Array[Vector3]) -> Array[Vector3]:
+	var assigned_targets: Array[Vector3] = []
+	assigned_targets.resize(drone_positions.size())
+
+	var available_targets = new_targets.duplicate()
+	var used_target_mask: Array[bool] = []
+	used_target_mask.resize(available_targets.size())
+	used_target_mask.fill(false)
+
+	for i in range(drone_positions.size()):
+		var drone_pos = drone_positions[i]
+		var best_idx = -1
+		var best_dist_sq = 1e12
+
+		for j in range(available_targets.size()):
+			if used_target_mask[j]:
+				continue
+			var dist_sq = drone_pos.distance_squared_to(available_targets[j])
+			if dist_sq < best_dist_sq:
+				best_dist_sq = dist_sq
+				best_idx = j
+
+		if best_idx != -1:
+			used_target_mask[best_idx] = true
+			assigned_targets[i] = available_targets[best_idx]
+		else:
+			assigned_targets[i] = available_targets[i % available_targets.size()]
+
+	return assigned_targets
 
 func _rebuild_terrain_exclusions() -> void:
 	terrain_exclusions.clear()
@@ -261,171 +400,106 @@ func _physics_process(delta: float) -> void:
 			steer_alignment = (desired_ali - vel).limit_length(max_force)
 
 		if sep_count > 0:
-			var desired_sep = sep_force.normalized() * max_speed
-			steer_separation = (desired_sep - vel).limit_length(max_force * 2.0)
+			steer_separation = sep_force.limit_length(max_force * 1.5)
 
-		# Target pursuit vector towards leader position + boid scatter offset + organic bird noise
-		var scatter_offset = boid_scatter_offsets[i] if boid_scatter_offsets.size() > i else Vector3.ZERO
-		var leader_basis: Basis = leader_drone.global_transform.basis if (leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree()) else Basis.IDENTITY
-		
-		var tick_sec: float = float(Time.get_ticks_msec()) * 0.001
-		var organic_noise = Vector3(
-			sin(tick_sec * 2.3 + float(i) * 1.7) * 3.5,
-			cos(tick_sec * 1.8 + float(i) * 2.3) * 2.0,
-			sin(tick_sec * 1.9 + float(i) * 3.1) * 3.5
-		)
-		var target_spot = target_position + (leader_basis * scatter_offset) + organic_noise
-		var leader_vel = _get_target_velocity()
-		var dist_to_leader = pos.distance_to(target_position)
-		
-		var pursuit_point = target_spot + (leader_vel * 0.45)
-		var dist_to_pursuit = pos.distance_to(pursuit_point)
+		var target_dir = (target_position - pos)
+		var dist_to_target = target_dir.length()
 		var steer_target := Vector3.ZERO
-		
-		if dist_to_pursuit > 0.001:
-			var leader_speed = leader_vel.length()
-			var pursuit_speed = maxf(max_speed, leader_speed + 8.0)
-			if dist_to_leader > 15.0:
-				pursuit_speed = maxf(pursuit_speed, leader_speed * 1.5 + 16.0)
-			var desired_target = (pursuit_point - pos).normalized() * pursuit_speed
-			var catchup_force = max_force * (2.5 if dist_to_leader > 15.0 else 1.5)
-			steer_target = (desired_target - vel).limit_length(catchup_force)
+		if dist_to_target > 5.0:
+			var desired_target = target_dir.normalized() * max_speed
+			steer_target = (desired_target - vel).limit_length(max_force * 0.8)
 
-		var total_force: Vector3 = (
-			steer_separation * weight_separation +
-			steer_cohesion * weight_cohesion +
-			steer_alignment * weight_alignment +
-			steer_target * (weight_target * 1.5)
-		)
+		var total_force = steer_separation * 2.2 + steer_cohesion * 0.8 + steer_alignment * 0.6 + steer_target * 1.2
+		var desired_velocity = (vel + total_force * delta).limit_length(max_speed)
 
-		var max_allowed_force = max_force * (2.5 if dist_to_leader > 15.0 else 1.0)
-		if total_force.length() > max_allowed_force:
-			total_force = total_force.normalized() * max_allowed_force
+		var ground_clearance: float = 4.0
+		var cached_y = drone_terrain_heights[i]
+		if update_phase == 0 or cached_y == 0.0:
+			cached_y = get_terrain_height_at(pos)
+			drone_terrain_heights[i] = cached_y
 
-		var desired_velocity: Vector3 = vel + total_force * delta
-		var speed_cap = maxf(max_speed, _get_target_velocity().length() + 12.0)
-		if desired_velocity.length() > speed_cap:
-			desired_velocity = desired_velocity.normalized() * speed_cap
-
-		# Altitude & terrain clearance adjustment
-		var target_y: float = target_position.y
-		if (i % 8) == 0:
-			var ray_y := get_terrain_height_at(pos)
-			if drone_terrain_heights.size() > i:
-				drone_terrain_heights[i] = ray_y
-		elif drone_terrain_heights.size() > i:
-			var cached_y := drone_terrain_heights[i]
-			if cached_y > 0.0:
-				target_y = max(target_y, cached_y + ground_clearance)
-
-		for zone in terrain_exclusions:
-			var center: Vector3 = zone["center"]
-			var radius: float = zone["radius"]
-			var height: float = zone["height"]
-			var xz_dist = Vector2(pos.x - center.x, pos.z - center.z).length()
-			if xz_dist < radius:
-				target_y = max(target_y, center.y + height + ground_clearance)
+		var target_y = cached_y + ground_clearance
+		if leader_drone and is_instance_valid(leader_drone):
+			target_y = max(target_y, leader_drone.global_position.y - 3.0)
 
 		if pos.y < target_y:
 			desired_velocity.y = maxf(desired_velocity.y, lerpf(min_speed, max_speed * 0.8, clampf((target_y - pos.y) / 5.0, 0.0, 1.0)))
 
-		# Apply velocity directly to boid drone physics body for instant, responsive flocking
 		drone_inst.linear_velocity = drone_inst.linear_velocity.lerp(desired_velocity, clampf(delta * 9.0, 0.05, 1.0))
 
-		# Smoothly rotate boid facing direction towards velocity vector
 		if desired_velocity.length_squared() > 0.5:
-			var target_dir = desired_velocity.normalized()
+			var target_dir_rot = desired_velocity.normalized()
 			var current_fwd = -drone_inst.global_transform.basis.z
-			var rot_axis = current_fwd.cross(target_dir)
+			var rot_axis = current_fwd.cross(target_dir_rot)
 			if rot_axis.length_squared() > 0.001:
-				var angle = current_fwd.angle_to(target_dir)
+				var angle = current_fwd.angle_to(target_dir_rot)
 				drone_inst.rotate(rot_axis.normalized(), clampf(angle * delta * 6.0, 0.01, 0.5))
 
 func _process_formation(delta: float) -> void:
-	formation_transition_time = min(formation_transition_time + delta, formation_transition_duration)
-	var formation_count: int = min(drones.size(), formation_targets.size())
+	var formation_count: int = min(drones.size(), target_positions.size())
 	if formation_count == 0:
 		return
 
-	var lerp_factor = clampf(delta * 6.0, 0.05, 1.0)
-	for i in range(formation_count):
-		var drone_inst: RigidBody3D = drones[i]
-		if not drone_inst or not is_instance_valid(drone_inst):
-			continue
+	if is_transitioning:
+		transition_elapsed += delta
+		var t = clampf(transition_elapsed / formation_transition_duration, 0.0, 1.0)
+		# Smoothstep S-Curve for ultra-realistic acceleration & deceleration
+		var s_t = t * t * (3.0 - 2.0 * t)
 
-		var target_offset: Vector3 = formation_targets[i]
-		var show_target: Vector3 = target_offset
-		if target_offset.y < 5.0:
-			show_target = Vector3(target_offset.x, target_position.y + 25.0 + target_offset.y, target_offset.z)
+		for i in range(formation_count):
+			var drone_inst: RigidBody3D = drones[i]
+			if not drone_inst or not is_instance_valid(drone_inst):
+				continue
 
-		drone_inst.linear_velocity = Vector3.ZERO
-		drone_inst.angular_velocity = Vector3.ZERO
+			drone_inst.linear_velocity = Vector3.ZERO
+			drone_inst.angular_velocity = Vector3.ZERO
 
-		# Direct, smooth 3D position interpolation to show target point
-		drone_inst.global_position = drone_inst.global_position.lerp(show_target, lerp_factor)
+			var lerped_pos = start_positions[i].lerp(target_positions[i], s_t)
+			drone_inst.global_position = lerped_pos
 
-		if drone_inst.has_method("set_hover_mode"):
-			drone_inst.set_hover_mode(true)
-		if drone_inst.has_method("set_input_vector"):
-			drone_inst.set_input_vector(Vector4.ZERO)
+		if t >= 1.0:
+			is_transitioning = false
+			# Lock exactly onto target positions to prevent geometric drift
+			for i in range(formation_count):
+				var drone_inst: RigidBody3D = drones[i]
+				if drone_inst and is_instance_valid(drone_inst):
+					drone_inst.global_position = target_positions[i]
+
+	else:
+		for i in range(formation_count):
+			var drone_inst: RigidBody3D = drones[i]
+			if not drone_inst or not is_instance_valid(drone_inst):
+				continue
+
+			drone_inst.linear_velocity = Vector3.ZERO
+			drone_inst.angular_velocity = Vector3.ZERO
+			drone_inst.global_position = target_positions[i]
 
 func get_terrain_height_at(pos: Vector3) -> float:
-	if not is_inside_tree() or get_world_3d() == null:
+	if not is_inside_tree():
 		return 0.0
-	var space_state = get_world_3d().direct_space_state
+	var viewport = get_viewport()
+	if not viewport or not viewport.find_world_3d():
+		return 0.0
+	var space_state = viewport.find_world_3d().direct_space_state
 	if not space_state:
 		return 0.0
-	var from = Vector3(pos.x, 300.0, pos.z)
-	var to = Vector3(pos.x, -50.0, pos.z)
+	var from = Vector3(pos.x, 600.0, pos.z)
+	var to = Vector3(pos.x, -100.0, pos.z)
 	var query = PhysicsRayQueryParameters3D.create(from, to)
-	query.collision_mask = 2
-
-	var result = space_state.intersect_ray(query)
-	if result.has("position"):
-		return result.position.y
+	query.collision_mask = 1 | 2 | 4
+	var hit = space_state.intersect_ray(query)
+	if hit and hit.has("position"):
+		return hit.position.y
 	return 0.0
 
-func _get_target_velocity() -> Vector3:
-	if not leader_drone or not is_instance_valid(leader_drone):
-		return Vector3.ZERO
-	if "linear_velocity" in leader_drone:
-		return leader_drone.linear_velocity
-	return Vector3.ZERO
-
 func get_swarm_centroid() -> Vector3:
-	var center = Vector3.ZERO
-	var count = 0
-	if leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree():
-		center += leader_drone.global_position
-		count += 1
+	if drones.size() == 0:
+		return Vector3.ZERO
+	var sum := Vector3.ZERO
+	var valid_count := 0
 	for d in drones:
 		if d and is_instance_valid(d) and d.is_inside_tree():
-			center += d.global_position
-			count += 1
-	if count > 0:
-		return center / count
-	return target_position
-
-func get_swarm_average_velocity() -> Vector3:
-	var avg_vel = Vector3.ZERO
-	var count = 0
-	if leader_drone and is_instance_valid(leader_drone) and leader_drone.is_inside_tree():
-		avg_vel += leader_drone.linear_velocity
-		count += 1
-	for d in drones:
-		if d and is_instance_valid(d) and d.is_inside_tree():
-			avg_vel += d.linear_velocity
-			count += 1
-	if count > 0:
-		return avg_vel / count
-	return Vector3.ZERO
-
-func _get_spatial_cell(pos: Vector3) -> Vector3i:
-	return Vector3i(
-		int(floor(pos.x / spatial_cell_size)),
-		int(floor(pos.y / spatial_cell_size)),
-		int(floor(pos.z / spatial_cell_size))
-	)
-
-func _get_spatial_cell_key(pos: Vector3) -> Vector3i:
-	return _get_spatial_cell(pos)
+			sum += d.global_position
+			valid_count += 1
+	return sum / float(valid_count) if valid_count > 0 else Vector3.ZERO
