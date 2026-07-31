@@ -143,10 +143,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 		drone_inst.low_detail_visuals = true
 		get_parent().add_child(drone_inst)
 		var target_spawn_pos: Vector3 = targets[i]
-		if drone_inst.is_inside_tree():
-			drone_inst.global_position = target_spawn_pos
-		else:
-			drone_inst.position = target_spawn_pos
+		drone_inst.global_position = target_spawn_pos
 		drone_inst.linear_velocity = Vector3.ZERO
 		drone_inst.angular_velocity = Vector3.ZERO
 		drone_inst.scale = Vector3(0.55, 0.55, 0.55)
@@ -155,8 +152,8 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
 			drone_inst.set_input_vector(Vector4.ZERO)
-		drone_inst.collision_layer = 4
-		drone_inst.collision_mask = 1
+		drone_inst.collision_layer = 0
+		drone_inst.collision_mask = 0
 		if drone_inst.has_method("setup_show_lights") and drone_inst.get("show_rig") != null:
 			drone_inst.show_rig.configure(i, swarm_count, false)
 			drone_inst.show_rig.set_low_cost_mode(true)
@@ -350,29 +347,22 @@ func _process_formation(delta: float) -> void:
 	if formation_count == 0:
 		return
 
+	var lerp_factor = clampf(delta * 6.0, 0.05, 1.0)
 	for i in range(formation_count):
 		var drone_inst: RigidBody3D = drones[i]
 		if not drone_inst or not is_instance_valid(drone_inst):
 			continue
 
 		var target_offset: Vector3 = formation_targets[i]
-		var pos: Vector3 = drone_inst.global_position
-		var target_y: float = target_position.y + 28.0 + target_offset.y
-		var show_target: Vector3 = Vector3(target_offset.x, target_y, target_offset.z)
+		var show_target: Vector3 = target_offset
+		if target_offset.y < 5.0:
+			show_target = Vector3(target_offset.x, target_position.y + 25.0 + target_offset.y, target_offset.z)
 
-		var vert_err: float = show_target.y - pos.y
-		var horiz_diff: Vector3 = Vector3(show_target.x - pos.x, 0.0, show_target.z - pos.z)
+		drone_inst.linear_velocity = Vector3.ZERO
+		drone_inst.angular_velocity = Vector3.ZERO
 
-		# Horizontal position snap & lerp toward target formation point
-		drone_inst.global_position.x = lerpf(pos.x, show_target.x, clampf(delta * 4.0, 0.01, 1.0))
-		drone_inst.global_position.z = lerpf(pos.z, show_target.z, clampf(delta * 4.0, 0.01, 1.0))
-
-		# Vertical ascent and strict altitude lock
-		if pos.y < show_target.y - 0.5:
-			drone_inst.linear_velocity.y = lerpf(drone_inst.linear_velocity.y, clampf(vert_err * 2.5, 2.0, 12.0), delta * 5.0)
-		else:
-			drone_inst.linear_velocity.y = lerpf(drone_inst.linear_velocity.y, 0.0, delta * 10.0)
-			drone_inst.global_position.y = lerpf(pos.y, show_target.y, clampf(delta * 6.0, 0.01, 1.0))
+		# Direct, smooth 3D position interpolation to show target point
+		drone_inst.global_position = drone_inst.global_position.lerp(show_target, lerp_factor)
 
 		if drone_inst.has_method("set_hover_mode"):
 			drone_inst.set_hover_mode(true)

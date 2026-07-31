@@ -86,7 +86,12 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	file_dialog.name = "ImageFileDialog"
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	file_dialog.filters = PackedStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Supported Images (*.png, *.jpg, *.jpeg, *.webp, *.bmp)"])
+	file_dialog.filters = PackedStringArray([
+		"*.obj, *.gltf, *.glb, *.stl, *.ply, *.json, *.png, *.jpg, *.jpeg, *.webp, *.bmp ; 3D Models & Images (*.obj, *.gltf, *.glb, *.stl, *.png, *.jpg)",
+		"*.obj, *.gltf, *.glb, *.stl, *.ply ; 3D Model Files (*.obj, *.gltf, *.glb, *.stl, *.ply)",
+		"*.png, *.jpg, *.jpeg, *.webp, *.bmp ; 2D Image Files (*.png, *.jpg, *.jpeg, *.webp, *.bmp)",
+		"*.json ; 3D Point Cloud JSON (*.json)"
+	])
 	file_dialog.use_native_dialog = true
 	file_dialog.file_selected.connect(_on_image_file_selected)
 	add_child(file_dialog)
@@ -95,7 +100,7 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	parent_layout.add_child(sep)
 
 	var title = Label.new()
-	title.text = "CUSTOM IMAGE LIGHT SHOW"
+	title.text = "CUSTOM 3D & 2D SHAPE LIGHT SHOW"
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	title.add_theme_font_size_override("font_size", 12)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -103,7 +108,7 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 
 	select_file_button = Button.new()
 	select_file_button.name = "SelectFileButton"
-	select_file_button.text = "CHOOSE IMAGE (.PNG, .JPG)"
+	select_file_button.text = "CHOOSE IMAGE (.PNG, .JPG) OR 3D MODEL"
 	select_file_button.custom_minimum_size = Vector2(0, 32)
 	select_file_button.pressed.connect(_on_select_file_pressed)
 	parent_layout.add_child(select_file_button)
@@ -131,7 +136,7 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 
 	status_label = Label.new()
 	status_label.name = "ImageStatusLabel"
-	status_label.text = "Select an image file to detect shape & edges"
+	status_label.text = "Select any PNG/JPG image or 3D model (.obj, .gltf, .stl)"
 	status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
 	status_label.add_theme_font_size_override("font_size", 10)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -159,15 +164,26 @@ func _on_drone_count_changed(_val: float) -> void:
 
 func _on_image_file_selected(path: String) -> void:
 	selected_image_path = path
+	var ThreeDShapeDetectorClass = load("res://scripts/python/ThreeDShapeDetector.gd")
+	var is_3d = ThreeDShapeDetectorClass.is_3d_file(path)
+
 	if status_label:
-		status_label.text = "Processing image with Python edge detection..."
+		if is_3d:
+			status_label.text = "Scanning 3D shape geometry and sampling points..."
+		else:
+			status_label.text = "Processing image with Python edge detection..."
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2, 1.0))
 	
 	await get_tree().process_frame
 
 	var target_count = int(drone_count_spinbox.value) if drone_count_spinbox else 0
-	var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
-	var data: Dictionary = ImageEdgeDetectorClass.process_image_to_formation_data(path, target_count, 28.0)
+	var data: Dictionary = {}
+
+	if is_3d:
+		data = ThreeDShapeDetectorClass.process_3d_file_to_formation_data(path, target_count, 28.0)
+	else:
+		var ImageEdgeDetectorClass = load("res://scripts/python/ImageEdgeDetector.gd")
+		data = ImageEdgeDetectorClass.process_image_to_formation_data(path, target_count, 28.0)
 
 	if data.get("success", false) and data.get("points", []).size() > 0:
 		processed_formation_points = data["points"]
@@ -176,13 +192,14 @@ func _on_image_file_selected(path: String) -> void:
 
 		if status_label:
 			var mode_str = "Auto-detected" if target_count == 0 else "Manual override"
-			status_label.text = "READY! %s (%s: %d Drones)." % [detected_shape_name, mode_str, required_drone_count]
+			var dimension_str = "3D Formation" if data.get("is_3d", false) else "2D Outline"
+			status_label.text = "READY! %s [%s] (%s: %d Drones)." % [detected_shape_name, dimension_str, mode_str, required_drone_count]
 			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
 		if go_button:
 			go_button.disabled = false
 	else:
 		if status_label:
-			status_label.text = "Error: Could not detect valid edges in selected image."
+			status_label.text = "Error: Could not extract valid shape from selected file."
 			status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 1.0))
 		if go_button:
 			go_button.disabled = true

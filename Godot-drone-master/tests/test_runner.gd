@@ -272,3 +272,26 @@ func _tests_formation_buttons() -> void:
 		mgr.set_cinematic_camera_enabled(true)
 		assert_eq(mgr.is_cinematic_mode, true, "set_cinematic_camera_enabled(true) re-enables cinematic mode")
 		mgr.free()
+
+	_tests_3d_shape_detector()
+
+func _tests_3d_shape_detector() -> void:
+	var ThreeDShapeDetectorClass = load("res://scripts/python/ThreeDShapeDetector.gd")
+	assert_true(ThreeDShapeDetectorClass != null, "ThreeDShapeDetector script loaded")
+	assert_true(ThreeDShapeDetectorClass.is_3d_file("sample.obj"), "ThreeDShapeDetector identifies .obj as 3D file")
+	assert_true(ThreeDShapeDetectorClass.is_3d_file("sample.gltf"), "ThreeDShapeDetector identifies .gltf as 3D file")
+
+	# Write temporary 3D OBJ cube file
+	var test_obj_path = "user://test_cube.obj"
+	var file = FileAccess.open(test_obj_path, FileAccess.WRITE)
+	if file:
+		file.store_string("v -1.0 -1.0 -1.0\nv 1.0 -1.0 -1.0\nv 1.0 1.0 -1.0\nv -1.0 1.0 -1.0\nv -1.0 -1.0 1.0\nv 1.0 -1.0 1.0\nv 1.0 1.0 1.0\nv -1.0 1.0 1.0\n")
+		file.close()
+
+	var data = ThreeDShapeDetectorClass.process_3d_file_to_formation_data(test_obj_path, 8, 28.0)
+	assert_true(data.get("success", false), "ThreeDShapeDetector processed 3D OBJ file successfully")
+	assert_true(data.get("is_3d", false), "ThreeDShapeDetector sets is_3d == true")
+	assert_true(data.get("points", []).size() > 0, "ThreeDShapeDetector generated 3D formation points")
+
+	if FileAccess.file_exists(test_obj_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(test_obj_path))

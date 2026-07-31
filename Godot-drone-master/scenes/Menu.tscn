@@ -53,16 +53,16 @@ layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="FunctionsPanel" type="PanelContainer" parent="Center/MainLayout"]
-custom_minimum_size = Vector2(360, 520)
+custom_minimum_size = Vector2(340, 520)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
 
 [node name="Margin" type="MarginContainer" parent="Center/MainLayout/FunctionsPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="FunctionsLayout" type="VBoxContainer" parent="Center/MainLayout/FunctionsPanel/Margin"]
 layout_mode = 2
@@ -133,16 +133,16 @@ text = "Wave"
 theme_override_styles/normal = SubResource("StyleBoxFlat_shape")
 
 [node name="Panel" type="PanelContainer" parent="Center/MainLayout"]
-custom_minimum_size = Vector2(340, 520)
+custom_minimum_size = Vector2(320, 520)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
 
 [node name="Margin" type="MarginContainer" parent="Center/MainLayout/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="Layout" type="VBoxContainer" parent="Center/MainLayout/Panel/Margin"]
 layout_mode = 2
@@ -194,16 +194,16 @@ layout_mode = 2
 text = "QUIT TO DESKTOP"
 
 [node name="GraphMenuPanel" type="PanelContainer" parent="Center/MainLayout"]
-custom_minimum_size = Vector2(460, 520)
+custom_minimum_size = Vector2(430, 520)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
 
 [node name="Margin" type="MarginContainer" parent="Center/MainLayout/GraphMenuPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
 
 [node name="GraphicalMenu" type="Control" parent="Center/MainLayout/GraphMenuPanel/Margin"]
 layout_mode = 2

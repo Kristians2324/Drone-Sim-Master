@@ -178,18 +178,32 @@ static func _process_image_native_gdscript(image_path: String, target_count: int
 	if ordered_path.size() == 0:
 		return res
 
-	# Uniform arc-length sampling along continuous ordered path
+	# Compute subject bounding box from ordered path
+	var min_x = ordered_path[0].x
+	var max_x = ordered_path[0].x
+	var min_y = ordered_path[0].y
+	var max_y = ordered_path[0].y
+	for p in ordered_path:
+		min_x = min(min_x, p.x)
+		max_x = max(max_x, p.x)
+		min_y = min(min_y, p.y)
+		max_y = max(max_y, p.y)
+
+	var cx = (min_x + max_x) * 0.5
+	var cy = (min_y + max_y) * 0.5
+	var subj_max_dim = max(max_x - min_x, max_y - min_y)
+	if subj_max_dim <= 0.0001:
+		subj_max_dim = 1.0
+
+	var scale_factor = scale_size / subj_max_dim
 	var path_size = ordered_path.size()
-	var max_dim = float(max(width, height))
-	var norm_path_size = float(path_size) / max_dim
-	var dynamic_count = int(round(norm_path_size * 50.0))
-	var count = target_count if target_count > 0 else max(80, min(450, dynamic_count))
+	var count = target_count if target_count > 0 else max(45, min(350, int(round(float(path_size) / 8.0))))
 
 	for i in range(count):
 		var idx = int((float(i) + 0.5) * (float(path_size) / float(count))) % path_size
 		var p = ordered_path[idx]
-		var norm_x = (p.x - (width / 2.0)) / max_dim
-		var norm_y = ((height / 2.0) - p.y) / max_dim
-		res.append(Vector3(norm_x * scale_size, norm_y * scale_size, 0.0))
+		var norm_x = (p.x - cx) * scale_factor
+		var norm_y = (cy - p.y) * scale_factor
+		res.append(Vector3(norm_x, norm_y, 0.0))
 
 	return res

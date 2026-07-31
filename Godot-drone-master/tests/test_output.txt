@@ -87,10 +87,17 @@ DroneControllerManager: Still camera mode ENABLED.
   ✅ PASS  set_cinematic_camera_enabled(false) switches to still mode
 DroneControllerManager: Cinematic camera mode ENABLED.
   ✅ PASS  set_cinematic_camera_enabled(true) re-enables cinematic mode
+  ✅ PASS  ThreeDShapeDetector script loaded
+  ✅ PASS  ThreeDShapeDetector identifies .obj as 3D file
+  ✅ PASS  ThreeDShapeDetector identifies .gltf as 3D file
+ThreeDShapeDetector: Successfully processed via Python. Shape: 3D Mesh (TEST_CUBE), Drones: 8
+  ✅ PASS  ThreeDShapeDetector processed 3D OBJ file successfully
+  ✅ PASS  ThreeDShapeDetector sets is_3d == true
+  ✅ PASS  ThreeDShapeDetector generated 3D formation points
 
 
 ════════════════════════════════════════════════════
-  Results: 48 / 48 passed
+  Results: 54 / 54 passed
   ✅  ALL TESTS PASSED WITH 0 ERRORS
 ════════════════════════════════════════════════════
 
