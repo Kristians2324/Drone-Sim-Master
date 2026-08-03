@@ -81,7 +81,8 @@ func _setup_ui():
 	# --- Tab Bar ---
 	tab_bar = HBoxContainer.new()
 	tab_bar.name = "TabsHeader"
-	tab_bar.add_theme_constant_override("separation", 6)
+	tab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tab_bar.add_theme_constant_override("separation", 3)
 	root_vbox.add_child(tab_bar)
 
 	var tabs_info = [
@@ -96,8 +97,9 @@ func _setup_ui():
 	for tab in tabs_info:
 		var btn = Button.new()
 		btn.text = tab["label"]
-		btn.custom_minimum_size = Vector2(0, 32)
+		btn.custom_minimum_size = Vector2(0, 30)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", 10)
 		btn.pressed.connect(_on_tab_clicked.bind(tab["id"]))
 		_apply_tab_button_style(btn, false)
 		tab_bar.add_child(btn)
@@ -115,8 +117,8 @@ func _setup_ui():
 	var content_margin = MarginContainer.new()
 	content_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_margin.add_theme_constant_override("margin_left", 6)
-	content_margin.add_theme_constant_override("margin_right", 6)
+	content_margin.add_theme_constant_override("margin_left", 4)
+	content_margin.add_theme_constant_override("margin_right", 4)
 	content_margin.add_theme_constant_override("margin_top", 4)
 	content_margin.add_theme_constant_override("margin_bottom", 4)
 	scroll.add_child(content_margin)
@@ -158,6 +160,10 @@ func _apply_tab_button_style(btn: Button, active: bool):
 	style.corner_radius_top_right = 6
 	style.corner_radius_bottom_right = 6
 	style.corner_radius_bottom_left = 6
+	style.content_margin_left = 2
+	style.content_margin_right = 2
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
 	btn.add_theme_stylebox_override("normal", style)
 	btn.add_theme_stylebox_override("hover", style)
 	btn.add_theme_stylebox_override("pressed", style)
@@ -254,6 +260,7 @@ func _build_audio_cam_tab() -> Control:
 
 func _build_presets_tab() -> Control:
 	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_theme_constant_override("separation", 12)
 
 	var label = Label.new()
@@ -264,8 +271,9 @@ func _build_presets_tab() -> Control:
 
 	var grid = GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
 	vbox.add_child(grid)
 
 	var p_low = _create_styled_button("LOW PERF", func(): _apply_preset("low"))
@@ -291,8 +299,9 @@ func _build_presets_tab() -> Control:
 func _create_styled_button(text: String, callback: Callable, custom_color: Color = Color(0.12, 0.16, 0.22, 0.9)) -> Button:
 	var btn = Button.new()
 	btn.text = text
-	btn.custom_minimum_size = Vector2(0, 36)
+	btn.custom_minimum_size = Vector2(0, 34)
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.add_theme_font_size_override("font_size", 11)
 
 	var style = StyleBoxFlat.new()
 	style.bg_color = custom_color
@@ -302,6 +311,10 @@ func _create_styled_button(text: String, callback: Callable, custom_color: Color
 	style.corner_radius_top_right = 6
 	style.corner_radius_bottom_right = 6
 	style.corner_radius_bottom_left = 6
+	style.content_margin_left = 4
+	style.content_margin_right = 4
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
 	btn.add_theme_stylebox_override("normal", style)
 	btn.pressed.connect(callback)
 	return btn

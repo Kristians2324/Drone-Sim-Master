@@ -116,6 +116,9 @@ func load_environment(EnvironmentClass):
 		return
 	if current_environment and current_environment.get_script() == EnvironmentClass:
 		return
+	if menu_instance and menu_instance.has_method("stop_recording"):
+		menu_instance.stop_recording()
+
 	is_loading_environment = true
 
 	# Only show animated loading screen when switching maps mid-game (not on initial boot)
@@ -182,6 +185,8 @@ func _input(event):
 				menu_instance.pause()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo:
+		if (menu_instance and menu_instance.visible) or get_tree().paused or (get_viewport() and get_viewport().gui_get_focus_owner() != null):
+			return
 		if event.keycode == KEY_F11 or (event.keycode == KEY_ENTER and event.alt_pressed):
 			_toggle_fullscreen()
 			get_viewport().set_input_as_handled()
@@ -197,6 +202,10 @@ func _input(event):
 		elif event.keycode == KEY_4:
 			_sync_env_setting(3)
 			load_environment(MapIndoor)
+		elif event.keycode == KEY_F12 or event.keycode == KEY_P:
+			if menu_instance and menu_instance.has_method("take_screenshot"):
+				menu_instance.take_screenshot()
+				get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_R:
 			if menu_instance:
 				menu_instance.resume()

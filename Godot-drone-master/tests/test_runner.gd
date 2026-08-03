@@ -256,4 +256,42 @@ func _tests_formation_buttons() -> void:
 				assert_true(menu.formation_buttons.has(shape), "Menu has formation button '%s'" % shape)
 		else:
 			assert_true(true, "Menu initialized")
+
+		assert_true(menu.get_node_or_null("Center/MainLayout/FunctionsPanel") != null, "3-Column ESC Menu: FunctionsPanel exists on far left")
+		assert_true(menu.get_node_or_null("Center/MainLayout/Panel") != null, "3-Column ESC Menu: Main Panel exists in center")
+		assert_true(menu.get_node_or_null("Center/MainLayout/GraphMenuPanel") != null, "3-Column ESC Menu: GraphMenuPanel exists on far right")
 		menu.free()
+
+	var manager_script = load("res://scripts/DroneControllerManager.gd")
+	if manager_script != null:
+		var mgr = manager_script.new()
+		spawn(mgr)
+		assert_eq(mgr.is_cinematic_mode, true, "DroneControllerManager: is_cinematic_mode defaults to true")
+		mgr.set_cinematic_camera_enabled(false)
+		assert_eq(mgr.is_cinematic_mode, false, "set_cinematic_camera_enabled(false) switches to still mode")
+		mgr.set_cinematic_camera_enabled(true)
+		assert_eq(mgr.is_cinematic_mode, true, "set_cinematic_camera_enabled(true) re-enables cinematic mode")
+		mgr.free()
+
+	_tests_3d_shape_detector()
+
+func _tests_3d_shape_detector() -> void:
+	var ThreeDShapeDetectorClass = load("res://scripts/python/ThreeDShapeDetector.gd")
+	assert_true(ThreeDShapeDetectorClass != null, "ThreeDShapeDetector script loaded")
+	assert_true(ThreeDShapeDetectorClass.is_3d_file("sample.obj"), "ThreeDShapeDetector identifies .obj as 3D file")
+	assert_true(ThreeDShapeDetectorClass.is_3d_file("sample.gltf"), "ThreeDShapeDetector identifies .gltf as 3D file")
+
+	# Write temporary 3D OBJ cube file
+	var test_obj_path = "user://test_cube.obj"
+	var file = FileAccess.open(test_obj_path, FileAccess.WRITE)
+	if file:
+		file.store_string("v -1.0 -1.0 -1.0\nv 1.0 -1.0 -1.0\nv 1.0 1.0 -1.0\nv -1.0 1.0 -1.0\nv -1.0 -1.0 1.0\nv 1.0 -1.0 1.0\nv 1.0 1.0 1.0\nv -1.0 1.0 1.0\n")
+		file.close()
+
+	var data = ThreeDShapeDetectorClass.process_3d_file_to_formation_data(test_obj_path, 8, 28.0)
+	assert_true(data.get("success", false), "ThreeDShapeDetector processed 3D OBJ file successfully")
+	assert_true(data.get("is_3d", false), "ThreeDShapeDetector sets is_3d == true")
+	assert_true(data.get("points", []).size() > 0, "ThreeDShapeDetector generated 3D formation points")
+
+	if FileAccess.file_exists(test_obj_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(test_obj_path))
