@@ -333,6 +333,11 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 			whoosh_audio_2d.volume_db = -80.0
 		return
 
+	if is_nan(velocity.x) or is_nan(velocity.y) or is_nan(velocity.z) or is_inf(velocity.x) or is_inf(velocity.y) or is_inf(velocity.z):
+		velocity = Vector3.ZERO
+	if is_nan(input_vec.x) or is_nan(input_vec.y) or is_nan(input_vec.z) or is_nan(input_vec.w) or is_inf(input_vec.x) or is_inf(input_vec.y) or is_inf(input_vec.z) or is_inf(input_vec.w):
+		input_vec = Vector4.ZERO
+
 	if motor_audio_2d and not motor_audio_2d.playing and shared_motor_stream:
 		motor_audio_2d.play()
 	if motor_audio_3d and not motor_audio_3d.playing and shared_motor_stream:
@@ -343,35 +348,42 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	var pitch_load  = abs(input_vec.z) * 0.70
 	var roll_load   = abs(input_vec.w) * 0.70
 	var yaw_load    = abs(input_vec.y) * 0.45
-	var speed_load  = clamp(velocity.length() / 25.0, 0.0, 0.45)
+	var speed_load  = clampf(velocity.length() / 25.0, 0.0, 0.45)
 
-	var target_load = clamp(thrust_load + pitch_load + roll_load + yaw_load + speed_load, 0.0, 1.0)
+	var target_load = clampf(thrust_load + pitch_load + roll_load + yaw_load + speed_load, 0.0, 1.0)
 
 	# Pitch scale: 0.85 (smooth idle hum) -> 1.75 (full flight rev)
-	var target_pitch = 0.85 + (target_load * 0.90)
+	var target_pitch = clampf(0.85 + (target_load * 0.90), 0.1, 4.0)
 	# Volume scale: -16 dB (quiet idle) -> -9 dB (comfortable full flight)
-	var target_vol_db = -16.0 + (target_load * 7.0)
+	var target_vol_db = clampf(-16.0 + (target_load * 7.0), -80.0, 24.0)
+
+	var dt = clampf(delta * 10.0, 0.05, 1.0)
 
 	if motor_audio_2d:
 		motor_audio_2d.stream_paused = false
-		motor_audio_2d.pitch_scale = lerpf(motor_audio_2d.pitch_scale, target_pitch, clamp(delta * 10.0, 0.05, 1.0))
-		motor_audio_2d.volume_db = lerpf(motor_audio_2d.volume_db, target_vol_db - 3.0, clamp(delta * 10.0, 0.05, 1.0))
+		var cur_p2d = motor_audio_2d.pitch_scale if not is_nan(motor_audio_2d.pitch_scale) and not is_inf(motor_audio_2d.pitch_scale) else 1.0
+		var cur_v2d = motor_audio_2d.volume_db if not is_nan(motor_audio_2d.volume_db) and not is_inf(motor_audio_2d.volume_db) else -16.0
+		motor_audio_2d.pitch_scale = clampf(lerpf(cur_p2d, target_pitch, dt), 0.1, 4.0)
+		motor_audio_2d.volume_db = clampf(lerpf(cur_v2d, target_vol_db - 3.0, dt), -80.0, 24.0)
 
 	if motor_audio_3d:
 		motor_audio_3d.stream_paused = false
-		motor_audio_3d.pitch_scale = lerpf(motor_audio_3d.pitch_scale, target_pitch, clamp(delta * 10.0, 0.05, 1.0))
-		motor_audio_3d.volume_db = lerpf(motor_audio_3d.volume_db, target_vol_db, clamp(delta * 10.0, 0.05, 1.0))
+		var cur_p3d = motor_audio_3d.pitch_scale if not is_nan(motor_audio_3d.pitch_scale) and not is_inf(motor_audio_3d.pitch_scale) else 1.0
+		var cur_v3d = motor_audio_3d.volume_db if not is_nan(motor_audio_3d.volume_db) and not is_inf(motor_audio_3d.volume_db) else -16.0
+		motor_audio_3d.pitch_scale = clampf(lerpf(cur_p3d, target_pitch, dt), 0.1, 4.0)
+		motor_audio_3d.volume_db = clampf(lerpf(cur_v3d, target_vol_db, dt), -80.0, 24.0)
 
 	# Dynamic Speed & Wind Whoosh Audio - High speed dives/sprints ONLY (18+ m/s)
 	if whoosh_audio_2d and shared_whoosh_stream:
 		if not whoosh_audio_2d.playing:
 			whoosh_audio_2d.play()
-		# Trigger threshold raised to 18 m/s (completely silent during normal flight & cruising)
-		var speed_ratio = clamp((velocity.length() - 18.0) / 12.0, 0.0, 1.0)
+		var speed_ratio = clampf((velocity.length() - 18.0) / 12.0, 0.0, 1.0)
 		if speed_ratio > 0.01:
 			whoosh_audio_2d.stream_paused = false
-			whoosh_audio_2d.pitch_scale = lerpf(whoosh_audio_2d.pitch_scale, 0.95 + speed_ratio * 0.25, clamp(delta * 6.0, 0.05, 1.0))
-			whoosh_audio_2d.volume_db = lerpf(whoosh_audio_2d.volume_db, -42.0 + (speed_ratio * 14.0), clamp(delta * 6.0, 0.05, 1.0)) # Max -28 dB subtle whisper
+			var cur_wp = whoosh_audio_2d.pitch_scale if not is_nan(whoosh_audio_2d.pitch_scale) and not is_inf(whoosh_audio_2d.pitch_scale) else 1.0
+			var cur_wv = whoosh_audio_2d.volume_db if not is_nan(whoosh_audio_2d.volume_db) and not is_inf(whoosh_audio_2d.volume_db) else -42.0
+			whoosh_audio_2d.pitch_scale = clampf(lerpf(cur_wp, 0.95 + speed_ratio * 0.25, clampf(delta * 6.0, 0.05, 1.0)), 0.1, 4.0)
+			whoosh_audio_2d.volume_db = clampf(lerpf(cur_wv, -42.0 + (speed_ratio * 14.0), clampf(delta * 6.0, 0.05, 1.0)), -80.0, 24.0)
 		else:
 			whoosh_audio_2d.stream_paused = true
 			whoosh_audio_2d.volume_db = -80.0
@@ -397,15 +409,18 @@ func play_crash(intensity: float) -> void:
 	if not audio_enabled or not is_inside_tree() or not shared_crash_stream:
 		return
 
-	var pitch = clamp(1.2 - (intensity / 30.0), 0.7, 1.3)
-	var vol_db = clamp(-16.0 + (intensity * 1.2), -18.0, -4.0)
+	if is_nan(intensity) or is_inf(intensity) or intensity < 0.0:
+		intensity = 0.0
+
+	var pitch = clampf(1.2 - (intensity / 30.0), 0.7, 1.3)
+	var vol_db = clampf(-16.0 + (intensity * 1.2), -18.0, -4.0)
 
 	if crash_audio_2d:
-		crash_audio_2d.pitch_scale = pitch
-		crash_audio_2d.volume_db = vol_db - 3.0
+		crash_audio_2d.pitch_scale = clampf(pitch, 0.1, 4.0)
+		crash_audio_2d.volume_db = clampf(vol_db - 3.0, -80.0, 24.0)
 		crash_audio_2d.play()
 
 	if crash_audio_3d:
-		crash_audio_3d.pitch_scale = pitch
-		crash_audio_3d.volume_db = vol_db
+		crash_audio_3d.pitch_scale = clampf(pitch, 0.1, 4.0)
+		crash_audio_3d.volume_db = clampf(vol_db, -80.0, 24.0)
 		crash_audio_3d.play()

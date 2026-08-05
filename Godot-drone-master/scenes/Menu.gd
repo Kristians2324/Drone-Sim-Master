@@ -72,8 +72,17 @@ func _ready():
 	_setup_recording_hud()
 	_setup_tabbed_interface()
 
-	if resume_button and not resume_button.pressed.is_connected(resume):
-		resume_button.pressed.connect(resume)
+	if resume_button and not resume_button.pressed.is_connected(_on_resume_pressed):
+		resume_button.pressed.connect(_on_resume_pressed)
+	var tutorial_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Tutorial")
+	if tutorial_btn and not tutorial_btn.pressed.is_connected(_on_tutorial_pressed):
+		tutorial_btn.pressed.connect(_on_tutorial_pressed)
+	var main_menu_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/MainMenu")
+	if main_menu_btn and not main_menu_btn.pressed.is_connected(_on_main_menu_pressed):
+		main_menu_btn.pressed.connect(_on_main_menu_pressed)
+	var restart_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Restart")
+	if restart_btn and not restart_btn.pressed.is_connected(_on_restart_pressed):
+		restart_btn.pressed.connect(_on_restart_pressed)
 	var quit_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Quit")
 	if quit_btn and not quit_btn.pressed.is_connected(_on_quit_pressed):
 		quit_btn.pressed.connect(_on_quit_pressed)
@@ -526,6 +535,32 @@ func resume():
 	hide()
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _on_resume_pressed() -> void:
+	resume()
+
+func _on_tutorial_pressed() -> void:
+	stop_recording()
+	resume()
+	var main_scene = get_tree().current_scene if get_tree() else null
+	if main_scene and main_scene.has_method("start_tutorial"):
+		main_scene.start_tutorial()
+
+func _on_main_menu_pressed() -> void:
+	stop_recording()
+	resume()
+	var main_scene = get_tree().current_scene if get_tree() else null
+	if main_scene and main_scene.has_method("open_start_menu"):
+		main_scene.open_start_menu()
+
+func _on_restart_pressed() -> void:
+	stop_recording()
+	resume()
+	var main_scene = get_tree().current_scene if get_tree() else null
+	if main_scene and main_scene.has_method("_restart_fresh"):
+		main_scene.call_deferred("_restart_fresh")
+	else:
+		get_tree().reload_current_scene()
 
 func _on_quit_pressed() -> void:
 	stop_recording()

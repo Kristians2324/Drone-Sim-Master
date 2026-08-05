@@ -38,6 +38,16 @@ func _get_ground_height(x: float, z: float) -> float:
 		return 0.0
 	return hit.position.y
 
+static func _safe_relative_transform(parent: Node3D, child: Node3D) -> Transform3D:
+	if not parent or not child or parent == child:
+		return Transform3D.IDENTITY
+	var xform := Transform3D.IDENTITY
+	var curr: Node = child
+	while curr and curr != parent and curr is Node3D:
+		xform = (curr as Node3D).transform * xform
+		curr = curr.get_parent()
+	return xform
+
 func _create_fast_collision_for_node(node: Node3D, is_tree: bool = true) -> void:
 	var meshes: Array[MeshInstance3D] = []
 	_find_all_meshes_recursively(node, meshes)
@@ -55,7 +65,7 @@ func _create_fast_collision_for_node(node: Node3D, is_tree: bool = true) -> void
 			if shape:
 				var col_shape := CollisionShape3D.new()
 				col_shape.shape = shape
-				col_shape.transform = node.global_transform.affine_inverse() * mesh_inst.global_transform
+				col_shape.transform = _safe_relative_transform(node, mesh_inst)
 				static_body.add_child(col_shape)
 
 func _find_all_meshes_recursively(node: Node, meshes: Array[MeshInstance3D]) -> void:

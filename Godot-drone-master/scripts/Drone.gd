@@ -283,13 +283,23 @@ func setup_show_lights():
 	show_rig.name = "ShowLightRig"
 	add_child(show_rig)
 
+static func _safe_relative_transform(parent: Node3D, child: Node3D) -> Transform3D:
+	if not parent or not child or parent == child:
+		return Transform3D.IDENTITY
+	var xform := Transform3D.IDENTITY
+	var curr: Node = child
+	while curr and curr != parent and curr is Node3D:
+		xform = (curr as Node3D).transform * xform
+		curr = curr.get_parent()
+	return xform
+
 func _center_spline_model(model: Node3D) -> AABB:
 	var meshes: Array[MeshInstance3D] = []
 	_get_all_meshes(model, meshes)
 	var aabb = AABB()
 	var first = true
 	for mesh in meshes:
-		var mesh_transform = model.global_transform.affine_inverse() * mesh.global_transform
+		var mesh_transform = _safe_relative_transform(model, mesh)
 		var mesh_aabb = mesh_transform * mesh.get_aabb()
 		if first:
 			aabb = mesh_aabb
@@ -456,5 +466,8 @@ func set_infinite_battery_enabled(enabled: bool) -> void:
 func _on_drone_collision(_body: Node) -> void:
 	if audio_enabled and audio_component:
 		var impact = linear_velocity.length()
+		if is_nan(impact) or is_inf(impact):
+			linear_velocity = Vector3.ZERO
+			impact = 0.0
 		if impact > 1.2:
 			audio_component.play_crash(impact)

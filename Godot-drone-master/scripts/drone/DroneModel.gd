@@ -76,6 +76,16 @@ func replace_drone_model():
 			data["original_transform"] = prop.transform
 			propeller_datas.append(data)
 
+static func _safe_relative_transform(parent: Node3D, child: Node3D) -> Transform3D:
+	if not parent or not child or parent == child:
+		return Transform3D.IDENTITY
+	var xform := Transform3D.IDENTITY
+	var curr: Node = child
+	while curr and curr != parent and curr is Node3D:
+		xform = (curr as Node3D).transform * xform
+		curr = curr.get_parent()
+	return xform
+
 func _center_spline_model(model: Node3D) -> AABB:
 	var meshes: Array[MeshInstance3D] = []
 	_get_all_meshes(model, meshes)
@@ -84,7 +94,7 @@ func _center_spline_model(model: Node3D) -> AABB:
 	var first = true
 	
 	for mesh in meshes:
-		var mesh_transform = model.global_transform.affine_inverse() * mesh.global_transform
+		var mesh_transform = _safe_relative_transform(model, mesh)
 		var mesh_aabb = mesh_transform * mesh.get_aabb()
 		
 		if first:

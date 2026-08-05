@@ -94,6 +94,6 @@ textures/vram_compression/import_etc2_astc=true
 
 [xr]
 
-openxr/enabled=true
+openxr/enabled=false
 openxr/startup_alert=false
 shaders/enabled=true

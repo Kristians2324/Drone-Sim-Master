@@ -37,6 +37,16 @@ func _get_ground_height(x: float, z: float) -> float:
 		return 0.0
 	return hit.position.y
 
+static func _safe_relative_transform(parent: Node3D, child: Node3D) -> Transform3D:
+	if not parent or not child or parent == child:
+		return Transform3D.IDENTITY
+	var xform := Transform3D.IDENTITY
+	var curr: Node = child
+	while curr and curr != parent and curr is Node3D:
+		xform = (curr as Node3D).transform * xform
+		curr = curr.get_parent()
+	return xform
+
 func _create_exact_building_collision(building: Node3D) -> void:
 	var meshes: Array[MeshInstance3D] = []
 	_find_all_meshes_recursively(building, meshes)
@@ -55,7 +65,7 @@ func _create_exact_building_collision(building: Node3D) -> void:
 				var col_shape := CollisionShape3D.new()
 				col_shape.shape = trimesh_shape
 				# Transform the collision shape to match the exact position, rotation, and scale of this sub-mesh relative to the building root
-				col_shape.transform = building.global_transform.affine_inverse() * mesh_inst.global_transform
+				col_shape.transform = _safe_relative_transform(building, mesh_inst)
 				static_body.add_child(col_shape)
 
 func _find_all_meshes_recursively(node: Node, meshes: Array[MeshInstance3D]) -> void:

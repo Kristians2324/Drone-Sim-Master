@@ -8,6 +8,16 @@ func setup_object():
 	
 	_create_exact_collision(model)
 
+static func _safe_relative_transform(parent: Node3D, child: Node3D) -> Transform3D:
+	if not parent or not child or parent == child:
+		return Transform3D.IDENTITY
+	var xform := Transform3D.IDENTITY
+	var curr: Node = child
+	while curr and curr != parent and curr is Node3D:
+		xform = (curr as Node3D).transform * xform
+		curr = curr.get_parent()
+	return xform
+
 func _create_exact_collision(node: Node3D) -> void:
 	var static_body := StaticBody3D.new()
 	static_body.name = "FoosballTableCollision"
@@ -21,7 +31,7 @@ func _create_exact_collision(node: Node3D) -> void:
 			if shape:
 				var col_shape := CollisionShape3D.new()
 				col_shape.shape = shape
-				col_shape.transform = node.global_transform.affine_inverse() * m.global_transform
+				col_shape.transform = _safe_relative_transform(node, m)
 				static_body.add_child(col_shape)
 
 func _find_meshes(n: Node, list: Array[MeshInstance3D]) -> void:

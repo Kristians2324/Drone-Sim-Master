@@ -290,6 +290,11 @@ func _tests_formation_buttons() -> void:
 		assert_true(menu.get_node_or_null("Center/MainLayout/FunctionsPanel") != null, "3-Column ESC Menu: FunctionsPanel exists on far left")
 		assert_true(menu.get_node_or_null("Center/MainLayout/Panel") != null, "3-Column ESC Menu: Main Panel exists in center")
 		assert_true(menu.get_node_or_null("Center/MainLayout/GraphMenuPanel") != null, "3-Column ESC Menu: GraphMenuPanel exists on far right")
+
+		assert_true(menu.has_method("_on_resume_pressed"), "ESC Menu: _on_resume_pressed handler exists")
+		assert_true(menu.has_method("_on_tutorial_pressed"), "ESC Menu: _on_tutorial_pressed handler exists")
+		assert_true(menu.has_method("_on_main_menu_pressed"), "ESC Menu: _on_main_menu_pressed handler exists")
+		assert_true(menu.has_method("_on_restart_pressed"), "ESC Menu: _on_restart_pressed handler exists")
 		menu.free()
 
 	var manager_script = load("res://scripts/DroneControllerManager.gd")
