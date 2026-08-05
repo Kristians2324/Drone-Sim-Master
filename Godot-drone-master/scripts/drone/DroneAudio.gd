@@ -343,21 +343,45 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	if motor_audio_3d and not motor_audio_3d.playing and shared_motor_stream:
 		motor_audio_3d.play()
 
-	# Responsive motor load calculation across ALL flight inputs (thrust, pitch, roll, yaw, speed)
-	var thrust_load = abs(input_vec.x)
-	var pitch_load  = abs(input_vec.z) * 0.70
-	var roll_load   = abs(input_vec.w) * 0.70
-	var yaw_load    = abs(input_vec.y) * 0.45
-	var speed_load  = clampf(velocity.length() / 25.0, 0.0, 0.45)
+	# Distinct Directional Audio Pitch & Volume Synthesis
+	var base_pitch := 0.88
 
-	var target_load = clampf(thrust_load + pitch_load + roll_load + yaw_load + speed_load, 0.0, 1.0)
+	# 1. THRUST AXIS (UP vs DOWN):
+	var thrust_pitch := 0.0
+	var thrust_vol := 0.0
+	if input_vec.x > 0.0:
+		thrust_pitch = input_vec.x * 0.72  # High RPM motor scream when climbing UP (+0.72 pitch)
+		thrust_vol = input_vec.x * 6.5
+	elif input_vec.x < 0.0:
+		thrust_pitch = input_vec.x * 0.28  # Deeper low-prop-wash descent hum when going DOWN (-0.28 pitch)
+		thrust_vol = input_vec.x * 2.5
 
-	# Pitch scale: 0.85 (smooth idle hum) -> 1.75 (full flight rev)
-	var target_pitch = clampf(0.85 + (target_load * 0.90), 0.1, 4.0)
-	# Volume scale: -16 dB (quiet idle) -> -9 dB (comfortable full flight)
-	var target_vol_db = clampf(-16.0 + (target_load * 7.0), -80.0, 24.0)
+	# 2. PITCH AXIS (FORWARD vs BACKWARD):
+	var pitch_dir_mod := 0.0
+	var pitch_vol := 0.0
+	if input_vec.z < 0.0:
+		pitch_dir_mod = abs(input_vec.z) * 0.42 # Crisp forward flight turbine scream
+		pitch_vol = abs(input_vec.z) * 4.5
+	elif input_vec.z > 0.0:
+		pitch_dir_mod = -abs(input_vec.z) * 0.18 # Heavy reverse braking prop chop
+		pitch_vol = abs(input_vec.z) * 3.0
 
-	var dt = clampf(delta * 10.0, 0.05, 1.0)
+	# 3. ROLL AXIS (LEFT vs RIGHT):
+	var roll_dir_mod = abs(input_vec.w) * 0.32 # Sharp lateral roll/strafe whine
+	var roll_vol = abs(input_vec.w) * 3.5
+
+	# 4. YAW AXIS (YAW LEFT / YAW RIGHT):
+	var yaw_dir_mod = abs(input_vec.y) * 0.22 # Differential rotor spin buzz
+	var yaw_vol = abs(input_vec.y) * 2.5
+
+	# 5. MOVEMENT SPEED:
+	var speed_pitch = clampf(velocity.length() / 22.0, 0.0, 0.38)
+	var speed_vol = clampf(velocity.length() / 18.0, 0.0, 1.0) * 4.5
+
+	var target_pitch = clampf(base_pitch + thrust_pitch + pitch_dir_mod + roll_dir_mod + yaw_dir_mod + speed_pitch, 0.55, 2.30)
+	var target_vol_db = clampf(-17.0 + thrust_vol + pitch_vol + roll_vol + yaw_vol + speed_vol, -25.0, -4.0)
+
+	var dt = clampf(delta * 12.0, 0.05, 1.0)
 
 	if motor_audio_2d:
 		motor_audio_2d.stream_paused = false
@@ -373,17 +397,20 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 		motor_audio_3d.pitch_scale = clampf(lerpf(cur_p3d, target_pitch, dt), 0.1, 4.0)
 		motor_audio_3d.volume_db = clampf(lerpf(cur_v3d, target_vol_db, dt), -80.0, 24.0)
 
-	# Dynamic Speed & Wind Whoosh Audio - High speed dives/sprints ONLY (18+ m/s)
+	# Dynamic Speed & Wind Whoosh Audio - Triggers dynamically on forward flight and fast movements
 	if whoosh_audio_2d and shared_whoosh_stream:
 		if not whoosh_audio_2d.playing:
 			whoosh_audio_2d.play()
-		var speed_ratio = clampf((velocity.length() - 18.0) / 12.0, 0.0, 1.0)
+		# Lower trigger threshold to 6.0 m/s when pitching forward for immediate responsive wind feedback
+		var forward_bias = 4.0 if input_vec.z < 0.0 else 0.0
+		var speed_thresh = maxf(12.0 - forward_bias, 6.0)
+		var speed_ratio = clampf((velocity.length() - speed_thresh) / 12.0, 0.0, 1.0)
 		if speed_ratio > 0.01:
 			whoosh_audio_2d.stream_paused = false
 			var cur_wp = whoosh_audio_2d.pitch_scale if not is_nan(whoosh_audio_2d.pitch_scale) and not is_inf(whoosh_audio_2d.pitch_scale) else 1.0
 			var cur_wv = whoosh_audio_2d.volume_db if not is_nan(whoosh_audio_2d.volume_db) and not is_inf(whoosh_audio_2d.volume_db) else -42.0
-			whoosh_audio_2d.pitch_scale = clampf(lerpf(cur_wp, 0.95 + speed_ratio * 0.25, clampf(delta * 6.0, 0.05, 1.0)), 0.1, 4.0)
-			whoosh_audio_2d.volume_db = clampf(lerpf(cur_wv, -42.0 + (speed_ratio * 14.0), clampf(delta * 6.0, 0.05, 1.0)), -80.0, 24.0)
+			whoosh_audio_2d.pitch_scale = clampf(lerpf(cur_wp, 0.92 + speed_ratio * 0.32, clampf(delta * 6.0, 0.05, 1.0)), 0.1, 4.0)
+			whoosh_audio_2d.volume_db = clampf(lerpf(cur_wv, -38.0 + (speed_ratio * 14.0), clampf(delta * 6.0, 0.05, 1.0)), -80.0, 24.0)
 		else:
 			whoosh_audio_2d.stream_paused = true
 			whoosh_audio_2d.volume_db = -80.0
