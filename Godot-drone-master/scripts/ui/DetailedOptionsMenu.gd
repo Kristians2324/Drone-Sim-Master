@@ -651,7 +651,11 @@ func _apply_wind_preset(idx: int):
 				4: drone.set_wind_profile(Vector3(-1, 0, 0.8).normalized(), 25.0, 0.65, "Stormy Gusts")
 
 func _apply_master_volume(val: float):
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(val))
+	var bus_idx = AudioServer.get_bus_index("Master")
+	if bus_idx >= 0:
+		var safe_val = maxf(val, 0.2)
+		AudioServer.set_bus_mute(bus_idx, false)
+		AudioServer.set_bus_volume_db(bus_idx, linear_to_db(safe_val))
 
 func _apply_camera_mode(idx: int):
 	var mgr = get_tree().current_scene.get_node_or_null("DroneControllerManager") if get_tree() and get_tree().current_scene else null

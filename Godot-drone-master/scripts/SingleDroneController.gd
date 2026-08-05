@@ -92,10 +92,23 @@ func cleanup():
 		drone = null
 	print("SingleDroneController: Cleaned up player drone and cameras.")
 
+func _ensure_audio_listener(camera: Camera3D) -> void:
+	if not camera or not is_instance_valid(camera): return
+	var listener = camera.get_node_or_null("AudioListener3D") as AudioListener3D
+	if not listener:
+		listener = AudioListener3D.new()
+		listener.name = "AudioListener3D"
+		camera.add_child(listener)
+	listener.make_current()
+
 func update_camera_views():
 	if not drone or not is_instance_valid(drone): return
 	tp_camera.current = !is_first_person
 	fp_camera.current = is_first_person
+	if is_first_person:
+		_ensure_audio_listener(fp_camera)
+	else:
+		_ensure_audio_listener(tp_camera)
 
 func _process(delta):
 	if not drone or not is_instance_valid(drone): 

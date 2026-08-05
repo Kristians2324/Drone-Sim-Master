@@ -40,6 +40,9 @@ static func take_pristine_screenshot(scene_tree: SceneTree, status_label: Label 
 		if status_label and is_instance_valid(status_label):
 			status_label.text = "HIGH-RES SCREENSHOT SAVED TO DOWNLOADS!\n%s" % screenshot_path
 			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+		var toast_mgr = scene_tree.root.get_node_or_null("ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.show_toast("SCREENSHOT SAVED TO DOWNLOADS")
 		print("ScreenshotManager: High-res screenshot saved to: ", screenshot_path)
 		return screenshot_path
 

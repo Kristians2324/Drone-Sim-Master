@@ -20,7 +20,7 @@ var wind_manager: WindManager
 @export var wind_direction: Vector3 = Vector3(1, 0, 0)
 @export var wind_strength: float = 0.0
 @export var input_smoothing: float = 3.5
-@export var audio_enabled: bool = false
+@export var audio_enabled: bool = true
 
 var collision_shape: CollisionShape3D
 var start_global_transform: Transform3D
@@ -55,6 +55,11 @@ func _ready():
 		physics_component.set_wind(wind_direction, wind_strength)
 	if input_component and input_component.has_method("initialize"):
 		input_component.initialize(input_smoothing)
+	if not audio_component or not is_instance_valid(audio_component):
+		var new_audio = DroneAudio.new()
+		new_audio.name = "Audio"
+		add_child(new_audio)
+		audio_component = new_audio
 	if audio_component and audio_component.has_method("initialize"):
 		audio_component.initialize()
 	if audio_component and audio_component.has_method("set_audio_enabled"):
@@ -82,7 +87,10 @@ func _physics_process(delta):
 	
 	# Handle audio
 	if audio_enabled and audio_component:
-		audio_component.update_audio(smoothed_input.x)
+		if audio_component.has_method("update_flight_audio"):
+			audio_component.update_flight_audio(smoothed_input, linear_velocity, delta)
+		else:
+			audio_component.update_audio(smoothed_input.x)
 
 func _process(delta):
 	if get_tree().paused:

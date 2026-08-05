@@ -52,71 +52,71 @@ ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:164)
-       [2] run_suite (res://tests/test_runner.gd:54)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
+       [2] run_suite (res://tests/test_runner.gd:55)
        [3] _initialize (res://tests/test_runner.gd:32)
 SwarmController: Swarm initialized with 10 follower drones.
   ✅ PASS  SwarmController active after initialize_swarm with leader drone
@@ -165,9 +165,25 @@ ThreeDShapeDetector: Successfully processed via Python. Shape: 3D Mesh (TEST_CUB
   ✅ PASS  ThreeDShapeDetector sets is_3d == true
   ✅ PASS  ThreeDShapeDetector generated 3D formation points
 
+── DroneAudio        – Godot 3D procedural audio synthesis ──
+  ✅ PASS  DroneAudio script loaded successfully
+  ✅ PASS  DroneAudio node spawned into scene tree
+  ✅ PASS  DroneAudio creates motor_audio_2d AudioStreamPlayer
+  ✅ PASS  DroneAudio creates crash_audio_2d AudioStreamPlayer
+  ✅ PASS  motor_audio_2d uses AudioStreamWAV
+  ✅ PASS  crash_audio_2d uses AudioStreamWAV
+  ✅ PASS  set_audio_enabled(true) enables audio flag
+  ✅ PASS  DroneAudio implements update_flight_audio method
+  ✅ PASS  update_flight_audio executes safely across all flight telemetry axes
+  ✅ PASS  DroneAudio implements play_crash method
+  ✅ PASS  play_crash executes safely with impact intensity
+  ✅ PASS  set_audio_enabled(false) disables audio flag
+  ✅ PASS  AudioServer Master bus index found
+  ✅ PASS  AudioServer volume modified successfully
+
 
 ════════════════════════════════════════════════════
-  Results: 54 / 54 passed
+  Results: 68 / 68 passed
   ✅  ALL TESTS PASSED WITH 0 ERRORS
 ════════════════════════════════════════════════════
 

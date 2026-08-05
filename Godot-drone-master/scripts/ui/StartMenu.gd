@@ -15,6 +15,7 @@ var pulse_tween: Tween
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_setup_logo()
 	_start_pulse_animation()
 	if start_button and not start_button.pressed.is_connected(_on_start_button_pressed):
@@ -29,6 +30,7 @@ func _exit_tree() -> void:
 
 func open_menu() -> void:
 	is_active = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	show()
 	_start_pulse_animation()
 
@@ -68,6 +70,7 @@ func _on_tutorial_button_pressed() -> void:
 		pulse_tween.kill()
 		pulse_tween = null
 	hide()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	
 	var main_scene = get_tree().current_scene if get_tree() else null
 	if main_scene and main_scene.has_method("start_tutorial"):
@@ -81,4 +84,5 @@ func start_simulation() -> void:
 		pulse_tween.kill()
 		pulse_tween = null
 	hide()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	simulation_started.emit()

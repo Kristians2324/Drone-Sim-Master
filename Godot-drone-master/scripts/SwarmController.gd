@@ -85,6 +85,7 @@ func initialize_swarm(leader: Node, count: int = 15, spawn_center: Vector3 = Vec
 	for i in range(boid_count):
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
 		drone_inst.low_detail_visuals = true
+		drone_inst.audio_enabled = false
 		get_parent().add_child(drone_inst)
 		var offset = Vector3(randf_range(-15, 15), randf_range(2, 10), randf_range(-15, 15))
 		boid_scatter_offsets.append(offset)
@@ -94,6 +95,8 @@ func initialize_swarm(leader: Node, count: int = 15, spawn_center: Vector3 = Vec
 		drone_inst.collision_layer = 0
 		drone_inst.collision_mask = 0
 		
+		if drone_inst.has_method("set_audio_enabled"):
+			drone_inst.set_audio_enabled(false)
 		if drone_inst.has_method("set_hover_mode"):
 			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
@@ -148,6 +151,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 			var drone_inst: RigidBody3D = drone_scene.instantiate()
 			drone_inst.low_detail_visuals = true
+			drone_inst.audio_enabled = false
 			get_parent().add_child(drone_inst)
 			drone_inst.global_position = ground_pos
 			drone_inst.linear_velocity = Vector3.ZERO
@@ -157,6 +161,8 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 			drone_inst.collision_layer = 0
 			drone_inst.collision_mask = 0
 
+			if drone_inst.has_method("set_audio_enabled"):
+				drone_inst.set_audio_enabled(false)
 			if drone_inst.has_method("set_hover_mode"):
 				drone_inst.set_hover_mode(true)
 			if drone_inst.has_method("set_input_vector"):
@@ -200,6 +206,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 				var drone_inst: RigidBody3D = drone_scene.instantiate()
 				drone_inst.low_detail_visuals = true
+				drone_inst.audio_enabled = false
 				get_parent().add_child(drone_inst)
 				drone_inst.global_position = ground_pos
 				drone_inst.linear_velocity = Vector3.ZERO
@@ -209,6 +216,8 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 				drone_inst.collision_layer = 0
 				drone_inst.collision_mask = 0
 
+				if drone_inst.has_method("set_audio_enabled"):
+					drone_inst.set_audio_enabled(false)
 				if drone_inst.has_method("set_hover_mode"):
 					drone_inst.set_hover_mode(true)
 				if drone_inst.has_method("set_input_vector"):
@@ -464,6 +473,7 @@ func _process_formation(delta: float) -> void:
 				var drone_inst: RigidBody3D = drones[i]
 				if drone_inst and is_instance_valid(drone_inst):
 					drone_inst.global_position = target_positions[i]
+			play_formation_chime()
 
 	else:
 		for i in range(formation_count):
@@ -503,3 +513,55 @@ func get_swarm_centroid() -> Vector3:
 			sum += d.global_position
 			valid_count += 1
 	return sum / float(valid_count) if valid_count > 0 else Vector3.ZERO
+
+var chime_player: AudioStreamPlayer = null
+static var shared_chime_stream: AudioStreamWAV = null
+
+static func _build_formation_chime_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.45)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	# Frequencies for C major chord resonance: 523.25 Hz (C5), 659.25 Hz (E5), 783.99 Hz (G5)
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay = exp(-7.5 * t)
+		var s1 = sin(TAU * 523.25 * t) * 0.35
+		var s2 = sin(TAU * 659.25 * t) * 0.30
+		var s3 = sin(TAU * 783.99 * t) * 0.25
+		var spark = sin(TAU * 1567.98 * t) * 0.10 * exp(-20.0 * t)
+		var sample_val = clampf((s1 + s2 + s3 + spark) * decay * 0.6, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+func play_formation_chime() -> void:
+	if not is_inside_tree():
+		return
+	if shared_chime_stream == null:
+		shared_chime_stream = _build_formation_chime_wav()
+	if chime_player == null:
+		chime_player = AudioStreamPlayer.new()
+		chime_player.name = "FormationChimePlayer"
+		chime_player.bus = "Master"
+		chime_player.stream = shared_chime_stream
+		add_child(chime_player)
+	chime_player.pitch_scale = randf_range(0.98, 1.02)
+	chime_player.volume_db = -4.0
+	chime_player.play()

@@ -34,6 +34,9 @@ var low_detail_visuals: bool = false
 var battery_manager: DroneBatteryManager
 var aerodynamics: DroneAerodynamics
 var propeller_controller: DronePropellerController
+var audio_component: DroneAudio
+@export var audio_enabled: bool = true
+var telemetry_beep_timer: float = 0.0
 
 var battery_percent: float:
 	get: return battery_manager.battery_percent if battery_manager else 100.0
@@ -101,12 +104,21 @@ func set_low_detail_visuals(enabled: bool) -> void:
 	set_process(false)
 	set_physics_process(false)
 
+	audio_enabled = not enabled
+	if is_instance_valid(audio_component):
+		audio_component.set_audio_enabled(audio_enabled)
+
 	if is_instance_valid(design):
 		design.visible = not enabled
 	if is_instance_valid(show_rig):
 		show_rig.visible = true
 
 	_disable_shadow_casting_recursive(self)
+
+func set_audio_enabled(enabled: bool) -> void:
+	audio_enabled = enabled
+	if is_instance_valid(audio_component):
+		audio_component.set_audio_enabled(enabled)
 
 static func _disable_shadow_casting_recursive(node: Node) -> void:
 	if node is GeometryInstance3D:
@@ -141,6 +153,11 @@ func _ready():
 
 	replace_drone_model()
 	apply_hover_mode()
+	audio_component = DroneAudio.new()
+	audio_component.name = "Audio"
+	add_child(audio_component)
+	audio_component.initialize()
+	audio_component.set_audio_enabled(audio_enabled)
 	call_deferred("_connect_wind_manager")
 
 func _connect_wind_manager() -> void:
@@ -296,6 +313,19 @@ func _physics_process(delta):
 	battery_manager.update_battery(delta, smoothed_input, hover_enabled)
 
 	_apply_input_forces(delta, smoothed_input)
+	if audio_enabled and audio_component:
+		if audio_component.has_method("update_flight_audio"):
+			audio_component.update_flight_audio(smoothed_input, linear_velocity, delta)
+		else:
+			audio_component.update_audio(smoothed_input.x)
+
+		telemetry_beep_timer += delta
+		if battery_low_warning or battery_critical:
+			var interval = 0.6 if battery_critical else 1.6
+			if telemetry_beep_timer >= interval:
+				telemetry_beep_timer = 0.0
+				if audio_component.has_method("play_telemetry_beep"):
+					audio_component.play_telemetry_beep(battery_critical)
 
 	if battery_auto_landing:
 		smoothed_input.y = 0.0
@@ -424,4 +454,7 @@ func set_infinite_battery_enabled(enabled: bool) -> void:
 		battery_manager.set_infinite_battery(enabled)
 
 func _on_drone_collision(_body: Node) -> void:
-	pass
+	if audio_enabled and audio_component:
+		var impact = linear_velocity.length()
+		if impact > 1.2:
+			audio_component.play_crash(impact)

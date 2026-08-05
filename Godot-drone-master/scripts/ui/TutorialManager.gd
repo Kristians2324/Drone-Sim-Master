@@ -120,5 +120,5 @@ func close_tutorial() -> void:
 	hide()
 	if is_inside_tree() and get_tree():
 		get_tree().paused = false
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	tutorial_completed.emit()

@@ -27,6 +27,10 @@ func start_recording() -> void:
 	temp_frames_dir = ProjectSettings.globalize_path("user://temp_rec_frames_%d" % int(Time.get_unix_time_from_system()))
 	DirAccess.make_dir_recursive_absolute(temp_frames_dir)
 
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.show_toast("VIDEO RECORDING STARTED")
+
 func process_recording(delta: float, viewport: Viewport) -> void:
 	if not is_recording or not viewport:
 		return
@@ -90,6 +94,9 @@ func stop_recording(status_label: Label = null) -> String:
 		if status_label and is_instance_valid(status_label):
 			status_label.text = "MP4 VIDEO SAVED TO DOWNLOADS!\n%s" % mp4_output_path
 			status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 0.4, 1.0))
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.show_toast("VIDEO RECORDING SAVED TO DOWNLOADS")
 		print("VideoRecorderManager: 1080p MP4 Video saved to: ", mp4_output_path)
 		return mp4_output_path
 	else:

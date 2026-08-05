@@ -27,6 +27,8 @@ func start_loop(drone: RigidBody3D) -> void:
 	loop_up = drone.global_transform.basis.y.normalized()
 	loop_radius = 20.0
 	loop_center = loop_start_pos + loop_up * loop_radius
+	if "audio_component" in drone and drone.audio_component and drone.audio_component.has_method("play_trick_whoosh"):
+		drone.audio_component.play_trick_whoosh()
 
 func process_loop(delta: float, drone: RigidBody3D) -> bool:
 	if not is_instance_valid(drone): return false
@@ -59,6 +61,8 @@ func start_barrel_roll(drone: RigidBody3D) -> void:
 	barrel_forward = -drone.global_transform.basis.z.normalized()
 	barrel_left = -drone.global_transform.basis.x.normalized()
 	barrel_up = drone.global_transform.basis.y.normalized()
+	if "audio_component" in drone and drone.audio_component and drone.audio_component.has_method("play_trick_whoosh"):
+		drone.audio_component.play_trick_whoosh()
 
 func process_barrel_roll(delta: float, drone: RigidBody3D) -> bool:
 	if not is_instance_valid(drone): return false

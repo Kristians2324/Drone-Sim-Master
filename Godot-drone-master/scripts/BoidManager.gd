@@ -70,6 +70,9 @@ func spawn_boids():
 	var spawn_center = target_node.global_position if target_node else Vector3.ZERO
 	for i in range(boid_count):
 		var drone_inst = drone_scene.instantiate()
+		drone_inst.audio_enabled = false
+		if drone_inst.has_method("set_audio_enabled"):
+			drone_inst.set_audio_enabled(false)
 		add_child(drone_inst)
 		var offset = Vector3(
 			randf_range(-10.0, 10.0),

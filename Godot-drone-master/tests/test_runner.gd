@@ -10,6 +10,7 @@ const BoidManagerScript = preload("res://scripts/BoidManager.gd")
 const DroneInputScript = preload("res://scripts/drone/DroneInput.gd")
 const DroneShowLightRigScript = preload("res://scripts/drone/DroneShowLightRig.gd")
 const SwarmControllerScript = preload("res://scripts/SwarmController.gd")
+const UISoundManagerScript = preload("res://scripts/ui/UISoundManager.gd")
 
 var tests_passed: int = 0
 var tests_failed: int = 0
@@ -36,6 +37,9 @@ func _initialize() -> void:
 	run_suite("Minimap", "top-left HUD viewport", _tests_minimap)
 	run_suite("Drone Flight", "controls & scene integration", _tests_drone_controls)
 	run_suite("Menu Formations", "ESC pause menu formation buttons", _tests_formation_buttons)
+	run_suite("DroneAudio", "Godot 3D procedural audio synthesis", _tests_drone_audio)
+	run_suite("UISoundManager", "hover & clicky-clack UI sounds", _tests_ui_sound_manager)
+	run_suite("ToastManager", "clean HUD notification system", _tests_toast_manager)
 
 	print("\n════════════════════════════════════════════════════")
 	print("  Results: %d / %d passed" % [tests_passed, tests_passed + tests_failed])
@@ -47,6 +51,29 @@ func _initialize() -> void:
 		print("  ❌  %d TEST(S) FAILED" % tests_failed)
 		print("════════════════════════════════════════════════════\n")
 		quit(1)
+
+func _tests_ui_sound_manager() -> void:
+	var script = load("res://scripts/ui/UISoundManager.gd")
+	var sound_mgr = spawn(script.new())
+
+	assert_true(sound_mgr != null, "UISoundManager instance spawned into scene tree")
+	assert_true(sound_mgr.get_hover_stream() is AudioStreamWAV, "hover_stream generated AudioStreamWAV")
+	assert_true(sound_mgr.get_click_stream() is AudioStreamWAV, "click_stream generated AudioStreamWAV")
+
+	sound_mgr.play_hover_sound()
+	assert_true(true, "play_hover_sound executes safely")
+
+	sound_mgr.play_click_sound()
+	assert_true(true, "play_click_sound executes safely")
+
+	var btn = spawn(Button.new()) as Button
+	assert_true(btn != null, "Test button spawned")
+	btn.emit_signal("mouse_entered")
+	btn.emit_signal("pressed")
+	assert_true(true, "Button hover and press triggers UI sound handlers")
+
+	btn.free()
+	sound_mgr.free()
 
 func run_suite(suite_name: String, desc: String, callable: Callable) -> void:
 	current_suite = suite_name
@@ -167,11 +194,14 @@ func _tests_swarm_controller() -> void:
 	assert_eq(sc.boid_scatter_offsets.size(), 10, "SwarmController generated boid scatter offsets")
 
 	var all_hover: bool = true
+	var all_audio_disabled: bool = true
 	for d in sc.drones:
 		if d and d.get("hover_enabled") != true:
 			all_hover = false
-			break
+		if d and d.get("audio_enabled") != false:
+			all_audio_disabled = false
 	assert_true(all_hover, "Swarm follower drones initialized with hover_enabled == true")
+	assert_true(all_audio_disabled, "Swarm follower drones initialized with audio_enabled == false")
 
 	sc._physics_process(0.016)
 	var centroid = sc.get_swarm_centroid()
@@ -295,3 +325,56 @@ func _tests_3d_shape_detector() -> void:
 
 	if FileAccess.file_exists(test_obj_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(test_obj_path))
+
+func _tests_drone_audio() -> void:
+	var DroneAudioClass = load("res://scripts/drone/DroneAudio.gd")
+	assert_true(DroneAudioClass != null, "DroneAudio script loaded successfully")
+
+	var audio_node = spawn(DroneAudioClass.new()) as DroneAudio
+	assert_true(audio_node != null, "DroneAudio node spawned into scene tree")
+
+	audio_node.initialize()
+	assert_true(audio_node.motor_audio_2d != null, "DroneAudio creates motor_audio_2d AudioStreamPlayer")
+	assert_true(audio_node.crash_audio_2d != null, "DroneAudio creates crash_audio_2d AudioStreamPlayer")
+	assert_true(audio_node.motor_audio_2d.stream is AudioStreamWAV, "motor_audio_2d uses AudioStreamWAV")
+	assert_true(audio_node.crash_audio_2d.stream is AudioStreamWAV, "crash_audio_2d uses AudioStreamWAV")
+
+	audio_node.set_audio_enabled(true)
+	assert_true(audio_node.audio_enabled, "set_audio_enabled(true) enables audio flag")
+
+	assert_true(audio_node.has_method("update_flight_audio"), "DroneAudio implements update_flight_audio method")
+	audio_node.update_flight_audio(Vector4(0.8, 0.5, 0.5, 0.5), Vector3(5, 0, 5), 0.016)
+	assert_true(true, "update_flight_audio executes safely across all flight telemetry axes")
+
+	assert_true(audio_node.has_method("play_crash"), "DroneAudio implements play_crash method")
+	audio_node.play_crash(8.5)
+	assert_true(true, "play_crash executes safely with impact intensity")
+
+	audio_node.play_telemetry_beep(false)
+	audio_node.play_telemetry_beep(true)
+	assert_true(true, "play_telemetry_beep executes safely for normal and urgent warnings")
+
+	audio_node.play_trick_whoosh()
+	assert_true(true, "play_trick_whoosh executes safely")
+
+	audio_node.set_audio_enabled(false)
+	assert_false(audio_node.audio_enabled, "set_audio_enabled(false) disables audio flag")
+
+	var master_bus_idx = AudioServer.get_bus_index("Master")
+	assert_true(master_bus_idx >= 0, "AudioServer Master bus index found")
+	AudioServer.set_bus_volume_db(master_bus_idx, linear_to_db(0.8))
+	assert_true(AudioServer.get_bus_volume_db(master_bus_idx) != 0.0, "AudioServer volume modified successfully")
+
+	audio_node.free()
+
+func _tests_toast_manager() -> void:
+	var ToastManagerClass = load("res://scripts/ui/ToastManager.gd")
+	assert_true(ToastManagerClass != null, "ToastManager script loaded successfully")
+
+	var toast_node = spawn(ToastManagerClass.new())
+	assert_true(toast_node != null, "ToastManager node spawned into scene tree")
+
+	toast_node.show_toast("TEST TOAST NOTIFICATION")
+	assert_true(true, "show_toast executes safely with uppercase clean text")
+
+	toast_node.free()

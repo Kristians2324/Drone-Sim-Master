@@ -121,9 +121,14 @@ func load_environment(EnvironmentClass):
 
 	is_loading_environment = true
 
-	# Only show animated loading screen when switching maps mid-game (not on initial boot)
+	var env_name_str = "MAP ENVIRONMENT"
+	if EnvironmentClass == MapEarthDay: env_name_str = "EARTH DAY"
+	elif EnvironmentClass == MapEarthNight: env_name_str = "EARTH NIGHT"
+	elif EnvironmentClass == MapMoon: env_name_str = "MOON SURFACE"
+	elif EnvironmentClass == MapIndoor: env_name_str = "INDOOR WAREHOUSE"
+
 	if current_environment != null and loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
-		loading_screen_instance.show_loading("Loading environment...")
+		loading_screen_instance.show_loading("Clearing previous environment resources...")
 		if get_tree():
 			await get_tree().process_frame
 
@@ -133,15 +138,22 @@ func load_environment(EnvironmentClass):
 		if get_tree():
 			await get_tree().process_frame
 
+	if loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
+		loading_screen_instance.show_loading("Building " + env_name_str + " geometry & lighting...")
+		if get_tree():
+			await get_tree().process_frame
+
 	current_environment = EnvironmentClass.new()
 	current_environment.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(current_environment)
 
-	# Wait for physics and scene tree initialization on the new environment map
-	if get_tree():
-		await get_tree().process_frame
-		await get_tree().physics_frame
-		await get_tree().process_frame
+	update_ambient_audio(EnvironmentClass)
+
+	if loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
+		loading_screen_instance.show_loading("Calibrating drone physics & spatial audio...")
+		if get_tree():
+			await get_tree().process_frame
+			await get_tree().physics_frame
 
 	# Re-apply all active user settings (fog, lighting, shadows, wind, drone physics, volume, etc.) to the new map
 	reapply_user_settings()
@@ -150,6 +162,10 @@ func load_environment(EnvironmentClass):
 		loading_screen_instance.hide_loading()
 	elif loading_screen_instance:
 		loading_screen_instance.hide()
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.show_toast("ENVIRONMENT LOADED: " + env_name_str)
 
 	is_loading_environment = false
 
@@ -231,3 +247,154 @@ func _restart_fresh():
 		mgr.cleanup()
 
 	get_tree().reload_current_scene()
+
+var ambient_audio_player: AudioStreamPlayer = null
+
+func update_ambient_audio(EnvironmentClass) -> void:
+	if ambient_audio_player == null:
+		ambient_audio_player = AudioStreamPlayer.new()
+		ambient_audio_player.name = "EnvironmentAmbientAudio"
+		ambient_audio_player.bus = "Master"
+		ambient_audio_player.process_mode = Node.PROCESS_MODE_PAUSABLE
+		add_child(ambient_audio_player)
+
+	var env_str = str(EnvironmentClass)
+	if "EarthDay" in env_str or EnvironmentClass == MapEarthDay:
+		ambient_audio_player.stream = _build_ambient_day_wav()
+		ambient_audio_player.volume_db = -32.0
+	elif "Indoor" in env_str or EnvironmentClass == MapIndoor:
+		ambient_audio_player.stream = _build_ambient_indoor_wav()
+		ambient_audio_player.volume_db = -34.0
+	elif "Moon" in env_str or EnvironmentClass == MapMoon:
+		ambient_audio_player.stream = _build_ambient_moon_wav()
+		ambient_audio_player.volume_db = -28.0
+	else:
+		ambient_audio_player.stream = _build_ambient_night_wav()
+		ambient_audio_player.volume_db = -32.0
+
+	if not ambient_audio_player.playing:
+		ambient_audio_player.play()
+
+static func _build_ambient_day_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 2.0)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var wind_lfo = 0.7 + 0.3 * sin(TAU * 0.3 * t)
+		var low_hum = sin(TAU * 55.0 * t) * 0.15 + sin(TAU * 110.0 * t) * 0.08
+		var sample_val = clampf(low_hum * wind_lfo * 0.25, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_begin = 0
+	wav.loop_end = num_samples
+	return wav
+
+static func _build_ambient_night_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 2.0)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var breeze = 0.5 + 0.5 * sin(TAU * 0.2 * t)
+		var low_sub = sin(TAU * 50.0 * t) * 0.12
+		var sample_val = clampf(low_sub * breeze * 0.2, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_begin = 0
+	wav.loop_end = num_samples
+	return wav
+
+static func _build_ambient_moon_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 2.0)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var sub1 = sin(TAU * 45.0 * t) * 0.4
+		var sub2 = sin(TAU * 90.0 * t) * 0.25
+		var sample_val = clampf((sub1 + sub2) * 0.45, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_begin = 0
+	wav.loop_end = num_samples
+	return wav
+
+static func _build_ambient_indoor_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 2.0)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var hvac = sin(TAU * 110.0 * t) * 0.15 + sin(TAU * 220.0 * t) * 0.08
+		var n = (randf() * 2.0 - 1.0) * 0.05
+		var sample_val = clampf((hvac + n) * 0.3, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_begin = 0
+	wav.loop_end = num_samples
+	return wav

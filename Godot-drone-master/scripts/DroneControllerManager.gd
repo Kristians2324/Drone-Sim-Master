@@ -168,6 +168,15 @@ func cleanup():
 		swarm_controller = null
 	print("DroneControllerManager: Cleaned up player drone and cameras.")
 
+func _ensure_audio_listener(camera: Camera3D) -> void:
+	if not camera or not is_instance_valid(camera): return
+	var listener = camera.get_node_or_null("AudioListener3D") as AudioListener3D
+	if not listener:
+		listener = AudioListener3D.new()
+		listener.name = "AudioListener3D"
+		camera.add_child(listener)
+	listener.make_current()
+
 func update_camera_views():
 	if not drone or not is_instance_valid(drone): return
 	show_camera_active = show_mode != ShowMode.NONE
@@ -175,14 +184,17 @@ func update_camera_views():
 		tp_camera.current = false
 		fp_camera.current = false
 		show_camera.current = true
+		_ensure_audio_listener(show_camera)
 	elif is_first_person:
 		tp_camera.current = false
 		fp_camera.current = true
 		show_camera.current = false
+		_ensure_audio_listener(fp_camera)
 	else:
 		tp_camera.current = true
 		fp_camera.current = false
 		show_camera.current = false
+		_ensure_audio_listener(tp_camera)
 
 func _process(delta):
 	if camera_toggle_cooldown > 0: camera_toggle_cooldown -= delta
@@ -444,6 +456,15 @@ func set_show_mode(mode_id: int):
 		start_show_mode(mode_id)
 
 func start_custom_image_shape(image_path: String, custom_points_override: Array[Vector3] = []) -> void:
+	var loading_layer = get_tree().root.get_node_or_null("WorldManager/LoadingScreenLayer") if get_tree() else null
+	if not loading_layer and get_tree() and get_tree().current_scene:
+		loading_layer = get_tree().current_scene.get_node_or_null("LoadingScreenLayer")
+
+	if loading_layer and loading_layer.has_method("show_loading") and DisplayServer.get_name() != "headless":
+		loading_layer.show_loading("Processing image edge detection for drone formation...")
+		if get_tree():
+			await get_tree().process_frame
+
 	var center = drone.global_position + Vector3(0, 15, 0) if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 20, 0)
 	var custom_points: Array[Vector3] = custom_points_override.duplicate()
 
@@ -452,6 +473,8 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 		custom_points = ImageEdgeDetectorClass.process_image_to_formation(image_path, 0, 20.0)
 
 	if custom_points.size() == 0:
+		if loading_layer and loading_layer.has_method("hide_loading"):
+			loading_layer.hide_loading()
 		print("DroneControllerManager: Custom image edge detection returned 0 points for: ", image_path)
 		return
 
@@ -478,10 +501,20 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 	if is_instance_valid(drone):
 		if drone.has_method("set_show_lighting_enabled"):
 			drone.set_show_lighting_enabled(false)
+		if drone.has_method("set_audio_enabled"):
+			drone.set_audio_enabled(false)
 		drone.visible = false
 
 	set_hud_visible(false)
 	update_camera_views()
+
+	if loading_layer and loading_layer.has_method("hide_loading"):
+		loading_layer.hide_loading()
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.show_toast("FORMATION: CUSTOM IMAGE LIGHT SHOW (" + str(targets.size()) + " DRONES)")
+
 	print("DroneControllerManager: Python Custom Image Shape Airshow started with ", targets.size(), " drones forming shape from image: ", image_path)
 
 func start_show_mode(mode_id: int):
@@ -509,10 +542,19 @@ func start_show_mode(mode_id: int):
 	if is_instance_valid(drone):
 		if drone.has_method("set_show_lighting_enabled"):
 			drone.set_show_lighting_enabled(false)
+		if drone.has_method("set_audio_enabled"):
+			drone.set_audio_enabled(false)
 		drone.visible = false
 
 	set_hud_visible(false)
 	update_camera_views()
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		for k in show_mode_names.keys():
+			if show_mode_names[k] == mode_id:
+				toast_mgr.show_toast("FORMATION ACTIVATED: " + k.to_upper())
+				break
 	print("DroneControllerManager: Airshow mode ", mode_id, " started with ", targets.size(), " target positions.")
 
 func stop_show_mode():
@@ -525,6 +567,8 @@ func stop_show_mode():
 	if is_instance_valid(drone):
 		if drone.has_method("set_show_lighting_enabled"):
 			drone.set_show_lighting_enabled(false)
+		if drone.has_method("set_audio_enabled") and not swarm_mode:
+			drone.set_audio_enabled(true)
 		drone.visible = true
 
 	set_hud_visible(true)
@@ -594,6 +638,14 @@ func enable_swarm_mode():
 
 	if is_instance_valid(drone):
 		drone.set_swarm_mode_active(true)
+		if drone.has_method("set_audio_enabled"):
+			drone.set_audio_enabled(false)
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		var count_str = str(swarm_controller.drones.size()) if swarm_controller else "39"
+		toast_mgr.show_toast("SWARM MODE ACTIVATED (" + count_str + " DRONES)")
+
 	print("DroneControllerManager: Swarm Mode ENABLED.")
 
 func disable_swarm_mode():
@@ -607,6 +659,12 @@ func disable_swarm_mode():
 
 	if is_instance_valid(drone):
 		drone.set_swarm_mode_active(false)
+		if drone.has_method("set_audio_enabled") and show_mode == ShowMode.NONE:
+			drone.set_audio_enabled(true)
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.show_toast("SWARM MODE DEACTIVATED")
 
 	print("DroneControllerManager: Swarm Mode DISABLED.")
 
