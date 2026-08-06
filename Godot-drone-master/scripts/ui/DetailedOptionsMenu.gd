@@ -36,6 +36,10 @@ var settings: Dictionary = {
 	
 	# Audio & Camera
 	"master_volume": 1.0,
+	"ps1_music_enabled": true,
+	"ps1_music_volume": 0.15,
+	"swarm_audio_enabled": true,
+	"swarm_audio_volume": 0.5,
 	"camera_mode": 0, # 0: First Person, 1: Third Person
 	"camera_fov": 75.0
 }
@@ -486,6 +490,10 @@ func apply_all_current_settings():
 			drone.set_infinite_battery_enabled(bool(settings.get("infinite_battery", false)))
 
 	_apply_master_volume(float(settings.get("master_volume", 1.0)))
+	_on_ps1_music_toggled(bool(settings.get("ps1_music_enabled", true)))
+	_on_ps1_music_vol_changed(float(settings.get("ps1_music_volume", 0.15)))
+	_on_swarm_audio_toggled(bool(settings.get("swarm_audio_enabled", true)))
+	_on_swarm_audio_vol_changed(float(settings.get("swarm_audio_volume", 0.5)))
 	_apply_camera_mode(int(settings.get("camera_mode", 0)))
 	_apply_camera_fov(float(settings.get("camera_fov", 75.0)))
 
@@ -933,17 +941,23 @@ func _get_player_drone() -> RigidBody3D:
 	return null
 
 func _on_ps1_music_toggled(enabled: bool) -> void:
+	settings["ps1_music_enabled"] = enabled
+	save_user_settings()
 	var mgr = PS1MusicManager.get_instance()
 	if mgr:
 		mgr.set_music_enabled(enabled)
 
 func _on_ps1_music_vol_changed(vol_linear: float) -> void:
+	settings["ps1_music_volume"] = vol_linear
+	save_user_settings()
 	var mgr = PS1MusicManager.get_instance()
 	if mgr:
 		var db = linear_to_db(clampf(vol_linear, 0.0001, 1.0)) if vol_linear > 0.01 else -80.0
 		mgr.set_volume_db(db)
 
 func _on_swarm_audio_toggled(enabled: bool) -> void:
+	settings["swarm_audio_enabled"] = enabled
+	save_user_settings()
 	var controller_mgr = get_tree().root.find_child("DroneControllerManager", true, false)
 	if controller_mgr and controller_mgr.get("swarm_controller") != null:
 		var sc = controller_mgr.swarm_controller
@@ -951,6 +965,8 @@ func _on_swarm_audio_toggled(enabled: bool) -> void:
 			sc.swarm_audio_component.set_swarm_enabled(enabled)
 
 func _on_swarm_audio_vol_changed(vol_linear: float) -> void:
+	settings["swarm_audio_volume"] = vol_linear
+	save_user_settings()
 	var controller_mgr = get_tree().root.find_child("DroneControllerManager", true, false)
 	if controller_mgr and controller_mgr.get("swarm_controller") != null:
 		var sc = controller_mgr.swarm_controller

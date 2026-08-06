@@ -8,37 +8,28 @@ var crash_audio_3d: AudioStreamPlayer3D
 var whoosh_audio_2d: AudioStreamPlayer
 var beep_audio_2d: AudioStreamPlayer
 var trick_audio_2d: AudioStreamPlayer
-var ps1_music_audio_2d: AudioStreamPlayer
 
 static var shared_motor_stream: AudioStreamWAV = null
 static var shared_crash_stream: AudioStreamWAV = null
 static var shared_whoosh_stream: AudioStreamWAV = null
 static var shared_beep_stream: AudioStreamWAV = null
 static var shared_trick_stream: AudioStreamWAV = null
-static var shared_ps1_music_stream: AudioStreamWAV = null
 
 var audio_enabled: bool = true
 
 func initialize() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_mode = Node.PROCESS_MODE_PAUSABLE
 	if not motor_audio_2d:
 		setup_motor_audio()
 	if not crash_audio_2d:
 		setup_crash_audio()
 	if not whoosh_audio_2d:
 		setup_extra_audio()
-	if not ps1_music_audio_2d:
-		setup_ps1_music_audio()
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 
 func _process(_delta: float) -> void:
-	if ps1_music_audio_2d:
-		var enabled = PS1MusicManager.global_music_enabled
-		var target_db = PS1MusicManager.global_volume_db
-		ps1_music_audio_2d.stream_paused = not enabled
-		ps1_music_audio_2d.volume_db = target_db if enabled else -80.0
 
 	if get_tree() and get_tree().paused:
 		if whoosh_audio_2d:
@@ -67,8 +58,6 @@ static func _ensure_shared_streams() -> void:
 		shared_beep_stream = _build_beep_wav()
 	if shared_trick_stream == null:
 		shared_trick_stream = _build_trick_whoosh_wav()
-	if shared_ps1_music_stream == null:
-		shared_ps1_music_stream = _build_ps1_music_wav()
 
 static func _build_motor_wav() -> AudioStreamWAV:
 	var wav = AudioStreamWAV.new()
@@ -237,106 +226,6 @@ static func _build_trick_whoosh_wav() -> AudioStreamWAV:
 	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
 	return wav
 
-static func _build_ps1_music_wav() -> AudioStreamWAV:
-	var wav = AudioStreamWAV.new()
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.stereo = true
-	wav.mix_rate = 44100
-
-	var num_samples = 44100 * 4 # 4.0 seconds PS1 DnB loop
-	var byte_array = PackedByteArray()
-	byte_array.resize(num_samples * 4)
-
-	# Frequencies for 90s PS1 liquid chord progression (Dm9 -> Fmaj7)
-	var chords = [
-		[146.83, 174.61, 220.00, 261.63, 329.63], # Dm9
-		[174.61, 220.00, 261.63, 329.63, 349.23], # Fmaj7
-	]
-	var sub_freqs = [73.42, 87.31]
-
-	var sixteenth_dur = 0.09375 # 160 BPM
-
-	for i in range(num_samples):
-		var t = float(i) / 44100.0
-		var bar = int(t / 2.0) % 2
-		var step_t = fmod(t, sixteenth_dur)
-		var step_idx = int(t / sixteenth_dur) % 16
-
-		# 1. Atmospheric Liquid Pad (Smooth synth blend)
-		var chord = chords[bar]
-		var pad_l = 0.0
-		var pad_r = 0.0
-		for f_idx in range(chord.size()):
-			var freq = chord[f_idx]
-			var osc1 = sin(TAU * freq * t) * 0.25
-			var osc2 = sin(TAU * (freq * 1.003) * t + 0.4) * 0.25
-			var weight = 1.0 / float(f_idx + 1)
-			pad_l += osc1 * weight
-			pad_r += osc2 * weight
-		
-		pad_l *= (0.8 + 0.2 * sin(TAU * 0.5 * t))
-		pad_r *= (0.8 + 0.2 * sin(TAU * 0.5 * t + 0.5))
-
-		# 2. Sub-Bass
-		var sub_f = sub_freqs[bar]
-		var sub_sound = sin(TAU * sub_f * t) * 0.28
-
-		# 3. Clean 90s Breakbeat Rhythm (Filtered kick, snappy rimshot, hi-hat roll)
-		var kick = 0.0
-		if step_idx in [0, 6, 10, 14]:
-			var k_env = exp(-22.0 * step_t)
-			var k_freq = 130.0 * exp(-28.0 * step_t) + 48.0
-			kick = sin(TAU * k_freq * t) * k_env * 0.40
-
-		var snare = 0.0
-		if step_idx in [4, 12]:
-			var s_env = exp(-24.0 * step_t)
-			var s_noise = (randf() * 2.0 - 1.0) * 0.35
-			var s_tone = sin(TAU * 210.0 * t) * 0.30
-			snare = (s_tone + s_noise) * s_env * 0.30
-
-		var hat_env = exp(-55.0 * step_t) * (0.5 if step_idx % 2 == 0 else 0.3)
-		var hat = (randf() * 2.0 - 1.0) * hat_env * 0.15
-
-		# Soft, Subtle Stereo Master Mix
-		var mix_l = (pad_l * 0.18) + (sub_sound * 0.15) + (kick * 0.12) + (snare * 0.08) + (hat * 0.05)
-		var mix_r = (pad_r * 0.18) + (sub_sound * 0.15) + (kick * 0.12) + (snare * 0.08) + (hat * 0.04)
-
-		var int_l = int(clampf(mix_l * 0.35, -0.95, 0.95) * 32767.0)
-		var int_r = int(clampf(mix_r * 0.35, -0.95, 0.95) * 32767.0)
-
-		var b0_l = int_l & 0xFF
-		var b1_l = (int_l >> 8) & 0xFF
-		var b0_r = int_r & 0xFF
-		var b1_r = (int_r >> 8) & 0xFF
-
-		var idx = i * 4
-		byte_array[idx]     = b0_l
-		byte_array[idx + 1] = b1_l
-		byte_array[idx + 2] = b0_r
-		byte_array[idx + 3] = b1_r
-
-	wav.data = byte_array
-	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	wav.loop_begin = 0
-	wav.loop_end = num_samples
-	return wav
-
-func setup_ps1_music_audio() -> void:
-	if shared_ps1_music_stream == null:
-		shared_ps1_music_stream = _build_ps1_music_wav()
-
-	ps1_music_audio_2d = AudioStreamPlayer.new()
-	ps1_music_audio_2d.name = "PS1MusicAudio2D"
-	ps1_music_audio_2d.bus = "Master"
-	ps1_music_audio_2d.process_mode = Node.PROCESS_MODE_ALWAYS
-	if shared_ps1_music_stream:
-		ps1_music_audio_2d.stream = shared_ps1_music_stream
-	add_child(ps1_music_audio_2d)
-
-	ps1_music_audio_2d.volume_db = -24.0
-	ps1_music_audio_2d.play()
-
 func _start_playback_if_ready() -> void:
 	if not is_inside_tree():
 		return
@@ -348,13 +237,6 @@ func _start_playback_if_ready() -> void:
 			AudioServer.set_bus_volume_db(master_idx, 0.0)
 
 	_ensure_shared_streams()
-
-	if ps1_music_audio_2d and shared_ps1_music_stream:
-		if ps1_music_audio_2d.stream != shared_ps1_music_stream:
-			ps1_music_audio_2d.stream = shared_ps1_music_stream
-		if not ps1_music_audio_2d.playing:
-			ps1_music_audio_2d.play()
-		ps1_music_audio_2d.volume_db = -24.0
 
 	if motor_audio_2d and shared_motor_stream:
 		if motor_audio_2d.stream != shared_motor_stream:

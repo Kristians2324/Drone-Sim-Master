@@ -86,21 +86,27 @@ func initialize_swarm(leader: Node, count: int = 15, spawn_center: Vector3 = Vec
 	drone_terrain_heights.resize(boid_count)
 	drone_terrain_heights.fill(0.0)
 
+	boid_scatter_offsets.clear()
 	for i in range(boid_count):
 		var drone_inst: RigidBody3D = drone_scene.instantiate()
 		drone_inst.low_detail_visuals = true
-		drone_inst.audio_enabled = false
+		drone_inst.audio_enabled = true
 		get_parent().add_child(drone_inst)
-		var offset = Vector3(randf_range(-15, 15), randf_range(2, 10), randf_range(-15, 15))
+
+		var theta = randf() * TAU
+		var phi = acos(randf_range(-0.85, 0.85))
+		var r = randf_range(4.0, 12.0)
+		var offset = Vector3(r * sin(phi) * cos(theta), r * sin(phi) * sin(theta), r * cos(phi))
 		boid_scatter_offsets.append(offset)
+
 		drone_inst.global_position = center + offset
 		drone_inst.scale = Vector3(0.6, 0.6, 0.6)
-		drone_inst.freeze = true
+		drone_inst.freeze = false
 		drone_inst.collision_layer = 0
 		drone_inst.collision_mask = 0
 		
 		if drone_inst.has_method("set_audio_enabled"):
-			drone_inst.set_audio_enabled(false)
+			drone_inst.set_audio_enabled(true)
 		if drone_inst.has_method("set_hover_mode"):
 			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
@@ -155,7 +161,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 			var drone_inst: RigidBody3D = drone_scene.instantiate()
 			drone_inst.low_detail_visuals = true
-			drone_inst.audio_enabled = false
+			drone_inst.audio_enabled = true
 			get_parent().add_child(drone_inst)
 			drone_inst.global_position = ground_pos
 			drone_inst.linear_velocity = Vector3.ZERO
@@ -166,7 +172,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 			drone_inst.collision_mask = 0
 
 			if drone_inst.has_method("set_audio_enabled"):
-				drone_inst.set_audio_enabled(false)
+				drone_inst.set_audio_enabled(true)
 			if drone_inst.has_method("set_hover_mode"):
 				drone_inst.set_hover_mode(true)
 			if drone_inst.has_method("set_input_vector"):
@@ -210,7 +216,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 				var drone_inst: RigidBody3D = drone_scene.instantiate()
 				drone_inst.low_detail_visuals = true
-				drone_inst.audio_enabled = false
+				drone_inst.audio_enabled = true
 				get_parent().add_child(drone_inst)
 				drone_inst.global_position = ground_pos
 				drone_inst.linear_velocity = Vector3.ZERO
@@ -221,7 +227,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 				drone_inst.collision_mask = 0
 
 				if drone_inst.has_method("set_audio_enabled"):
-					drone_inst.set_audio_enabled(false)
+					drone_inst.set_audio_enabled(true)
 				if drone_inst.has_method("set_hover_mode"):
 					drone_inst.set_hover_mode(true)
 				if drone_inst.has_method("set_input_vector"):
@@ -439,15 +445,18 @@ func _physics_process(delta: float) -> void:
 		if sep_count > 0:
 			steer_separation = sep_force.limit_length(max_force * 1.5)
 
-		var target_dir = (target_position - pos)
+		var target_offset = boid_scatter_offsets[i] if i < boid_scatter_offsets.size() else Vector3.ZERO
+		var desired_target_pos = target_position + target_offset
+		var target_dir = (desired_target_pos - pos)
 		var dist_to_target = target_dir.length()
 		var steer_target := Vector3.ZERO
-		if dist_to_target > 5.0:
-			var desired_target = target_dir.normalized() * max_speed
-			steer_target = (desired_target - vel).limit_length(max_force * 0.8)
+		if dist_to_target > 0.3:
+			var speed_demand = clampf(dist_to_target * 3.5, min_speed, max_speed * 1.5)
+			var desired_target = target_dir.normalized() * speed_demand
+			steer_target = (desired_target - vel).limit_length(max_force * 2.0)
 
-		var total_force = steer_separation * 2.2 + steer_cohesion * 0.8 + steer_alignment * 0.6 + steer_target * 1.2
-		var desired_velocity = (vel + total_force * delta).limit_length(max_speed)
+		var total_force = steer_separation * 3.0 + steer_cohesion * 0.6 + steer_alignment * 0.5 + steer_target * 2.5
+		var desired_velocity = (vel + total_force * delta).limit_length(max_speed * 1.5)
 
 		var ground_clearance: float = 4.0
 		var cached_y = drone_terrain_heights[i]

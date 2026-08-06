@@ -49,6 +49,8 @@ func configure(index: int, total: int, player_drone: bool = false):
 	drone_index = max(index, 0)
 	drone_total = max(total, 1)
 	is_player_drone = player_drone
+	if not is_player_drone:
+		set_low_cost_mode(true)
 	_rebuild_palette()
 	_apply_palette_to_visuals()
 

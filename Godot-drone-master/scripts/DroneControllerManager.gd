@@ -48,6 +48,7 @@ var launch_pad_marker: MeshInstance3D = null
 var recharge_structure: Node3D = null
 var low_battery_return_active: bool = false
 var low_battery_landing_active: bool = false
+var boid_manager: BoidManager = null
 
 enum FlightState { MANUAL, AUTOPILOT, TRICK_LOOP, TRICK_BARREL }
 var flight_state = FlightState.MANUAL
@@ -257,6 +258,7 @@ func _process(delta):
 		start_trick_barrel(flight_state == FlightState.MANUAL)
 
 	if spring_arm and is_instance_valid(spring_arm) and spring_arm.is_inside_tree():
+		spring_arm.collision_mask = 2 # Terrain layer only (Ignores all drones completely!)
 		if drone and is_instance_valid(drone) and drone.is_inside_tree():
 			var follow_pos = drone.global_position
 			if show_mode != ShowMode.NONE and swarm_controller and is_instance_valid(swarm_controller) and swarm_controller.has_method("get_swarm_centroid"):
@@ -632,40 +634,40 @@ func enable_swarm_mode():
 	if swarm_mode: return
 	swarm_mode = true
 
-	if swarm_controller and is_instance_valid(swarm_controller):
-		swarm_controller.clear_swarm()
-		swarm_controller.queue_free()
+	if boid_manager and is_instance_valid(boid_manager):
+		boid_manager.queue_free()
+		boid_manager = null
 
-	swarm_controller = preload("res://scripts/SwarmController.gd").new()
-	swarm_controller.name = "SwarmController"
-	get_parent().add_child(swarm_controller)
-
-	var spawn_pos = drone.global_position if is_instance_valid(drone) and drone.is_inside_tree() else Vector3(0, 15, 0)
-	swarm_controller.initialize_swarm(drone, 39, spawn_pos + Vector3(0, 3, 0))
+	var BoidManagerClass = load("res://scripts/BoidManager.gd")
+	boid_manager = BoidManagerClass.new()
+	boid_manager.name = "BoidManager"
+	boid_manager.boid_count = 20
+	get_parent().add_child(boid_manager)
+	boid_manager.initialize(drone)
 
 	if is_instance_valid(drone):
 		drone.set_swarm_mode_active(true)
 		if drone.has_method("set_audio_enabled"):
 			drone.set_audio_enabled(false)
+		drone.speed_multiplier = 1.0
 
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr and toast_mgr.has_method("show_toast"):
-		var count_str = str(swarm_controller.drones.size()) if swarm_controller else "39"
-		toast_mgr.show_toast("SWARM MODE ACTIVATED (" + count_str + " DRONES)")
+		toast_mgr.show_toast("SWARM MODE ACTIVATED (BOIDS SWARM)")
 
-	print("DroneControllerManager: Swarm Mode ENABLED.")
+	print("DroneControllerManager: Boids Swarm Mode ENABLED.")
 
 func disable_swarm_mode():
 	if not swarm_mode: return
 	swarm_mode = false
 
-	if swarm_controller and is_instance_valid(swarm_controller):
-		swarm_controller.clear_swarm()
-		swarm_controller.queue_free()
-		swarm_controller = null
+	if boid_manager and is_instance_valid(boid_manager):
+		boid_manager.queue_free()
+		boid_manager = null
 
 	if is_instance_valid(drone):
 		drone.set_swarm_mode_active(false)
+		drone.speed_multiplier = 1.0
 		if drone.has_method("set_audio_enabled") and show_mode == ShowMode.NONE:
 			drone.set_audio_enabled(true)
 
@@ -673,7 +675,7 @@ func disable_swarm_mode():
 	if toast_mgr and toast_mgr.has_method("show_toast"):
 		toast_mgr.show_toast("SWARM MODE DEACTIVATED")
 
-	print("DroneControllerManager: Swarm Mode DISABLED.")
+	print("DroneControllerManager: Boids Swarm Mode DISABLED.")
 
 func update_show_camera(delta: float = 0.016):
 	if not show_camera or not is_instance_valid(show_camera): return

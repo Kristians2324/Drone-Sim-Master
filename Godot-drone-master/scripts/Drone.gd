@@ -77,11 +77,6 @@ func apply_hover_mode() -> void:
 	set_hover_mode(hover_enabled)
 
 func set_swarm_mode_active(active: bool):
-	speed_multiplier = 1.6 if active else 1.0
-	if active:
-		set_low_cost_mode(true)
-	else:
-		set_low_cost_mode(low_cost_mode)
 	if is_instance_valid(design):
 		design.visible = !active
 	if is_instance_valid(show_rig):
@@ -99,10 +94,14 @@ func set_low_cost_mode(enabled: bool) -> void:
 
 func set_low_detail_visuals(enabled: bool) -> void:
 	low_detail_visuals = enabled
-	contact_monitor = false
-	max_contacts_reported = 0
-	set_process(false)
-	set_physics_process(false)
+	if enabled:
+		contact_monitor = false
+		max_contacts_reported = 0
+		set_process(false)
+		set_physics_process(false)
+	else:
+		set_process(true)
+		set_physics_process(true)
 
 	audio_enabled = not enabled
 	if is_instance_valid(audio_component):
