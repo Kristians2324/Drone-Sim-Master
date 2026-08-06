@@ -250,6 +250,10 @@ func _build_audio_cam_tab() -> Control:
 	vbox.add_theme_constant_override("separation", 10)
 
 	vbox.add_child(_create_slider_row("master_volume", "Master Volume", 0.0, 1.0, 0.05, 1.0, "%.0f%%", func(v): return v * 100.0, _on_volume_changed))
+	vbox.add_child(_create_toggle_row("ps1_music_enabled", "Music", true, _on_ps1_music_toggled))
+	vbox.add_child(_create_slider_row("ps1_music_volume", "Music Volume", 0.0, 1.0, 0.05, 0.15, "%.0f%%", func(v): return v * 100.0, _on_ps1_music_vol_changed))
+	vbox.add_child(_create_toggle_row("swarm_audio_enabled", "Distant Swarm/Lightshow Buzz", true, _on_swarm_audio_toggled))
+	vbox.add_child(_create_slider_row("swarm_audio_volume", "Swarm Buzz Volume", 0.0, 1.0, 0.05, 0.5, "%.0f%%", func(v): return v * 100.0, _on_swarm_audio_vol_changed))
 	vbox.add_child(_create_dropdown_row("camera_mode", "Active Camera View", ["First Person (FPV)", "Third Person Chase", "Cinematic Show Cam"], 0, _on_camera_mode_changed))
 	vbox.add_child(_create_slider_row("camera_fov", "Camera FOV", 60.0, 110.0, 1.0, 75.0, "%.0f°", func(v): return v, _on_fov_changed))
 
@@ -924,6 +928,32 @@ func _get_player_drone() -> RigidBody3D:
 	var scene = get_tree().current_scene
 	if not scene: return null
 	var mgr = scene.get_node_or_null("DroneControllerManager")
-	if mgr and mgr.has_method("get_drone"):
-		return mgr.get_drone()
-	return scene.find_child("Drone", true, false) as RigidBody3D
+	if mgr and "drone" in mgr:
+		return mgr.drone
+	return null
+
+func _on_ps1_music_toggled(enabled: bool) -> void:
+	var mgr = PS1MusicManager.get_instance()
+	if mgr:
+		mgr.set_music_enabled(enabled)
+
+func _on_ps1_music_vol_changed(vol_linear: float) -> void:
+	var mgr = PS1MusicManager.get_instance()
+	if mgr:
+		var db = linear_to_db(clampf(vol_linear, 0.0001, 1.0)) if vol_linear > 0.01 else -80.0
+		mgr.set_volume_db(db)
+
+func _on_swarm_audio_toggled(enabled: bool) -> void:
+	var controller_mgr = get_tree().root.find_child("DroneControllerManager", true, false)
+	if controller_mgr and controller_mgr.get("swarm_controller") != null:
+		var sc = controller_mgr.swarm_controller
+		if sc and sc.get("swarm_audio_component") != null and sc.swarm_audio_component:
+			sc.swarm_audio_component.set_swarm_enabled(enabled)
+
+func _on_swarm_audio_vol_changed(vol_linear: float) -> void:
+	var controller_mgr = get_tree().root.find_child("DroneControllerManager", true, false)
+	if controller_mgr and controller_mgr.get("swarm_controller") != null:
+		var sc = controller_mgr.swarm_controller
+		if sc and sc.get("swarm_audio_component") != null and sc.swarm_audio_component:
+			var db = linear_to_db(clampf(vol_linear, 0.0001, 1.0)) if vol_linear > 0.01 else -80.0
+			sc.swarm_audio_component.set_user_volume_db(db)

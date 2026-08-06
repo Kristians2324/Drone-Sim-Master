@@ -112,6 +112,8 @@ func _ready():
 	if mavlink_bridge and is_instance_valid(mavlink_bridge):
 		mavlink_bridge.control_received.connect(_on_mavlink_control_received)
 
+	PS1MusicManager.get_instance()
+
 func spawn_drone():
 	if drone and is_instance_valid(drone):
 		return
@@ -197,6 +199,11 @@ func update_camera_views():
 		_ensure_audio_listener(tp_camera)
 
 func _process(delta):
+	var music_mgr = PS1MusicManager.get_instance()
+	if music_mgr:
+		var speed = drone.linear_velocity.length() if drone and is_instance_valid(drone) and drone is RigidBody3D else 0.0
+		music_mgr.update_flight_dynamics(speed, delta)
+
 	if camera_toggle_cooldown > 0: camera_toggle_cooldown -= delta
 	if state_toggle_cooldown > 0: state_toggle_cooldown -= delta
 

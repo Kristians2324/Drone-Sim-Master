@@ -42,6 +42,8 @@ var drone_last_input_vectors: Array[Vector4] = []
 var drone_terrain_heights: Array[float] = []
 var terrain_exclusions: Array[Dictionary] = []
 
+var swarm_audio_component: SwarmAudio = null
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	spatial_hash = SpatialHash3D.new(8.0)
@@ -53,6 +55,8 @@ func clear_swarm() -> void:
 	active = false
 	formation_active = false
 	is_transitioning = false
+	if swarm_audio_component and is_instance_valid(swarm_audio_component):
+		swarm_audio_component.set_swarm_enabled(false)
 	for d in drones:
 		if d and is_instance_valid(d):
 			d.queue_free()
@@ -331,11 +335,35 @@ func _rebuild_terrain_exclusions() -> void:
 	if env_node and env_node.has_method("get_exclusion_zones"):
 		terrain_exclusions = env_node.get_exclusion_zones()
 
+func _ensure_swarm_audio() -> void:
+	if swarm_audio_component == null or not is_instance_valid(swarm_audio_component):
+		swarm_audio_component = SwarmAudio.new()
+		swarm_audio_component.name = "SwarmAudioComponent"
+		add_child(swarm_audio_component)
+
 func _physics_process(delta: float) -> void:
 	if not active or drones.size() == 0:
+		if swarm_audio_component and is_instance_valid(swarm_audio_component):
+			swarm_audio_component.set_swarm_enabled(false)
 		return
 	if is_inside_tree() and get_tree() and get_tree().paused:
+		if swarm_audio_component and is_instance_valid(swarm_audio_component):
+			swarm_audio_component.set_swarm_enabled(false)
 		return
+
+	# Update Aggregate Swarm Audio Centroid and Speed
+	_ensure_swarm_audio()
+	var centroid = get_swarm_centroid()
+	var avg_vel = Vector3.ZERO
+	var valid_c = 0
+	for d in drones:
+		if d and is_instance_valid(d) and d is RigidBody3D:
+			avg_vel += d.linear_velocity
+			valid_c += 1
+	var avg_speed = (avg_vel / float(valid_c)).length() if valid_c > 0 else 0.0
+	if swarm_audio_component:
+		swarm_audio_component.set_swarm_enabled(true)
+		swarm_audio_component.update_swarm_audio(centroid, avg_speed, drones.size(), delta)
 
 	if formation_active:
 		_process_formation(delta)

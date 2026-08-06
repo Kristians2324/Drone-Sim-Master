@@ -42,6 +42,7 @@ func _ready():
 
 	start_menu_instance = start_menu_scene.instantiate()
 	add_child(start_menu_instance)
+	PS1MusicManager.get_instance()
 	if start_menu_instance.has_signal("simulation_started"):
 		start_menu_instance.simulation_started.connect(_on_simulation_started)
 

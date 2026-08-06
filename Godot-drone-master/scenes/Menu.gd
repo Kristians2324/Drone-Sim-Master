@@ -63,6 +63,7 @@ BACK : Restart Level"
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	hide()
+	PS1MusicManager.get_instance()
 	video_recorder = VideoRecorderManager.new()
 	add_child(video_recorder)
 
