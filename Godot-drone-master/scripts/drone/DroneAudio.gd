@@ -13,10 +13,13 @@ var blade_scrape_audio_3d: AudioStreamPlayer3D
 
 static var shared_motor_stream: AudioStream = null
 static var shared_crash_stream: AudioStream = null
+static var shared_startup_chirp_stream: AudioStream = null
 static var shared_whoosh_stream: AudioStreamWAV = null
 static var shared_beep_stream: AudioStreamWAV = null
 static var shared_trick_stream: AudioStreamWAV = null
 static var shared_blade_scrape_stream: AudioStreamWAV = null
+var startup_audio_2d: AudioStreamPlayer
+var startup_played: bool = false
 
 static var shared_concrete_stream: AudioStreamWAV = null
 static var shared_tree_stream: AudioStreamWAV = null
@@ -73,7 +76,12 @@ func _notification(what: int) -> void:
 
 static func _ensure_shared_streams() -> void:
 	if shared_motor_stream == null:
-		if ResourceLoader.exists("res://assets/sound/Real_prop_hover.mp3"):
+		if ResourceLoader.exists("res://assets/sound/Real_prop_hover_pingpong.wav"):
+			var loaded_motor = load("res://assets/sound/Real_prop_hover_pingpong.wav") as AudioStreamWAV
+			if loaded_motor:
+				loaded_motor.loop_mode = AudioStreamWAV.LOOP_PINGPONG
+				shared_motor_stream = loaded_motor
+		elif ResourceLoader.exists("res://assets/sound/Real_prop_hover.mp3"):
 			var loaded_mp3 = load("res://assets/sound/Real_prop_hover.mp3") as AudioStreamMP3
 			if loaded_mp3:
 				loaded_mp3.loop = true
@@ -102,6 +110,8 @@ static func _ensure_shared_streams() -> void:
 				shared_crash_stream = loaded_crash
 		if shared_crash_stream == null:
 			shared_crash_stream = _build_crash_wav()
+	if shared_startup_chirp_stream == null and ResourceLoader.exists("res://assets/sound/drone_startup_chirp.wav"):
+		shared_startup_chirp_stream = load("res://assets/sound/drone_startup_chirp.wav")
 	if shared_whoosh_stream == null:
 		shared_whoosh_stream = _build_whoosh_wav()
 	if shared_beep_stream == null:
@@ -356,7 +366,7 @@ static func _build_trick_whoosh_wav() -> AudioStreamWAV:
 	return wav
 
 func _start_playback_if_ready() -> void:
-	if not is_inside_tree():
+	if not is_inside_tree() or not audio_enabled:
 		return
 
 	var master_idx = AudioServer.get_bus_index("Master")
@@ -367,21 +377,29 @@ func _start_playback_if_ready() -> void:
 
 	_ensure_shared_streams()
 
-	if motor_audio_2d and shared_motor_stream:
-		if motor_audio_2d.stream == null:
-			motor_audio_2d.stream = shared_motor_stream.duplicate()
-		if not motor_audio_2d.playing:
-			motor_audio_2d.play()
-		motor_audio_2d.stream_paused = not audio_enabled
-		motor_audio_2d.volume_db = -4.0 if audio_enabled else -80.0
+	if motor_audio_2d and shared_motor_stream and not motor_audio_2d.playing:
+		motor_audio_2d.stream = shared_motor_stream.duplicate()
+		motor_audio_2d.play()
 
-	if motor_audio_3d and shared_motor_stream:
-		if motor_audio_3d.stream == null:
-			motor_audio_3d.stream = shared_motor_stream.duplicate()
-		if not motor_audio_3d.playing:
-			motor_audio_3d.play()
-		motor_audio_3d.stream_paused = not audio_enabled
-		motor_audio_3d.volume_db = -2.0 if audio_enabled else -80.0
+	if motor_audio_3d and shared_motor_stream and not motor_audio_3d.playing:
+		motor_audio_3d.stream = shared_motor_stream.duplicate()
+		motor_audio_3d.play()
+
+	if not startup_played and shared_startup_chirp_stream:
+		startup_played = true
+		play_startup_chirp()
+
+func play_startup_chirp() -> void:
+	if not audio_enabled or not is_inside_tree() or not shared_startup_chirp_stream:
+		return
+	if startup_audio_2d == null:
+		startup_audio_2d = AudioStreamPlayer.new()
+		startup_audio_2d.name = "StartupChirpAudio2D"
+		startup_audio_2d.bus = "Master"
+		add_child(startup_audio_2d)
+	startup_audio_2d.stream = shared_startup_chirp_stream.duplicate()
+	startup_audio_2d.volume_db = -6.0
+	startup_audio_2d.play()
 
 func setup_motor_audio() -> void:
 	_ensure_shared_streams()
@@ -503,52 +521,54 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	view_mode_blend = lerpf(view_mode_blend, target_blend, clampf(delta * 8.0, 0.05, 1.0))
 
 	# Distinct Directional Audio Pitch & Volume Synthesis
-	var base_pitch := 0.88
+	var base_pitch := 0.92
 
 	# 1. THRUST AXIS (UP vs DOWN):
 	var thrust_pitch := 0.0
 	var thrust_vol := 0.0
 	if input_vec.x > 0.0:
-		thrust_pitch = input_vec.x * 0.72  # High RPM motor scream when climbing UP (+0.72 pitch)
-		thrust_vol = input_vec.x * 6.5
+		thrust_pitch = input_vec.x * 0.28  # Realistic high RPM motor rise (+0.28 pitch)
+		thrust_vol = input_vec.x * 4.0
 	elif input_vec.x < 0.0:
-		thrust_pitch = input_vec.x * 0.28  # Deeper low-prop-wash descent hum when going DOWN (-0.28 pitch)
-		thrust_vol = input_vec.x * 2.5
+		thrust_pitch = input_vec.x * 0.12  # Low-prop-wash descent hum (-0.12 pitch)
+		thrust_vol = input_vec.x * 1.5
 
 	# 2. PITCH AXIS (FORWARD vs BACKWARD):
 	var pitch_dir_mod := 0.0
 	var pitch_vol := 0.0
 	if input_vec.z < 0.0:
-		pitch_dir_mod = abs(input_vec.z) * 0.42 # Crisp forward flight turbine scream
-		pitch_vol = abs(input_vec.z) * 4.5
-	elif input_vec.z > 0.0:
-		pitch_dir_mod = -abs(input_vec.z) * 0.18 # Heavy reverse braking prop chop
+		pitch_dir_mod = abs(input_vec.z) * 0.16 # Smooth forward flight pitch
 		pitch_vol = abs(input_vec.z) * 3.0
+	elif input_vec.z > 0.0:
+		pitch_dir_mod = -abs(input_vec.z) * 0.08
+		pitch_vol = abs(input_vec.z) * 2.0
 
 	# 3. ROLL AXIS (LEFT vs RIGHT):
-	var roll_dir_mod = abs(input_vec.w) * 0.32 # Sharp lateral roll/strafe whine
-	var roll_vol = abs(input_vec.w) * 3.5
+	var roll_dir_mod = abs(input_vec.w) * 0.14
+	var roll_vol = abs(input_vec.w) * 2.5
 
 	# 4. YAW AXIS (YAW LEFT / YAW RIGHT):
-	var yaw_dir_mod = abs(input_vec.y) * 0.22 # Differential rotor spin buzz
-	var yaw_vol = abs(input_vec.y) * 2.5
+	var yaw_dir_mod = abs(input_vec.y) * 0.10
+	var yaw_vol = abs(input_vec.y) * 1.8
 
 	# 5. MOVEMENT SPEED:
-	var speed_pitch = clampf(velocity.length() / 22.0, 0.0, 0.38)
-	var speed_vol = clampf(velocity.length() / 18.0, 0.0, 1.0) * 4.5
+	var speed_pitch = clampf(velocity.length() / 30.0, 0.0, 0.18)
+	var speed_vol = clampf(velocity.length() / 20.0, 0.0, 1.0) * 3.0
 
-	var target_pitch = clampf(base_pitch + thrust_pitch + pitch_dir_mod + roll_dir_mod + yaw_dir_mod + speed_pitch, 0.55, 2.30)
+	# Refined physical RPM range: 0.82x (hover/descent) to 1.48x (max throttle)
+	var target_pitch = clampf(base_pitch + thrust_pitch + pitch_dir_mod + roll_dir_mod + yaw_dir_mod + speed_pitch, 0.82, 1.48)
 	var target_vol_db = clampf(-12.0 + (thrust_vol + pitch_vol + roll_vol + yaw_vol + speed_vol) * 0.35, -20.0, -4.0)
 
-	var dt = clampf(delta * 12.0, 0.05, 1.0)
+	# Smooth physical rotor inertia spooling (dt = delta * 4.5 for silky smooth transitions)
+	var dt = clampf(delta * 4.5, 0.02, 0.25)
 
 	# Compute 2D and 3D volumes based on view mode:
 	var desired_vol_2d = lerpf(target_vol_db - 6.0, target_vol_db - 2.0, view_mode_blend)
 	var desired_vol_3d = lerpf(target_vol_db + 2.0, target_vol_db - 4.0, view_mode_blend)
 
 	# In TPV mode (3D distant mode), pitch is slightly lower (deeper prop hum)
-	var pitch_3d_mod = lerpf(-0.04, 0.0, view_mode_blend)
-	var target_pitch_3d = clampf(target_pitch + pitch_3d_mod, 0.5, 2.3)
+	var pitch_3d_mod = lerpf(-0.02, 0.0, view_mode_blend)
+	var target_pitch_3d = clampf(target_pitch + pitch_3d_mod, 0.80, 1.46)
 
 	if motor_audio_2d:
 		motor_audio_2d.stream_paused = false
@@ -564,23 +584,23 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 		motor_audio_3d.pitch_scale = clampf(lerpf(cur_p3d, target_pitch_3d, dt), 0.1, 4.0)
 		motor_audio_3d.volume_db = clampf(lerpf(cur_v3d, desired_vol_3d, dt), -80.0, 24.0)
 
-	# Dynamic Speed & Wind Whoosh Audio - Triggers dynamically on forward flight and fast movements
+	# Dynamic Speed & Motion Airflow Audio Layering
 	if whoosh_audio_2d and shared_whoosh_stream:
 		if not whoosh_audio_2d.playing:
 			whoosh_audio_2d.play()
-		# Lower trigger threshold to 6.0 m/s when pitching forward for immediate responsive wind feedback
-		var forward_bias = 4.0 if input_vec.z < 0.0 else 0.0
-		var speed_thresh = maxf(12.0 - forward_bias, 6.0)
-		var speed_ratio = clampf((velocity.length() - speed_thresh) / 12.0, 0.0, 1.0)
-		if speed_ratio > 0.01:
+
+		var is_moving = (velocity.length() > 2.0) or (input_vec.length() > 0.1)
+		if is_moving and audio_enabled:
 			whoosh_audio_2d.stream_paused = false
-			var cur_wp = whoosh_audio_2d.pitch_scale if not is_nan(whoosh_audio_2d.pitch_scale) and not is_inf(whoosh_audio_2d.pitch_scale) else 1.0
-			var cur_wv = whoosh_audio_2d.volume_db if not is_nan(whoosh_audio_2d.volume_db) and not is_inf(whoosh_audio_2d.volume_db) else -42.0
-			whoosh_audio_2d.pitch_scale = clampf(lerpf(cur_wp, 0.92 + speed_ratio * 0.32, clampf(delta * 6.0, 0.05, 1.0)), 0.1, 4.0)
-			whoosh_audio_2d.volume_db = clampf(lerpf(cur_wv, -38.0 + (speed_ratio * 14.0), clampf(delta * 6.0, 0.05, 1.0)), -80.0, 24.0)
+			var move_intensity = clampf(velocity.length() / 20.0 + input_vec.length() * 0.35, 0.0, 1.0)
+			var target_w_vol = clampf(-36.0 + move_intensity * 24.0, -36.0, -12.0)
+			var target_w_pitch = clampf(0.85 + move_intensity * 0.40, 0.75, 1.40)
+			whoosh_audio_2d.volume_db = lerpf(whoosh_audio_2d.volume_db, target_w_vol, dt)
+			whoosh_audio_2d.pitch_scale = lerpf(whoosh_audio_2d.pitch_scale, target_w_pitch, dt)
 		else:
-			whoosh_audio_2d.stream_paused = true
-			whoosh_audio_2d.volume_db = -80.0
+			whoosh_audio_2d.volume_db = lerpf(whoosh_audio_2d.volume_db, -80.0, dt * 2.0)
+			if whoosh_audio_2d.volume_db < -70.0:
+				whoosh_audio_2d.stream_paused = true
 
 func update_audio(throttle: float) -> void:
 	update_flight_audio(Vector4(throttle, 0, 0, 0), Vector3.ZERO, 0.016)

@@ -5,8 +5,8 @@ class_name PS1MusicManager
 ## Handles background music volume, toggle state, and playback.
 
 static var instance: PS1MusicManager = null
-static var global_music_enabled: bool = true
-static var global_volume_db: float = -24.0 # Soft background volume
+static var global_music_enabled: bool = false
+static var global_volume_db: float = -80.0
 
 var music_player: AudioStreamPlayer = null
 var stream_wav: AudioStreamWAV = null
