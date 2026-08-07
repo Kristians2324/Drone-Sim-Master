@@ -78,7 +78,6 @@ func _process(_delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_ENTER_TREE:
 		process_mode = Node.PROCESS_MODE_PAUSABLE
-		_start_playback_if_ready()
 
 static func _ensure_shared_streams() -> void:
 	if shared_motor_stream == null:
@@ -395,6 +394,8 @@ func _start_playback_if_ready() -> void:
 func play_startup_chirp() -> void:
 	if not audio_enabled or not is_inside_tree() or not shared_startup_chirp_stream:
 		return
+	if get_tree() and get_tree().paused:
+		return
 	if startup_audio_2d == null:
 		startup_audio_2d = AudioStreamPlayer.new()
 		startup_audio_2d.name = "StartupChirpAudio2D"
@@ -517,7 +518,31 @@ func setup_extra_audio() -> void:
 
 func set_audio_enabled(enabled: bool) -> void:
 	audio_enabled = enabled
-	_start_playback_if_ready()
+	if not enabled:
+		if motor_audio_2d:
+			motor_audio_2d.stream_paused = true
+			motor_audio_2d.volume_db = -80.0
+			motor_audio_2d.stop()
+		if motor_audio_2d_B:
+			motor_audio_2d_B.stream_paused = true
+			motor_audio_2d_B.volume_db = -80.0
+			motor_audio_2d_B.stop()
+		if motor_audio_3d:
+			motor_audio_3d.stream_paused = true
+			motor_audio_3d.volume_db = -80.0
+			motor_audio_3d.stop()
+		if motor_audio_3d_B:
+			motor_audio_3d_B.stream_paused = true
+			motor_audio_3d_B.volume_db = -80.0
+			motor_audio_3d_B.stop()
+		if whoosh_audio_2d:
+			whoosh_audio_2d.stream_paused = true
+			whoosh_audio_2d.volume_db = -80.0
+			whoosh_audio_2d.stop()
+		if startup_audio_2d:
+			startup_audio_2d.stop()
+	else:
+		_start_playback_if_ready()
 
 func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0.016) -> void:
 	if not audio_enabled or not is_inside_tree() or (get_tree() and get_tree().paused):

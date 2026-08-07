@@ -126,28 +126,8 @@ func _ready():
 	
 	add_child(trail_particles)
 	setup_show_lights()
-	_setup_boid_audio()
 	_apply_show_palette()
 	trail_particles.emitting = true
-
-var boid_audio_player: AudioStreamPlayer3D = null
-
-func _setup_boid_audio() -> void:
-	if boid_audio_player != null: return
-	boid_audio_player = AudioStreamPlayer3D.new()
-	boid_audio_player.name = "SwarmMotorAudio3D"
-	boid_audio_player.unit_size = 20.0
-	boid_audio_player.max_distance = 650.0
-	boid_audio_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
-	boid_audio_player.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
-	boid_audio_player.bus = "Master"
-
-	if DroneAudio.shared_motor_stream:
-		boid_audio_player.stream = DroneAudio.shared_motor_stream.duplicate()
-	add_child(boid_audio_player)
-
-	if boid_audio_player.stream and not boid_audio_player.playing:
-		boid_audio_player.play()
 
 func configure_show_lights(index: int, total: int, player_drone: bool = false):
 	show_index = max(index, 0)
@@ -214,13 +194,3 @@ func update_boid(delta: float):
 	var rotation_speed = delta * 45.0
 	for prop in propellers:
 		prop.rotate_y(rotation_speed)
-
-	# Update 3D swarm prop audio pitch and volume based on boid velocity
-	if boid_audio_player and boid_audio_player.stream:
-		if not boid_audio_player.playing:
-			boid_audio_player.play()
-		var speed = velocity.length()
-		var target_pitch = clampf(0.85 + (speed / max_speed) * 0.6, 0.7, 1.8)
-		var target_vol = clampf(-18.0 + (speed / max_speed) * 8.0, -26.0, -8.0)
-		boid_audio_player.pitch_scale = lerpf(boid_audio_player.pitch_scale, target_pitch, delta * 8.0)
-		boid_audio_player.volume_db = lerpf(boid_audio_player.volume_db, target_vol, delta * 8.0)

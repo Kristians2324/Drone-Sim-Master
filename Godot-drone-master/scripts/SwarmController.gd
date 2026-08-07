@@ -106,7 +106,7 @@ func initialize_swarm(leader: Node, count: int = 15, spawn_center: Vector3 = Vec
 		drone_inst.collision_mask = 0
 		
 		if drone_inst.has_method("set_audio_enabled"):
-			drone_inst.set_audio_enabled(true)
+			drone_inst.set_audio_enabled(false)
 		if drone_inst.has_method("set_hover_mode"):
 			drone_inst.set_hover_mode(true)
 		if drone_inst.has_method("set_input_vector"):
@@ -161,7 +161,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 			var drone_inst: RigidBody3D = drone_scene.instantiate()
 			drone_inst.low_detail_visuals = true
-			drone_inst.audio_enabled = true
+			drone_inst.audio_enabled = false
 			get_parent().add_child(drone_inst)
 			drone_inst.global_position = ground_pos
 			drone_inst.linear_velocity = Vector3.ZERO
@@ -172,7 +172,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 			drone_inst.collision_mask = 0
 
 			if drone_inst.has_method("set_audio_enabled"):
-				drone_inst.set_audio_enabled(true)
+				drone_inst.set_audio_enabled(false)
 			if drone_inst.has_method("set_first_person"):
 				drone_inst.set_first_person(false)
 			if drone_inst.has_method("set_hover_mode"):
@@ -218,7 +218,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 				var drone_inst: RigidBody3D = drone_scene.instantiate()
 				drone_inst.low_detail_visuals = true
-				drone_inst.audio_enabled = true
+				drone_inst.audio_enabled = false
 				get_parent().add_child(drone_inst)
 				drone_inst.global_position = ground_pos
 				drone_inst.linear_velocity = Vector3.ZERO
@@ -229,7 +229,7 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 				drone_inst.collision_mask = 0
 
 				if drone_inst.has_method("set_audio_enabled"):
-					drone_inst.set_audio_enabled(true)
+					drone_inst.set_audio_enabled(false)
 				if drone_inst.has_method("set_hover_mode"):
 					drone_inst.set_hover_mode(true)
 				if drone_inst.has_method("set_input_vector"):
@@ -591,7 +591,7 @@ static func _build_formation_chime_wav() -> AudioStreamWAV:
 	return wav
 
 func play_formation_chime() -> void:
-	if not is_inside_tree():
+	if not is_inside_tree() or not formation_active:
 		return
 	if shared_chime_stream == null:
 		shared_chime_stream = _build_formation_chime_wav()
@@ -601,6 +601,6 @@ func play_formation_chime() -> void:
 		chime_player.bus = "Master"
 		chime_player.stream = shared_chime_stream
 		add_child(chime_player)
-	chime_player.pitch_scale = randf_range(0.98, 1.02)
-	chime_player.volume_db = -4.0
+	chime_player.pitch_scale = randf_range(0.99, 1.01)
+	chime_player.volume_db = -18.0
 	chime_player.play()

@@ -5,7 +5,7 @@ class_name SwarmAudio
 ## Single 3D spatial emitter representing the entire drone flock/light show.
 ## Soft, balanced, non-intrusive background sound level.
 
-static var shared_swarm_stream: AudioStreamWAV = null
+static var shared_swarm_stream: AudioStream = null
 
 var swarm_player_3d: AudioStreamPlayer3D = null
 var swarm_enabled: bool = true
@@ -23,11 +23,12 @@ func setup_swarm_audio() -> void:
 	if swarm_player_3d == null:
 		swarm_player_3d = AudioStreamPlayer3D.new()
 		swarm_player_3d.name = "SwarmAudio3D"
-		swarm_player_3d.unit_size = 14.0
-		swarm_player_3d.max_distance = 350.0
+		swarm_player_3d.unit_size = 2.0
+		swarm_player_3d.max_distance = 450.0
 		swarm_player_3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 		swarm_player_3d.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
 		swarm_player_3d.panning_strength = 1.0
+		swarm_player_3d.volume_db = -80.0
 		swarm_player_3d.bus = "Master"
 		if shared_swarm_stream:
 			swarm_player_3d.stream = shared_swarm_stream
@@ -57,6 +58,7 @@ func update_swarm_audio(center_pos: Vector3, avg_speed: float, count: int, delta
 	if count <= 0:
 		if swarm_player_3d:
 			swarm_player_3d.stream_paused = true
+			swarm_player_3d.volume_db = -80.0
 		return
 
 	current_count = count
@@ -68,16 +70,14 @@ func update_swarm_audio(center_pos: Vector3, avg_speed: float, count: int, delta
 		
 		swarm_player_3d.stream_paused = false
 
-		# Soft, distant, quiet background swarm hum (-18 dB max)
-		var log_count_boost = (log(float(max(count, 1))) / log(2.0)) * 1.0
-		var base_vol = user_volume_db
-		var speed_vol_boost = clampf(avg_speed / 20.0, 0.0, 1.0) * 1.5
-		var target_vol = clampf(base_vol + log_count_boost + speed_vol_boost, -38.0, -18.0)
+		# Soft, quiet, gentle background swarm hum (-18 dB max)
+		var speed_vol_boost = clampf(avg_speed / 20.0, 0.0, 1.0) * 6.0
+		var target_vol = clampf(-24.0 + speed_vol_boost, -28.0, -18.0)
 
-		var target_pitch = clampf(0.95 + (avg_speed / 30.0) * 0.12, 0.88, 1.20)
+		var target_pitch = clampf(0.95 + (avg_speed / 30.0) * 0.10, 0.90, 1.15)
 
-		var dt = clampf(delta * 6.0, 0.05, 1.0)
-		var cur_vol = swarm_player_3d.volume_db if not is_nan(swarm_player_3d.volume_db) and not is_inf(swarm_player_3d.volume_db) else -28.0
+		var dt = clampf(delta * 4.0, 0.03, 0.5)
+		var cur_vol = swarm_player_3d.volume_db if not is_nan(swarm_player_3d.volume_db) and not is_inf(swarm_player_3d.volume_db) else -80.0
 		var cur_pitch = swarm_player_3d.pitch_scale if not is_nan(swarm_player_3d.pitch_scale) and not is_inf(swarm_player_3d.pitch_scale) else 1.0
 
 		swarm_player_3d.volume_db = clampf(lerpf(cur_vol, target_vol, dt), -80.0, 6.0)

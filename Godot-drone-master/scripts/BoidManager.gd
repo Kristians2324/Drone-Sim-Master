@@ -61,6 +61,7 @@ func get_terrain_height_at(pos: Vector3) -> float:
 func initialize(target: Node3D):
 	target_node = target
 	spawn_boids()
+	_ensure_swarm_audio()
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE

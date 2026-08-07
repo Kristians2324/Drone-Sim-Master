@@ -219,9 +219,10 @@ func update_camera_views():
 		fpv_overlay.set_target_drone(drone)
 		fpv_overlay.set_fpv_active(active_fp)
 
+	var is_in_show_mode = (show_mode != ShowMode.NONE)
 	var debug_overlay = get_tree().root.find_child("DebugOverlay", true, false)
 	if debug_overlay and debug_overlay.has_method("set_battery_hud_visible"):
-		debug_overlay.set_battery_hud_visible(not active_fp)
+		debug_overlay.set_battery_hud_visible((not active_fp) and (not is_in_show_mode))
 
 func _process(delta):
 	var music_mgr = PS1MusicManager.get_instance()
@@ -527,6 +528,8 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 	swarm_controller.initialize_formation(drone, targets, center)
 
 	if swarm_controller and is_instance_valid(swarm_controller):
+		if swarm_controller.swarm_audio_component:
+			swarm_controller.swarm_audio_component.set_swarm_enabled(false)
 		for d in swarm_controller.drones:
 			if is_instance_valid(d) and d.has_method("set_show_lighting_enabled"):
 				d.set_show_lighting_enabled(true)
@@ -535,7 +538,7 @@ func start_custom_image_shape(image_path: String, custom_points_override: Array[
 		if drone.has_method("set_show_lighting_enabled"):
 			drone.set_show_lighting_enabled(false)
 		if drone.has_method("set_audio_enabled"):
-			drone.set_audio_enabled(true)
+			drone.set_audio_enabled(false)
 		if drone.has_method("set_first_person"):
 			drone.set_first_person(false)
 		drone.visible = false
@@ -570,6 +573,8 @@ func start_show_mode(mode_id: int):
 	swarm_controller.initialize_formation(drone, targets, center)
 
 	if swarm_controller and is_instance_valid(swarm_controller):
+		if swarm_controller.swarm_audio_component:
+			swarm_controller.swarm_audio_component.set_swarm_enabled(false)
 		for d in swarm_controller.drones:
 			if is_instance_valid(d) and d.has_method("set_show_lighting_enabled"):
 				d.set_show_lighting_enabled(true)
@@ -578,7 +583,7 @@ func start_show_mode(mode_id: int):
 		if drone.has_method("set_show_lighting_enabled"):
 			drone.set_show_lighting_enabled(false)
 		if drone.has_method("set_audio_enabled"):
-			drone.set_audio_enabled(true)
+			drone.set_audio_enabled(false)
 		if drone.has_method("set_first_person"):
 			drone.set_first_person(false)
 		drone.visible = false
