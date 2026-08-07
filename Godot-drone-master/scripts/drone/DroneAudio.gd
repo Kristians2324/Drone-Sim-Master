@@ -8,14 +8,38 @@ var crash_audio_3d: AudioStreamPlayer3D
 var whoosh_audio_2d: AudioStreamPlayer
 var beep_audio_2d: AudioStreamPlayer
 var trick_audio_2d: AudioStreamPlayer
+var blade_scrape_audio_2d: AudioStreamPlayer
+var blade_scrape_audio_3d: AudioStreamPlayer3D
 
-static var shared_motor_stream: AudioStreamWAV = null
-static var shared_crash_stream: AudioStreamWAV = null
+static var shared_motor_stream: AudioStream = null
+static var shared_crash_stream: AudioStream = null
 static var shared_whoosh_stream: AudioStreamWAV = null
 static var shared_beep_stream: AudioStreamWAV = null
 static var shared_trick_stream: AudioStreamWAV = null
+static var shared_blade_scrape_stream: AudioStreamWAV = null
+
+static var shared_concrete_stream: AudioStreamWAV = null
+static var shared_tree_stream: AudioStreamWAV = null
+static var shared_grass_stream: AudioStreamWAV = null
+static var shared_metal_stream: AudioStreamWAV = null
+static var shared_landing_stream: AudioStreamWAV = null
+static var shared_ceiling_stream: AudioStreamWAV = null
+
+static var shared_propeller_hit_stream: AudioStreamWAV = null
+static var shared_body_hit_stream: AudioStreamWAV = null
+static var shared_belly_hit_stream: AudioStreamWAV = null
+static var shared_top_hit_stream: AudioStreamWAV = null
+static var shared_tarp_stream: AudioStreamWAV = null
 
 var audio_enabled: bool = true
+var is_first_person: bool = true
+var view_mode_blend: float = 1.0
+
+func set_first_person(is_fp: bool) -> void:
+	is_first_person = is_fp
+
+func set_camera_mode(is_fp: bool) -> void:
+	is_first_person = is_fp
 
 func initialize() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -49,15 +73,65 @@ func _notification(what: int) -> void:
 
 static func _ensure_shared_streams() -> void:
 	if shared_motor_stream == null:
-		shared_motor_stream = _build_motor_wav()
+		if ResourceLoader.exists("res://assets/sound/Real_prop_hover.mp3"):
+			var loaded_mp3 = load("res://assets/sound/Real_prop_hover.mp3") as AudioStreamMP3
+			if loaded_mp3:
+				loaded_mp3.loop = true
+				shared_motor_stream = loaded_mp3
+		elif ResourceLoader.exists("res://assets/sound/Real_Drone_Sound.mp3"):
+			var loaded_mp3 = load("res://assets/sound/Real_Drone_Sound.mp3") as AudioStreamMP3
+			if loaded_mp3:
+				loaded_mp3.loop = true
+				shared_motor_stream = loaded_mp3
+		elif ResourceLoader.exists("res://assets/sound/drone_motor.wav"):
+			var loaded_motor = load("res://assets/sound/drone_motor.wav") as AudioStreamWAV
+			if loaded_motor:
+				loaded_motor.loop_mode = AudioStreamWAV.LOOP_FORWARD
+				shared_motor_stream = loaded_motor
+		if shared_motor_stream == null:
+			shared_motor_stream = _build_motor_wav()
+
 	if shared_crash_stream == null:
-		shared_crash_stream = _build_crash_wav()
+		if ResourceLoader.exists("res://assets/sound/Real_Crash.flac"):
+			var loaded_flac = load("res://assets/sound/Real_Crash.flac")
+			if loaded_flac:
+				shared_crash_stream = loaded_flac
+		elif ResourceLoader.exists("res://assets/sound/drone_crash.wav"):
+			var loaded_crash = load("res://assets/sound/drone_crash.wav") as AudioStreamWAV
+			if loaded_crash:
+				shared_crash_stream = loaded_crash
+		if shared_crash_stream == null:
+			shared_crash_stream = _build_crash_wav()
 	if shared_whoosh_stream == null:
 		shared_whoosh_stream = _build_whoosh_wav()
 	if shared_beep_stream == null:
 		shared_beep_stream = _build_beep_wav()
 	if shared_trick_stream == null:
 		shared_trick_stream = _build_trick_whoosh_wav()
+	if shared_blade_scrape_stream == null:
+		shared_blade_scrape_stream = _build_blade_scrape_wav()
+	if shared_concrete_stream == null:
+		shared_concrete_stream = _build_concrete_impact_wav()
+	if shared_tree_stream == null:
+		shared_tree_stream = _build_tree_impact_wav()
+	if shared_grass_stream == null:
+		shared_grass_stream = _build_grass_impact_wav()
+	if shared_metal_stream == null:
+		shared_metal_stream = _build_metal_impact_wav()
+	if shared_landing_stream == null:
+		shared_landing_stream = _build_hard_landing_wav()
+	if shared_ceiling_stream == null:
+		shared_ceiling_stream = _build_ceiling_impact_wav()
+	if shared_propeller_hit_stream == null:
+		shared_propeller_hit_stream = _build_propeller_hit_wav()
+	if shared_body_hit_stream == null:
+		shared_body_hit_stream = _build_body_hit_wav()
+	if shared_belly_hit_stream == null:
+		shared_belly_hit_stream = _build_belly_hit_wav()
+	if shared_top_hit_stream == null:
+		shared_top_hit_stream = _build_top_hit_wav()
+	if shared_tarp_stream == null:
+		shared_tarp_stream = _build_tarp_impact_wav()
 
 static func _build_motor_wav() -> AudioStreamWAV:
 	var wav = AudioStreamWAV.new()
@@ -104,17 +178,72 @@ static func _build_crash_wav() -> AudioStreamWAV:
 	wav.stereo = true
 	wav.mix_rate = 44100
 
-	var num_samples = int(44100 * 0.5) # 0.5 seconds
+	var num_samples = int(44100 * 0.25) # Short 0.25s realistic plastic prop snap & frame thud
 	var byte_array = PackedByteArray()
 	byte_array.resize(num_samples * 4)
 
+	var prev_noise = 0.0
+
 	for i in range(num_samples):
 		var t = float(i) / 44100.0
-		var decay = exp(-8.0 * t)
-		var f_thump = 70.0 * exp(-15.0 * t) + 25.0
-		var s_thump = sin(TAU * f_thump * t) * 0.6
-		var s_noise = (randf() * 2.0 - 1.0) * 0.5
-		var sample_val = clampf((s_thump + s_noise) * decay * 0.7, -0.95, 0.95)
+
+		# 1. Carbon Frame Thud (low-mid plastic/frame impact, ~140Hz decaying fast)
+		var decay_thud = exp(-28.0 * t)
+		var f_thud = 140.0 * exp(-12.0 * t) + 40.0
+		var s_thud = sin(TAU * f_thud * t) * 0.5 * decay_thud
+
+		# 2. Plastic Propeller Blade Snap (dry plastic clack, lowpass filtered to eliminate cymbal sizzle!)
+		var decay_snap = exp(-35.0 * t)
+		var raw_noise = (randf() * 2.0 - 1.0)
+		prev_noise = lerpf(prev_noise, raw_noise, 0.12) # 1-pole lowpass filter removing harsh metallic highs
+		var s_snap = prev_noise * 0.45 * decay_snap
+
+		# 3. Propeller Blade Slap (transient pulse)
+		var slap_env = exp(-60.0 * t)
+		var s_slap = sin(TAU * 320.0 * t) * 0.3 * slap_env
+
+		var sample_val = clampf((s_thud + s_snap + s_slap) * 0.55, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_blade_scrape_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.35) # 0.35s blade wall scrape & cutting sound
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay = exp(-10.0 * t)
+
+		# High frequency blade chop (600 - 1200 Hz fast chopping pulse train matching spinning props)
+		var f_chop = 750.0 + 350.0 * sin(TAU * 50.0 * t)
+		var s_chop = sign(sin(TAU * f_chop * t)) * 0.4 * decay
+
+		# High-frequency friction scratching sound (blades cutting wall)
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.4) # High pass wall cutting friction noise
+		var s_scrape = prev_n * 0.5 * decay
+
+		var sample_val = clampf((s_chop + s_scrape) * 0.5, -0.95, 0.95)
 		var int_val = int(sample_val * 32767.0)
 
 		var b0 = int_val & 0xFF
@@ -239,16 +368,16 @@ func _start_playback_if_ready() -> void:
 	_ensure_shared_streams()
 
 	if motor_audio_2d and shared_motor_stream:
-		if motor_audio_2d.stream != shared_motor_stream:
-			motor_audio_2d.stream = shared_motor_stream
+		if motor_audio_2d.stream == null:
+			motor_audio_2d.stream = shared_motor_stream.duplicate()
 		if not motor_audio_2d.playing:
 			motor_audio_2d.play()
 		motor_audio_2d.stream_paused = not audio_enabled
 		motor_audio_2d.volume_db = -4.0 if audio_enabled else -80.0
 
 	if motor_audio_3d and shared_motor_stream:
-		if motor_audio_3d.stream != shared_motor_stream:
-			motor_audio_3d.stream = shared_motor_stream
+		if motor_audio_3d.stream == null:
+			motor_audio_3d.stream = shared_motor_stream.duplicate()
 		if not motor_audio_3d.playing:
 			motor_audio_3d.play()
 		motor_audio_3d.stream_paused = not audio_enabled
@@ -261,16 +390,19 @@ func setup_motor_audio() -> void:
 	motor_audio_2d.name = "MotorAudio2D"
 	motor_audio_2d.bus = "Master"
 	if shared_motor_stream:
-		motor_audio_2d.stream = shared_motor_stream
+		motor_audio_2d.stream = shared_motor_stream.duplicate()
 	add_child(motor_audio_2d)
 
 	motor_audio_3d = AudioStreamPlayer3D.new()
 	motor_audio_3d.name = "MotorAudio3D"
-	motor_audio_3d.unit_size = 25.0
-	motor_audio_3d.max_distance = 500.0
+	motor_audio_3d.unit_size = 45.0
+	motor_audio_3d.max_distance = 1200.0
+	motor_audio_3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	motor_audio_3d.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+	motor_audio_3d.panning_strength = 1.0
 	motor_audio_3d.bus = "Master"
 	if shared_motor_stream:
-		motor_audio_3d.stream = shared_motor_stream
+		motor_audio_3d.stream = shared_motor_stream.duplicate()
 	add_child(motor_audio_3d)
 
 	_start_playback_if_ready()
@@ -282,17 +414,39 @@ func setup_crash_audio() -> void:
 	crash_audio_2d.name = "CrashAudio2D"
 	crash_audio_2d.bus = "Master"
 	if shared_crash_stream:
-		crash_audio_2d.stream = shared_crash_stream
+		crash_audio_2d.stream = shared_crash_stream.duplicate()
 	add_child(crash_audio_2d)
 
 	crash_audio_3d = AudioStreamPlayer3D.new()
 	crash_audio_3d.name = "CrashAudio3D"
-	crash_audio_3d.unit_size = 35.0
-	crash_audio_3d.max_distance = 500.0
+	crash_audio_3d.unit_size = 50.0
+	crash_audio_3d.max_distance = 1200.0
+	crash_audio_3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	crash_audio_3d.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+	crash_audio_3d.panning_strength = 1.0
 	crash_audio_3d.bus = "Master"
 	if shared_crash_stream:
-		crash_audio_3d.stream = shared_crash_stream
+		crash_audio_3d.stream = shared_crash_stream.duplicate()
 	add_child(crash_audio_3d)
+
+	blade_scrape_audio_2d = AudioStreamPlayer.new()
+	blade_scrape_audio_2d.name = "BladeScrapeAudio2D"
+	blade_scrape_audio_2d.bus = "Master"
+	if shared_blade_scrape_stream:
+		blade_scrape_audio_2d.stream = shared_blade_scrape_stream
+	add_child(blade_scrape_audio_2d)
+
+	blade_scrape_audio_3d = AudioStreamPlayer3D.new()
+	blade_scrape_audio_3d.name = "BladeScrapeAudio3D"
+	blade_scrape_audio_3d.unit_size = 45.0
+	blade_scrape_audio_3d.max_distance = 1200.0
+	blade_scrape_audio_3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	blade_scrape_audio_3d.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+	blade_scrape_audio_3d.panning_strength = 1.0
+	blade_scrape_audio_3d.bus = "Master"
+	if shared_blade_scrape_stream:
+		blade_scrape_audio_3d.stream = shared_blade_scrape_stream
+	add_child(blade_scrape_audio_3d)
 
 	_start_playback_if_ready()
 
@@ -344,6 +498,10 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	if motor_audio_3d and not motor_audio_3d.playing and shared_motor_stream:
 		motor_audio_3d.play()
 
+	# Smoothly update view mode blend (1.0 = first person onboard, 0.0 = third person distant 3D)
+	var target_blend = 1.0 if is_first_person else 0.0
+	view_mode_blend = lerpf(view_mode_blend, target_blend, clampf(delta * 8.0, 0.05, 1.0))
+
 	# Distinct Directional Audio Pitch & Volume Synthesis
 	var base_pitch := 0.88
 
@@ -380,23 +538,31 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	var speed_vol = clampf(velocity.length() / 18.0, 0.0, 1.0) * 4.5
 
 	var target_pitch = clampf(base_pitch + thrust_pitch + pitch_dir_mod + roll_dir_mod + yaw_dir_mod + speed_pitch, 0.55, 2.30)
-	var target_vol_db = clampf(-17.0 + thrust_vol + pitch_vol + roll_vol + yaw_vol + speed_vol, -25.0, -4.0)
+	var target_vol_db = clampf(-12.0 + (thrust_vol + pitch_vol + roll_vol + yaw_vol + speed_vol) * 0.35, -20.0, -4.0)
 
 	var dt = clampf(delta * 12.0, 0.05, 1.0)
+
+	# Compute 2D and 3D volumes based on view mode:
+	var desired_vol_2d = lerpf(target_vol_db - 6.0, target_vol_db - 2.0, view_mode_blend)
+	var desired_vol_3d = lerpf(target_vol_db + 2.0, target_vol_db - 4.0, view_mode_blend)
+
+	# In TPV mode (3D distant mode), pitch is slightly lower (deeper prop hum)
+	var pitch_3d_mod = lerpf(-0.04, 0.0, view_mode_blend)
+	var target_pitch_3d = clampf(target_pitch + pitch_3d_mod, 0.5, 2.3)
 
 	if motor_audio_2d:
 		motor_audio_2d.stream_paused = false
 		var cur_p2d = motor_audio_2d.pitch_scale if not is_nan(motor_audio_2d.pitch_scale) and not is_inf(motor_audio_2d.pitch_scale) else 1.0
 		var cur_v2d = motor_audio_2d.volume_db if not is_nan(motor_audio_2d.volume_db) and not is_inf(motor_audio_2d.volume_db) else -16.0
 		motor_audio_2d.pitch_scale = clampf(lerpf(cur_p2d, target_pitch, dt), 0.1, 4.0)
-		motor_audio_2d.volume_db = clampf(lerpf(cur_v2d, target_vol_db - 3.0, dt), -80.0, 24.0)
+		motor_audio_2d.volume_db = clampf(lerpf(cur_v2d, desired_vol_2d, dt), -80.0, 24.0)
 
 	if motor_audio_3d:
 		motor_audio_3d.stream_paused = false
 		var cur_p3d = motor_audio_3d.pitch_scale if not is_nan(motor_audio_3d.pitch_scale) and not is_inf(motor_audio_3d.pitch_scale) else 1.0
 		var cur_v3d = motor_audio_3d.volume_db if not is_nan(motor_audio_3d.volume_db) and not is_inf(motor_audio_3d.volume_db) else -16.0
-		motor_audio_3d.pitch_scale = clampf(lerpf(cur_p3d, target_pitch, dt), 0.1, 4.0)
-		motor_audio_3d.volume_db = clampf(lerpf(cur_v3d, target_vol_db, dt), -80.0, 24.0)
+		motor_audio_3d.pitch_scale = clampf(lerpf(cur_p3d, target_pitch_3d, dt), 0.1, 4.0)
+		motor_audio_3d.volume_db = clampf(lerpf(cur_v3d, desired_vol_3d, dt), -80.0, 24.0)
 
 	# Dynamic Speed & Wind Whoosh Audio - Triggers dynamically on forward flight and fast movements
 	if whoosh_audio_2d and shared_whoosh_stream:
@@ -440,15 +606,478 @@ func play_crash(intensity: float) -> void:
 	if is_nan(intensity) or is_inf(intensity) or intensity < 0.0:
 		intensity = 0.0
 
-	var pitch = clampf(1.2 - (intensity / 30.0), 0.7, 1.3)
-	var vol_db = clampf(-16.0 + (intensity * 1.2), -18.0, -4.0)
+	var pitch = clampf(1.0 + (randf() * 0.1 - 0.05), 0.85, 1.15)
+	var vol_db = clampf(-6.0 + clampf(intensity * 0.8, 0.0, 8.0), -10.0, 2.0)
 
-	if crash_audio_2d:
-		crash_audio_2d.pitch_scale = clampf(pitch, 0.1, 4.0)
-		crash_audio_2d.volume_db = clampf(vol_db - 3.0, -80.0, 24.0)
+	if crash_audio_2d and is_first_person:
+		crash_audio_2d.stream = shared_crash_stream.duplicate()
+		crash_audio_2d.pitch_scale = clampf(pitch, 0.5, 2.0)
+		crash_audio_2d.volume_db = clampf(vol_db, -80.0, 6.0)
 		crash_audio_2d.play()
 
 	if crash_audio_3d:
-		crash_audio_3d.pitch_scale = clampf(pitch, 0.1, 4.0)
-		crash_audio_3d.volume_db = clampf(vol_db, -80.0, 24.0)
+		crash_audio_3d.stream = shared_crash_stream.duplicate()
+		crash_audio_3d.pitch_scale = clampf(pitch, 0.5, 2.0)
+		crash_audio_3d.volume_db = clampf(vol_db + 2.0, -80.0, 6.0)
 		crash_audio_3d.play()
+
+func play_blade_scrape(intensity: float) -> void:
+	if not audio_enabled or not is_inside_tree() or not shared_blade_scrape_stream:
+		return
+
+	if is_nan(intensity) or is_inf(intensity) or intensity < 0.0:
+		intensity = 0.0
+
+	var pitch = clampf(1.0 + (randf() * 0.2 - 0.1), 0.85, 1.35)
+	var vol_db = clampf(-10.0 + clampf(intensity * 0.8, 0.0, 6.0), -14.0, -2.0)
+
+	if blade_scrape_audio_2d and is_first_person:
+		blade_scrape_audio_2d.pitch_scale = clampf(pitch, 0.5, 2.5)
+		blade_scrape_audio_2d.volume_db = clampf(vol_db, -80.0, 6.0)
+		blade_scrape_audio_2d.play()
+
+	if blade_scrape_audio_3d:
+		blade_scrape_audio_3d.pitch_scale = clampf(pitch, 0.5, 2.5)
+		blade_scrape_audio_3d.volume_db = clampf(vol_db + 2.0, -80.0, 6.0)
+		blade_scrape_audio_3d.play()
+
+func play_surface_impact(impact: float, surface_type: int = 0, hit_zone: int = 0) -> void:
+	if not audio_enabled or not is_inside_tree():
+		return
+
+	if is_nan(impact) or is_inf(impact) or impact < 0.0:
+		impact = 0.0
+
+	var target_stream: AudioStream = shared_crash_stream if shared_crash_stream else shared_concrete_stream
+
+	# Specific material overrides (tarp, tree, grass, metal)
+	if surface_type == 4 and shared_tarp_stream: # TARP / CANVAS
+		target_stream = shared_tarp_stream
+	elif surface_type == 1 and shared_tree_stream: # TREE
+		target_stream = shared_tree_stream
+	elif surface_type == 2 and shared_grass_stream: # GRASS
+		target_stream = shared_grass_stream
+	elif surface_type == 3 and shared_metal_stream: # METAL
+		target_stream = shared_metal_stream
+
+	if target_stream == null:
+		target_stream = shared_crash_stream if shared_crash_stream else shared_concrete_stream
+
+	var pitch = clampf(1.0 + (randf() * 0.16 - 0.08), 0.85, 1.25)
+	var vol_db = clampf(-6.0 + clampf(impact * 0.85, 0.0, 10.0), -10.0, 2.0)
+
+	if crash_audio_2d and is_first_person:
+		crash_audio_2d.stream = target_stream.duplicate() if target_stream else null
+		crash_audio_2d.pitch_scale = clampf(pitch, 0.5, 2.0)
+		crash_audio_2d.volume_db = clampf(vol_db, -80.0, 6.0)
+		crash_audio_2d.play()
+
+	if crash_audio_3d:
+		crash_audio_3d.stream = target_stream.duplicate() if target_stream else null
+		crash_audio_3d.pitch_scale = clampf(pitch, 0.5, 2.0)
+		crash_audio_3d.volume_db = clampf(vol_db + 2.0, -80.0, 6.0)
+		crash_audio_3d.play()
+
+static func _build_concrete_impact_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.32)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_thud = exp(-22.0 * t)
+		var f_thud = 160.0 * exp(-18.0 * t) + 45.0
+		var s_thud = sin(TAU * f_thud * t) * 0.7 * decay_thud
+
+		var decay_crunch = exp(-32.0 * t)
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.25)
+		var s_crunch = prev_n * 0.6 * decay_crunch
+		var s_crack = sin(TAU * 480.0 * t) * 0.4 * exp(-50.0 * t)
+
+		var sample_val = clampf((s_thud + s_crunch + s_crack) * 0.65, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_tree_impact_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.35)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_thwack = exp(-18.0 * t)
+		var f_wood = 220.0 * exp(-14.0 * t) + 60.0
+		var s_wood = sin(TAU * f_wood * t) * 0.65 * decay_thwack
+
+		var decay_leaf = exp(-15.0 * t)
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.5)
+		var s_leaf = prev_n * 0.55 * decay_leaf * (0.8 + 0.2 * sin(TAU * 35.0 * t))
+
+		var sample_val = clampf((s_wood + s_leaf) * 0.6, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_grass_impact_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.28)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_dirt = exp(-25.0 * t)
+		var f_dirt = 110.0 * exp(-10.0 * t) + 35.0
+		var s_dirt = sin(TAU * f_dirt * t) * 0.6 * decay_dirt
+
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.08)
+		var s_turf = prev_n * 0.4 * decay_dirt
+
+		var sample_val = clampf((s_dirt + s_turf) * 0.55, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_metal_impact_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.4)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_impact = exp(-24.0 * t)
+		var decay_ring = exp(-12.0 * t)
+
+		var s_clang = sin(TAU * 380.0 * t) * 0.5 * decay_impact
+		var s_ring = (sin(TAU * 920.0 * t) + sin(TAU * 1450.0 * t) * 0.5) * 0.35 * decay_ring
+		var s_pop = (randf() * 2.0 - 1.0) * 0.3 * exp(-45.0 * t)
+
+		var sample_val = clampf((s_clang + s_ring + s_pop) * 0.55, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_hard_landing_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.3)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_thud = exp(-20.0 * t)
+		var f_land = 130.0 * exp(-16.0 * t) + 40.0
+		var s_thud = sin(TAU * f_land * t) * 0.75 * decay_thud
+		var s_gear = sin(TAU * 260.0 * t) * 0.4 * exp(-40.0 * t)
+
+		var sample_val = clampf((s_thud + s_gear) * 0.6, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_ceiling_impact_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.28)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_roof = exp(-26.0 * t)
+		var f_roof = 210.0 * exp(-18.0 * t) + 55.0
+		var s_thud = sin(TAU * f_roof * t) * 0.65 * decay_roof
+		var s_clack = sin(TAU * 520.0 * t) * 0.45 * exp(-45.0 * t)
+
+		var sample_val = clampf((s_thud + s_clack) * 0.6, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_propeller_hit_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.32)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_chop = exp(-14.0 * t)
+
+		# 1. Fast pitch drop (850 Hz -> 200 Hz violent spinning prop strike)
+		var f_prop = 850.0 * exp(-18.0 * t) + 200.0
+		var s_prop = sin(TAU * f_prop * t) * 0.7 * decay_chop
+
+		# 2. Rapid spinning 4-blade chopping modulation (120 Hz pulse sequence)
+		var chop_pulse = 1.0 + 0.5 * sin(TAU * 120.0 * t)
+
+		# 3. High-frequency carbon blade strike snap
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.45)
+		var s_snap = prev_n * 0.65 * exp(-35.0 * t)
+
+		var sample_val = clampf((s_prop * chop_pulse + s_snap) * 0.75, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_tarp_impact_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.32)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_fabric = exp(-18.0 * t)
+		var f_tarp = 150.0 * exp(-12.0 * t) + 40.0
+		var s_tarp = sin(TAU * f_tarp * t) * 0.7 * decay_fabric
+
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.15)
+		var s_snap = prev_n * 0.5 * exp(-28.0 * t)
+
+		var sample_val = clampf((s_tarp + s_snap) * 0.6, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_top_hit_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.28)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_shell = exp(-24.0 * t)
+		var f_top = 480.0 * exp(-20.0 * t) + 160.0
+		var s_thud = sin(TAU * f_top * t) * 0.7 * decay_shell
+		var s_pop = sin(TAU * 950.0 * t) * 0.45 * exp(-55.0 * t)
+
+		var sample_val = clampf((s_thud + s_pop) * 0.6, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_belly_hit_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.32)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_belly = exp(-14.0 * t)
+		var f_belly = 65.0 * exp(-10.0 * t) + 32.0
+		var s_thud = sin(TAU * f_belly * t) * 0.9 * decay_belly
+		var s_gear = sin(TAU * 190.0 * t) * 0.3 * exp(-30.0 * t)
+
+		var sample_val = clampf((s_thud + s_gear) * 0.75, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav
+
+static func _build_body_hit_wav() -> AudioStreamWAV:
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.stereo = true
+	wav.mix_rate = 44100
+
+	var num_samples = int(44100 * 0.32)
+	var byte_array = PackedByteArray()
+	byte_array.resize(num_samples * 4)
+
+	var prev_n = 0.0
+
+	for i in range(num_samples):
+		var t = float(i) / 44100.0
+		var decay_body = exp(-22.0 * t)
+		var f_body = 160.0 * exp(-16.0 * t) + 50.0
+		var s_thud = sin(TAU * f_body * t) * 0.75 * decay_body
+
+		var raw_n = (randf() * 2.0 - 1.0)
+		prev_n = lerpf(prev_n, raw_n, 0.22)
+		var s_crunch = prev_n * 0.55 * exp(-30.0 * t)
+
+		var sample_val = clampf((s_thud + s_crunch) * 0.65, -0.95, 0.95)
+		var int_val = int(sample_val * 32767.0)
+
+		var b0 = int_val & 0xFF
+		var b1 = (int_val >> 8) & 0xFF
+
+		var idx = i * 4
+		byte_array[idx]     = b0
+		byte_array[idx + 1] = b1
+		byte_array[idx + 2] = b0
+		byte_array[idx + 3] = b1
+
+	wav.data = byte_array
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	return wav

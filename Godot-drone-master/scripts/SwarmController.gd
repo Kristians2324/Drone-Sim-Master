@@ -173,6 +173,8 @@ func initialize_formation(leader: Node, targets: Array[Vector3], spawn_pos: Vect
 
 			if drone_inst.has_method("set_audio_enabled"):
 				drone_inst.set_audio_enabled(true)
+			if drone_inst.has_method("set_first_person"):
+				drone_inst.set_first_person(false)
 			if drone_inst.has_method("set_hover_mode"):
 				drone_inst.set_hover_mode(true)
 			if drone_inst.has_method("set_input_vector"):

@@ -68,6 +68,12 @@ func update_camera_views():
 		third_person_camera.current = not is_first_person
 		first_person_camera.current = is_first_person
 
+	var drone_controller = design.get_parent() if is_instance_valid(design) else get_parent()
+	if drone_controller and drone_controller.get("audio_component"):
+		var audio = drone_controller.get("audio_component")
+		if is_instance_valid(audio) and audio.has_method("set_first_person"):
+			audio.set_first_person(is_first_person)
+
 func toggle_view():
 	is_first_person = not is_first_person
 	update_camera_views()

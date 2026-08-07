@@ -110,10 +110,46 @@ func reset_to_start() -> void:
 		camera_component.reset()
 
 func _on_collision(body):
-	if audio_enabled and audio_component and audio_component.has_method("play_crash"):
-		var impact = linear_velocity.length()
-		if impact > 1.5:
-			audio_component.play_crash(impact)
+	if not audio_enabled or not audio_component:
+		return
+
+	var impact = maxf(linear_velocity.length(), 0.45)
+
+	var surface_type = 0
+	if body and is_instance_valid(body):
+		var combined = (body.name + " " + (body.get_parent().name if body.get_parent() else "")).to_lower()
+		if "tarp" in combined or "canopy" in combined or "canvas" in combined or "awning" in combined:
+			surface_type = 4 # TARP / CANVAS
+		elif "tree" in combined or "wood" in combined or "leaf" in combined or "foliage" in combined:
+			surface_type = 1 # TREE
+		elif "grass" in combined or "dirt" in combined or "terrain" in combined or "ground" in combined:
+			surface_type = 2 # GRASS
+		elif "metal" in combined or "steel" in combined or "pipe" in combined or "pole" in combined:
+			surface_type = 3 # METAL
+
+	var hit_zone = 3 # BODY_SIDE default
+	var local_cpos = Vector3.ZERO
+	var contact_normal = Vector3.UP
+	var state = PhysicsServer3D.body_get_direct_state(get_rid())
+	if state and state.get_contact_count() > 0:
+		local_cpos = state.get_contact_local_position(0)
+		contact_normal = state.get_contact_local_normal(0)
+
+	var is_blade_hit = Vector2(local_cpos.x, local_cpos.z).length() > 0.12
+
+	if is_blade_hit:
+		hit_zone = 0 # PROPELLER
+	elif local_cpos.y > 0.04 or (linear_velocity.y > 1.2 and contact_normal.y < -0.3):
+		hit_zone = 1 # TOP
+	elif local_cpos.y < -0.04 or (linear_velocity.y < -1.2 and contact_normal.y > 0.3):
+		hit_zone = 2 # BELLY / LANDING
+	else:
+		hit_zone = 3 # BODY_SIDE
+
+	if audio_component.has_method("play_surface_impact"):
+		audio_component.play_surface_impact(impact, surface_type, hit_zone)
+	elif audio_component.has_method("play_crash"):
+		audio_component.play_crash(impact)
 
 # Public methods for configuration
 func set_initial_position(pos: Vector3):

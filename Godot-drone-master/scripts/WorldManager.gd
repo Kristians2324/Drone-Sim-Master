@@ -20,6 +20,28 @@ func _enter_tree():
 		add_child(loading_screen_instance)
 		loading_screen_instance.hide()
 
+var _is_handling_focus: bool = false
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		if not _is_handling_focus:
+			_is_handling_focus = true
+			call_deferred("_on_focus_lost")
+
+func _on_focus_lost() -> void:
+	if not is_inside_tree() or get_tree() == null:
+		_is_handling_focus = false
+		return
+
+	if not get_tree().paused and start_menu_instance and is_instance_valid(start_menu_instance) and not start_menu_instance.visible:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		if menu_instance and is_instance_valid(menu_instance) and menu_instance.has_method("pause"):
+			menu_instance.pause()
+		else:
+			get_tree().paused = true
+
+	_is_handling_focus = false
+
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 

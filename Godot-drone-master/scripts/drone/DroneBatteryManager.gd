@@ -65,6 +65,28 @@ func update_battery(delta: float, input_vec: Vector4, hover_enabled: bool) -> vo
 		battery_failed = true
 		battery_exhausted.emit()
 
+func drain(amount: float) -> void:
+	battery_percent = maxf(0.0, battery_percent - amount)
+	if battery_percent <= 0.0 and not battery_exhausted_flag:
+		battery_exhausted_flag = true
+		battery_failed = true
+		battery_exhausted.emit()
+	battery_changed.emit(battery_percent)
+
+func set_percent(val: float) -> void:
+	battery_percent = clampf(val, 0.0, 100.0)
+	if battery_percent > BATTERY_LOW_WARNING_PERCENT:
+		battery_low_warning = false
+		battery_critical = false
+		battery_auto_landing = false
+		battery_failed = false
+		battery_exhausted_flag = false
+	elif battery_percent <= 0.0:
+		battery_exhausted_flag = true
+		battery_failed = true
+		battery_exhausted.emit()
+	battery_changed.emit(battery_percent)
+
 func recharge(amount: float) -> void:
 	battery_percent = minf(100.0, battery_percent + amount)
 	if battery_percent > BATTERY_LOW_WARNING_PERCENT:

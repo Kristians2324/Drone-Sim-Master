@@ -119,6 +119,10 @@ func set_audio_enabled(enabled: bool) -> void:
 	if is_instance_valid(audio_component):
 		audio_component.set_audio_enabled(enabled)
 
+func set_first_person(is_fp: bool) -> void:
+	if is_instance_valid(audio_component) and audio_component.has_method("set_first_person"):
+		audio_component.set_first_person(is_fp)
+
 static func _disable_shadow_casting_recursive(node: Node) -> void:
 	if node is GeometryInstance3D:
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -462,11 +466,65 @@ func set_infinite_battery_enabled(enabled: bool) -> void:
 	if battery_manager:
 		battery_manager.set_infinite_battery(enabled)
 
-func _on_drone_collision(_body: Node) -> void:
-	if audio_enabled and audio_component:
-		var impact = linear_velocity.length()
-		if is_nan(impact) or is_inf(impact):
-			linear_velocity = Vector3.ZERO
-			impact = 0.0
-		if impact > 1.2:
-			audio_component.play_crash(impact)
+static func detect_surface_type(body: Node) -> int:
+	if not body or not is_instance_valid(body):
+		return 0 # CONCRETE
+	
+	var name_lower = body.name.to_lower()
+	var path_lower = body.get_path().get_concatenated_subnames().to_lower() if body.is_inside_tree() else ""
+	var parent_name = body.get_parent().name.to_lower() if body.get_parent() else ""
+	var combined = name_lower + " " + path_lower + " " + parent_name
+
+	if body.get("material") and body.material:
+		combined += " " + (body.material.resource_name.to_lower() if body.material.resource_name else "")
+	if body.get("material_override") and body.material_override:
+		combined += " " + (body.material_override.resource_name.to_lower() if body.material_override.resource_name else "")
+
+	if "tarp" in combined or "canopy" in combined or "canvas" in combined or "awning" in combined or "fabric" in combined:
+		return 4 # TARP / CANVAS
+	elif "tree" in combined or "wood" in combined or "leaf" in combined or "branch" in combined or "foliage" in combined or "pine" in combined or "bush" in combined:
+		return 1 # TREE
+	elif "grass" in combined or "dirt" in combined or "terrain" in combined or "ground" in combined or "lawn" in combined or "mud" in combined or "earth" in combined or "fallbackfloor" in combined:
+		return 2 # GRASS
+	elif "metal" in combined or "steel" in combined or "pipe" in combined or "pole" in combined or "fence" in combined or "iron" in combined:
+		return 3 # METAL
+	
+	return 0 # CONCRETE (buildings, roofs, walls, asphalt, structures)
+
+func _on_drone_collision(body: Node) -> void:
+	if not audio_enabled or not audio_component:
+		return
+
+	var impact = linear_velocity.length()
+	if is_nan(impact) or is_inf(impact):
+		linear_velocity = Vector3.ZERO
+		impact = 0.0
+
+	# Always ensure forceful landings and roof/tarp strikes produce solid audio!
+	impact = maxf(impact, 0.45)
+
+	var surface_type = detect_surface_type(body)
+	var hit_zone = 3 # BODY_SIDE default
+
+	var local_cpos = Vector3.ZERO
+	var contact_normal = Vector3.UP
+	var state = PhysicsServer3D.body_get_direct_state(get_rid())
+	if state and state.get_contact_count() > 0:
+		local_cpos = state.get_contact_local_position(0)
+		contact_normal = state.get_contact_local_normal(0)
+
+	var is_blade_hit = Vector2(local_cpos.x, local_cpos.z).length() > 0.12
+
+	if is_blade_hit:
+		hit_zone = 0 # PROPELLER
+	elif local_cpos.y > 0.04 or (linear_velocity.y > 1.2 and contact_normal.y < -0.3):
+		hit_zone = 1 # TOP
+	elif local_cpos.y < -0.04 or (linear_velocity.y < -1.2 and contact_normal.y > 0.3):
+		hit_zone = 2 # BELLY / LANDING
+	else:
+		hit_zone = 3 # BODY_SIDE
+
+	if audio_component.has_method("play_surface_impact"):
+		audio_component.play_surface_impact(impact, surface_type, hit_zone)
+	elif audio_component.has_method("play_crash"):
+		audio_component.play_crash(impact)

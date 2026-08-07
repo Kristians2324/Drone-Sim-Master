@@ -101,6 +101,15 @@ func _ensure_audio_listener(camera: Camera3D) -> void:
 		camera.add_child(listener)
 	listener.make_current()
 
+var fpv_overlay: FPVCameraOverlay = null
+
+func _ensure_fpv_overlay() -> void:
+	if fpv_overlay == null or not is_instance_valid(fpv_overlay):
+		var FPVClass = load("res://scripts/ui/FPVCameraOverlay.gd")
+		fpv_overlay = FPVClass.new()
+		fpv_overlay.name = "FPVCameraOverlay"
+		add_child(fpv_overlay)
+
 func update_camera_views():
 	if not drone or not is_instance_valid(drone): return
 	tp_camera.current = !is_first_person
@@ -109,6 +118,19 @@ func update_camera_views():
 		_ensure_audio_listener(fp_camera)
 	else:
 		_ensure_audio_listener(tp_camera)
+	if drone.has_method("set_first_person"):
+		drone.set_first_person(is_first_person)
+	elif drone.get("audio_component") and is_instance_valid(drone.audio_component) and drone.audio_component.has_method("set_first_person"):
+		drone.audio_component.set_first_person(is_first_person)
+
+	_ensure_fpv_overlay()
+	if fpv_overlay:
+		fpv_overlay.set_target_drone(drone)
+		fpv_overlay.set_fpv_active(is_first_person)
+
+	var debug_overlay = get_tree().root.find_child("DebugOverlay", true, false)
+	if debug_overlay and debug_overlay.has_method("set_battery_hud_visible"):
+		debug_overlay.set_battery_hud_visible(not is_first_person)
 
 func _process(delta):
 	if not drone or not is_instance_valid(drone): 

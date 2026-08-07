@@ -28,11 +28,20 @@ var rec_dot_label: Label = null
 var rec_timer_label: Label = null
 
 # Responsive Tab Navigation State
-var current_tab_index: int = 1 # 0: Flight Controls, 1: Light Shows & Custom Shapes, 2: Graphics & Options
+var current_tab_index: int = 1 # 0: Flight Controls, 1: Light Shows & Custom Shapes, 2: Graphics & Options, 3: Dev Menu
 var tab_btn_controls: Button = null
 var tab_btn_show: Button = null
 var tab_btn_options: Button = null
+var tab_btn_dev: Button = null
 var tab_bar_container: HBoxContainer = null
+
+# Dev Menu References
+var dev_menu_panel: PanelContainer = null
+var dev_status_label: Label = null
+var current_drain_mult: float = 1.0
+var god_mode_active: bool = false
+var big_red_quit_button: Button = null
+var quit_confirm_modal: PanelContainer = null
 
 const KEYBOARD_TEXT = "--- KEYBOARD CONTROLS ---
 SPACE / SHIFT : Thrust Up/Down
@@ -72,6 +81,7 @@ func _ready():
 	_setup_stop_show_button()
 	_setup_recording_hud()
 	_setup_tabbed_interface()
+	_setup_big_red_quit_button()
 
 	if resume_button and not resume_button.pressed.is_connected(_on_resume_pressed):
 		resume_button.pressed.connect(_on_resume_pressed)
@@ -103,34 +113,48 @@ func _setup_tabbed_interface() -> void:
 		tab_bar_container = HBoxContainer.new()
 		tab_bar_container.name = "TopTabBar"
 		tab_bar_container.alignment = BoxContainer.ALIGNMENT_CENTER
-		tab_bar_container.add_theme_constant_override("separation", 8)
+		tab_bar_container.custom_minimum_size = Vector2(560, 38)
+		tab_bar_container.add_theme_constant_override("separation", 6)
 
 		tab_btn_controls = Button.new()
-		tab_btn_controls.text = "FLIGHT CONTROLS"
-		tab_btn_controls.custom_minimum_size = Vector2(160, 36)
+		tab_btn_controls.text = "CONTROLS"
+		tab_btn_controls.custom_minimum_size = Vector2(0, 36)
+		tab_btn_controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab_btn_controls.add_theme_font_size_override("font_size", 11)
 		tab_btn_controls.pressed.connect(select_tab.bind(0))
 		tab_bar_container.add_child(tab_btn_controls)
 
 		tab_btn_show = Button.new()
-		tab_btn_show.text = "LIGHT SHOW & FORMATIONS"
-		tab_btn_show.custom_minimum_size = Vector2(210, 36)
+		tab_btn_show.text = "LIGHT SHOW"
+		tab_btn_show.custom_minimum_size = Vector2(0, 36)
+		tab_btn_show.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab_btn_show.add_theme_font_size_override("font_size", 11)
 		tab_btn_show.pressed.connect(select_tab.bind(1))
 		tab_bar_container.add_child(tab_btn_show)
 
 		tab_btn_options = Button.new()
-		tab_btn_options.text = "GRAPHICS & OPTIONS"
-		tab_btn_options.custom_minimum_size = Vector2(170, 36)
+		tab_btn_options.text = "OPTIONS"
+		tab_btn_options.custom_minimum_size = Vector2(0, 36)
+		tab_btn_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab_btn_options.add_theme_font_size_override("font_size", 11)
 		tab_btn_options.pressed.connect(select_tab.bind(2))
 		tab_bar_container.add_child(tab_btn_options)
+
+		tab_btn_dev = Button.new()
+		tab_btn_dev.text = "DEV TOOLS"
+		tab_btn_dev.custom_minimum_size = Vector2(0, 36)
+		tab_btn_dev.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab_btn_dev.add_theme_font_size_override("font_size", 11)
+		tab_btn_dev.pressed.connect(select_tab.bind(3))
+		tab_bar_container.add_child(tab_btn_dev)
 
 		parent_vbox.add_child(tab_bar_container)
 
 		if main_layout.get_parent() != parent_vbox:
 			main_layout.get_parent().remove_child(main_layout)
 			parent_vbox.add_child(main_layout)
+
+		_build_dev_menu_panel(main_layout)
 
 		center_node.add_child(parent_vbox)
 
@@ -142,34 +166,60 @@ func select_tab(tab_idx: int) -> void:
 	var functions_panel = get_node_or_null("Center/TabbedVBox/MainLayout/FunctionsPanel")
 	var main_panel = get_node_or_null("Center/TabbedVBox/MainLayout/Panel")
 	var graph_panel = get_node_or_null("Center/TabbedVBox/MainLayout/GraphMenuPanel")
+	var dev_panel = get_node_or_null("Center/TabbedVBox/MainLayout/DevMenuPanel")
 
 	if not functions_panel or not main_panel or not graph_panel:
 		functions_panel = get_node_or_null("Center/MainLayout/FunctionsPanel")
 		main_panel = get_node_or_null("Center/MainLayout/Panel")
 		graph_panel = get_node_or_null("Center/MainLayout/GraphMenuPanel")
+		dev_panel = get_node_or_null("Center/MainLayout/DevMenuPanel")
 
 	if functions_panel and main_panel and graph_panel:
 		main_panel.visible = (tab_idx == 0)
 		functions_panel.visible = (tab_idx == 1)
 		graph_panel.visible = (tab_idx == 2)
+		if dev_panel:
+			dev_panel.visible = (tab_idx == 3)
 
-		var active_panel = [main_panel, functions_panel, graph_panel][tab_idx]
-		if active_panel:
-			active_panel.custom_minimum_size = Vector2(560, 520)
+		var panels = [main_panel, functions_panel, graph_panel, dev_panel]
+		if tab_idx < panels.size() and panels[tab_idx]:
+			panels[tab_idx].custom_minimum_size = Vector2(560, 520)
 
 	_update_tab_button_styles()
 
 func _update_tab_button_styles() -> void:
-	var btns = [tab_btn_controls, tab_btn_show, tab_btn_options]
+	var btns = [tab_btn_controls, tab_btn_show, tab_btn_options, tab_btn_dev]
 	for i in range(btns.size()):
 		var btn = btns[i]
 		if btn and is_instance_valid(btn):
+			var sb = StyleBoxFlat.new()
+			sb.corner_radius_top_left = 6
+			sb.corner_radius_top_right = 6
+			sb.corner_radius_bottom_left = 6
+			sb.corner_radius_bottom_right = 6
+
 			if i == current_tab_index:
+				sb.bg_color = Color(0.12, 0.22, 0.32, 0.95)
+				sb.border_width_bottom = 3
+				sb.border_color = Color(0.2, 0.85, 1.0, 1.0)
 				btn.add_theme_color_override("font_color", Color(0.2, 0.95, 1.0, 1.0))
 			else:
-				btn.remove_theme_color_override("font_color")
+				sb.bg_color = Color(0.06, 0.1, 0.15, 0.8)
+				sb.border_width_bottom = 0
+				btn.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.85))
+
+			btn.add_theme_stylebox_override("normal", sb)
+			btn.add_theme_stylebox_override("hover", sb)
+			btn.add_theme_stylebox_override("pressed", sb)
 
 func _process(delta: float) -> void:
+	if visible and get_viewport():
+		var vp_size = get_viewport().get_visible_rect().size
+		if big_red_quit_button:
+			big_red_quit_button.position = Vector2(vp_size.x - 213, vp_size.y - 74)
+		if quit_confirm_modal and quit_confirm_modal.visible:
+			quit_confirm_modal.position = (vp_size - Vector2(420, 180)) / 2.0
+
 	if video_recorder and video_recorder.is_recording:
 		video_recorder.process_recording(delta, get_viewport())
 
@@ -246,6 +296,50 @@ func _setup_stop_show_button() -> void:
 			stop_show_button.pressed.connect(_on_stop_show_pressed)
 			layout.add_child(stop_show_button)
 			stop_show_button.visible = false
+
+func _setup_big_red_quit_button() -> void:
+	if big_red_quit_button != null: return
+
+	big_red_quit_button = Button.new()
+	big_red_quit_button.name = "BigRedQuitButton"
+	big_red_quit_button.text = "⏻ POWER OFF (QUIT)"
+	big_red_quit_button.custom_minimum_size = Vector2(185, 48)
+	big_red_quit_button.add_theme_font_size_override("font_size", 13)
+
+	var sb_normal = StyleBoxFlat.new()
+	sb_normal.bg_color = Color(0.55, 0.08, 0.08, 0.92)
+	sb_normal.border_width_left = 2
+	sb_normal.border_width_top = 2
+	sb_normal.border_width_right = 2
+	sb_normal.border_width_bottom = 2
+	sb_normal.border_color = Color(1.0, 0.25, 0.25, 1.0)
+	sb_normal.corner_radius_top_left = 8
+	sb_normal.corner_radius_top_right = 8
+	sb_normal.corner_radius_bottom_left = 8
+	sb_normal.corner_radius_bottom_right = 8
+	sb_normal.content_margin_left = 14
+	sb_normal.content_margin_right = 14
+	sb_normal.content_margin_top = 8
+	sb_normal.content_margin_bottom = 8
+
+	var sb_hover = sb_normal.duplicate() as StyleBoxFlat
+	sb_hover.bg_color = Color(0.8, 0.12, 0.12, 0.98)
+	sb_hover.border_color = Color(1.0, 0.5, 0.5, 1.0)
+
+	var sb_pressed = sb_normal.duplicate() as StyleBoxFlat
+	sb_pressed.bg_color = Color(0.95, 0.15, 0.15, 1.0)
+	sb_pressed.border_color = Color(1.0, 0.75, 0.75, 1.0)
+
+	big_red_quit_button.add_theme_stylebox_override("normal", sb_normal)
+	big_red_quit_button.add_theme_stylebox_override("hover", sb_hover)
+	big_red_quit_button.add_theme_stylebox_override("pressed", sb_pressed)
+	big_red_quit_button.add_theme_stylebox_override("focus", sb_hover)
+	big_red_quit_button.add_theme_color_override("font_color", Color(1.0, 0.95, 0.95))
+	big_red_quit_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+
+	big_red_quit_button.pressed.connect(_on_quit_pressed)
+
+	add_child(big_red_quit_button)
 
 func _setup_recording_hud() -> void:
 	if rec_hud_container != null:
@@ -564,5 +658,437 @@ func _on_restart_pressed() -> void:
 		get_tree().reload_current_scene()
 
 func _on_quit_pressed() -> void:
+	_show_quit_confirmation_modal()
+
+func _confirm_quit_action() -> void:
 	stop_recording()
 	get_tree().quit()
+
+func _cancel_quit_action() -> void:
+	if quit_confirm_modal and is_instance_valid(quit_confirm_modal):
+		quit_confirm_modal.visible = false
+
+func _show_quit_confirmation_modal() -> void:
+	if quit_confirm_modal != null and is_instance_valid(quit_confirm_modal):
+		quit_confirm_modal.visible = true
+		return
+
+	quit_confirm_modal = PanelContainer.new()
+	quit_confirm_modal.name = "QuitConfirmModal"
+	quit_confirm_modal.custom_minimum_size = Vector2(420, 180)
+
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.08, 0.12, 0.98)
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(1.0, 0.25, 0.25, 0.95)
+	sb.corner_radius_top_left = 12
+	sb.corner_radius_top_right = 12
+	sb.corner_radius_bottom_left = 12
+	sb.corner_radius_bottom_right = 12
+	quit_confirm_modal.add_theme_stylebox_override("panel", sb)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	quit_confirm_modal.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	margin.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "ARE YOU SURE YOU WANT TO QUIT?"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	vbox.add_child(title)
+
+	var sub = Label.new()
+	sub.text = "All unsaved simulation progress will be closed."
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 11)
+	sub.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.85))
+	vbox.add_child(sub)
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 14)
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var btn_yes = Button.new()
+	btn_yes.text = "YES, QUIT GAME"
+	btn_yes.custom_minimum_size = Vector2(170, 42)
+	btn_yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_modal_red_button(btn_yes)
+	btn_yes.pressed.connect(_confirm_quit_action)
+	hbox.add_child(btn_yes)
+
+	var btn_no = Button.new()
+	btn_no.text = "CANCEL"
+	btn_no.custom_minimum_size = Vector2(140, 42)
+	btn_no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_dev_button(btn_no)
+	btn_no.pressed.connect(_cancel_quit_action)
+	hbox.add_child(btn_no)
+
+	vbox.add_child(hbox)
+
+	add_child(quit_confirm_modal)
+	quit_confirm_modal.visible = true
+
+func _style_modal_red_button(btn: Button) -> void:
+	if not btn: return
+	var sb_normal = StyleBoxFlat.new()
+	sb_normal.bg_color = Color(0.55, 0.08, 0.08, 0.92)
+	sb_normal.border_width_left = 1
+	sb_normal.border_width_top = 1
+	sb_normal.border_width_right = 1
+	sb_normal.border_width_bottom = 1
+	sb_normal.border_color = Color(1.0, 0.25, 0.25, 1.0)
+	sb_normal.corner_radius_top_left = 8
+	sb_normal.corner_radius_top_right = 8
+	sb_normal.corner_radius_bottom_left = 8
+	sb_normal.corner_radius_bottom_right = 8
+
+	var sb_hover = sb_normal.duplicate() as StyleBoxFlat
+	sb_hover.bg_color = Color(0.8, 0.12, 0.12, 0.98)
+	sb_hover.border_color = Color(1.0, 0.5, 0.5, 1.0)
+
+	btn.add_theme_stylebox_override("normal", sb_normal)
+	btn.add_theme_stylebox_override("hover", sb_hover)
+	btn.add_theme_stylebox_override("pressed", sb_hover)
+	btn.add_theme_stylebox_override("focus", sb_hover)
+	btn.add_theme_color_override("font_color", Color(1.0, 0.95, 0.95))
+
+func _style_dev_button(btn: Button) -> void:
+	if not btn: return
+	var sb_normal = StyleBoxFlat.new()
+	sb_normal.bg_color = Color(0.08, 0.14, 0.22, 0.9)
+	sb_normal.border_width_left = 1
+	sb_normal.border_width_top = 1
+	sb_normal.border_width_right = 1
+	sb_normal.border_width_bottom = 1
+	sb_normal.border_color = Color(0.2, 0.55, 0.85, 0.85)
+	sb_normal.corner_radius_top_left = 8
+	sb_normal.corner_radius_top_right = 8
+	sb_normal.corner_radius_bottom_left = 8
+	sb_normal.corner_radius_bottom_right = 8
+
+	var sb_hover = sb_normal.duplicate() as StyleBoxFlat
+	sb_hover.bg_color = Color(0.12, 0.22, 0.35, 0.95)
+	sb_hover.border_color = Color(0.3, 0.85, 1.0, 1.0)
+
+	btn.add_theme_stylebox_override("normal", sb_normal)
+	btn.add_theme_stylebox_override("hover", sb_hover)
+	btn.add_theme_stylebox_override("pressed", sb_hover)
+	btn.add_theme_stylebox_override("focus", sb_hover)
+	btn.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+
+func _get_active_drone() -> Node:
+	var scene = get_tree().current_scene if get_tree() else null
+	if not scene: return null
+	var single = scene.get_node_or_null("SingleDroneController")
+	if single and "drone" in single and single.drone and is_instance_valid(single.drone):
+		return single.drone
+	var manager = scene.get_node_or_null("DroneControllerManager")
+	if manager and "drone" in manager and manager.drone and is_instance_valid(manager.drone):
+		return manager.drone
+	return scene.find_child("Drone", true, false)
+
+func _show_dev_status(msg: String) -> void:
+	if dev_status_label:
+		dev_status_label.text = "Status: " + msg
+		dev_status_label.add_theme_color_override("font_color", Color(0.2, 0.95, 1.0))
+
+func _on_dev_drain_battery(amount: float) -> void:
+	var drone = _get_active_drone()
+	if drone:
+		if drone.has_method("drain_battery"):
+			drone.drain_battery(amount)
+		elif drone.get("battery_manager") and is_instance_valid(drone.battery_manager):
+			if drone.battery_manager.has_method("drain"):
+				drone.battery_manager.drain(amount)
+			else:
+				drone.battery_manager.battery_percent = maxf(0.0, drone.battery_manager.battery_percent - amount)
+	_show_dev_status("Drained Battery by " + str(int(amount)) + "%")
+
+func _on_dev_set_battery(val: float) -> void:
+	var drone = _get_active_drone()
+	if drone:
+		if drone.has_method("set_battery_percent"):
+			drone.set_battery_percent(val)
+		elif drone.get("battery_manager") and is_instance_valid(drone.battery_manager):
+			if drone.battery_manager.has_method("set_percent"):
+				drone.battery_manager.set_percent(val)
+			else:
+				drone.battery_manager.battery_percent = val
+	_show_dev_status("Set Battery to " + str(int(val)) + "%")
+
+func _on_dev_toggle_infinite_battery() -> void:
+	var drone = _get_active_drone()
+	if drone:
+		var bm = drone.get("battery_manager")
+		if bm and is_instance_valid(bm):
+			var curr = bm.infinite_battery if "infinite_battery" in bm else false
+			if drone.has_method("set_infinite_battery_enabled"):
+				drone.set_infinite_battery_enabled(not curr)
+			elif bm.has_method("set_infinite_battery"):
+				bm.set_infinite_battery(not curr)
+			_show_dev_status("Infinite Battery: " + ("ENABLED" if not curr else "DISABLED"))
+
+func _on_dev_set_drain_mult(mult: float) -> void:
+	current_drain_mult = mult
+	var drone = _get_active_drone()
+	if drone and drone.get("battery_manager") and is_instance_valid(drone.battery_manager):
+		drone.battery_manager.drain_mult = mult
+	_show_dev_status("Battery Drain Speed: " + str(mult) + "x")
+
+func _on_dev_set_gravity(scale: float) -> void:
+	var drone = _get_active_drone()
+	if drone and "gravity_scale" in drone:
+		drone.gravity_scale = scale
+	_show_dev_status("Gravity Scale: " + str(scale) + "x " + ("(Zero-G Floating!)" if scale == 0.0 else ""))
+
+func _on_dev_set_timescale(scale: float) -> void:
+	Engine.time_scale = scale
+	_show_dev_status("Time Scale: " + str(scale) + "x " + ("(Matrix Slow-Mo!)" if scale < 1.0 else ""))
+
+func _on_dev_toggle_god_mode() -> void:
+	god_mode_active = not god_mode_active
+	var drone = _get_active_drone()
+	if drone:
+		drone.set("god_mode", god_mode_active)
+	_show_dev_status("God Mode / Invincibility: " + ("ENABLED" if god_mode_active else "DISABLED"))
+
+func _on_dev_set_thrust_mult(mult: float) -> void:
+	var drone = _get_active_drone()
+	if drone and "thrust_force" in drone:
+		drone.thrust_force = 45.0 * mult
+	_show_dev_status("Motor Thrust: " + str(mult) + "x " + ("(Rocket Thrust!)" if mult > 1.0 else ""))
+
+func _style_dev_option_button(opt: OptionButton) -> void:
+	if not opt: return
+	var sb_normal = StyleBoxFlat.new()
+	sb_normal.bg_color = Color(0.08, 0.14, 0.22, 0.9)
+	sb_normal.border_width_left = 1
+	sb_normal.border_width_top = 1
+	sb_normal.border_width_right = 1
+	sb_normal.border_width_bottom = 1
+	sb_normal.border_color = Color(0.2, 0.55, 0.85, 0.85)
+	sb_normal.corner_radius_top_left = 8
+	sb_normal.corner_radius_top_right = 8
+	sb_normal.corner_radius_bottom_left = 8
+	sb_normal.corner_radius_bottom_right = 8
+	sb_normal.content_margin_left = 12
+	sb_normal.content_margin_right = 12
+	sb_normal.content_margin_top = 6
+	sb_normal.content_margin_bottom = 6
+
+	var sb_hover = sb_normal.duplicate() as StyleBoxFlat
+	sb_hover.bg_color = Color(0.12, 0.22, 0.35, 0.95)
+	sb_hover.border_color = Color(0.3, 0.85, 1.0, 1.0)
+
+	opt.add_theme_stylebox_override("normal", sb_normal)
+	opt.add_theme_stylebox_override("hover", sb_hover)
+	opt.add_theme_stylebox_override("pressed", sb_hover)
+	opt.add_theme_stylebox_override("focus", sb_hover)
+	opt.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	opt.add_theme_color_override("font_hover_color", Color(0.3, 0.95, 1.0))
+
+func _add_dev_option_row(vbox: VBoxContainer, label_text: String, opt_button: OptionButton) -> void:
+	var row = HBoxContainer.new()
+	row.custom_minimum_size = Vector2(0, 34)
+
+	var lbl = Label.new()
+	lbl.text = label_text
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_color_override("font_color", Color(0.85, 0.92, 0.98))
+	row.add_child(lbl)
+
+	opt_button.custom_minimum_size = Vector2(230, 32)
+	_style_dev_option_button(opt_button)
+	row.add_child(opt_button)
+
+	vbox.add_child(row)
+
+func _on_dev_battery_preset_selected(idx: int) -> void:
+	match idx:
+		0: _on_dev_set_battery(100.0)
+		1: _on_dev_set_battery(75.0)
+		2: _on_dev_set_battery(50.0)
+		3: _on_dev_set_battery(10.0)
+		4: _on_dev_set_battery(0.0)
+
+func _on_dev_drain_speed_selected(idx: int) -> void:
+	match idx:
+		0: _on_dev_set_drain_mult(1.0)
+		1: _on_dev_set_drain_mult(5.0)
+		2: _on_dev_set_drain_mult(20.0)
+
+func _on_dev_infinite_battery_selected(idx: int) -> void:
+	var drone = _get_active_drone()
+	if drone:
+		var enabled = (idx == 1)
+		if drone.has_method("set_infinite_battery_enabled"):
+			drone.set_infinite_battery_enabled(enabled)
+		elif drone.get("battery_manager") and is_instance_valid(drone.battery_manager):
+			drone.battery_manager.infinite_battery = enabled
+		_show_dev_status("Infinite Battery: " + ("ENABLED" if enabled else "DISABLED"))
+
+func _on_dev_gravity_selected(idx: int) -> void:
+	match idx:
+		0: _on_dev_set_gravity(1.0)
+		1: _on_dev_set_gravity(0.0)
+		2: _on_dev_set_gravity(0.3)
+		3: _on_dev_set_gravity(2.5)
+
+func _on_dev_timescale_selected(idx: int) -> void:
+	match idx:
+		0: _on_dev_set_timescale(1.0)
+		1: _on_dev_set_timescale(0.25)
+		2: _on_dev_set_timescale(0.5)
+		3: _on_dev_set_timescale(2.0)
+
+func _on_dev_god_mode_selected(idx: int) -> void:
+	god_mode_active = (idx == 1)
+	var drone = _get_active_drone()
+	if drone:
+		drone.set("god_mode", god_mode_active)
+	_show_dev_status("God Mode / Invincibility: " + ("ENABLED" if god_mode_active else "DISABLED"))
+
+func _on_dev_thrust_selected(idx: int) -> void:
+	match idx:
+		0: _on_dev_set_thrust_mult(1.0)
+		1: _on_dev_set_thrust_mult(2.5)
+
+func _build_dev_menu_panel(main_layout: Node) -> void:
+	if dev_menu_panel != null: return
+
+	dev_menu_panel = PanelContainer.new()
+	dev_menu_panel.name = "DevMenuPanel"
+	dev_menu_panel.custom_minimum_size = Vector2(560, 520)
+
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.08, 0.12, 0.95)
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(0.2, 0.85, 1.0, 0.85)
+	sb.corner_radius_top_left = 12
+	sb.corner_radius_top_right = 12
+	sb.corner_radius_bottom_left = 12
+	sb.corner_radius_bottom_right = 12
+	dev_menu_panel.add_theme_stylebox_override("panel", sb)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_bottom", 18)
+	dev_menu_panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	margin.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "DEV TOOLS & SIMULATION MODIFIERS"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
+	vbox.add_child(title)
+
+	dev_status_label = Label.new()
+	dev_status_label.text = "Status: Ready (Select a Dev Modifier below)"
+	dev_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dev_status_label.add_theme_font_size_override("font_size", 11)
+	dev_status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
+	vbox.add_child(dev_status_label)
+
+	var sep1 = HSeparator.new()
+	vbox.add_child(sep1)
+
+	# --- SECTION 1: BATTERY CONTROLS ---
+	var cat1 = Label.new()
+	cat1.text = "BATTERY DRAIN & REFILL OPTIONS"
+	cat1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cat1.add_theme_font_size_override("font_size", 12)
+	cat1.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 0.9))
+	vbox.add_child(cat1)
+
+	# Row 1: Battery Level Preset
+	var opt_bat = OptionButton.new()
+	opt_bat.add_item("100% (Instant Recharge)")
+	opt_bat.add_item("75% (Drain -25%)")
+	opt_bat.add_item("50% (Drain -50%)")
+	opt_bat.add_item("10% (Low Warning)")
+	opt_bat.add_item("0% (Empty)")
+	opt_bat.item_selected.connect(_on_dev_battery_preset_selected)
+	_add_dev_option_row(vbox, "Battery Charge Preset", opt_bat)
+
+	# Row 2: Battery Drain Speed
+	var opt_drain = OptionButton.new()
+	opt_drain.add_item("1x Normal Speed")
+	opt_drain.add_item("5x Fast Drain")
+	opt_drain.add_item("20x Turbo Drain")
+	opt_drain.item_selected.connect(_on_dev_drain_speed_selected)
+	_add_dev_option_row(vbox, "Battery Drain Speed", opt_drain)
+
+	# Row 3: Infinite Battery Mode
+	var opt_inf = OptionButton.new()
+	opt_inf.add_item("Disabled")
+	opt_inf.add_item("Enabled")
+	opt_inf.item_selected.connect(_on_dev_infinite_battery_selected)
+	_add_dev_option_row(vbox, "Infinite Battery Mode", opt_inf)
+
+	var sep2 = HSeparator.new()
+	vbox.add_child(sep2)
+
+	# --- SECTION 2: DRASTIC PHYSICS & WORLD MODIFIERS ---
+	var cat2 = Label.new()
+	cat2.text = "DRASTIC PHYSICS & ENVIRONMENT MODIFIERS"
+	cat2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cat2.add_theme_font_size_override("font_size", 12)
+	cat2.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 0.9))
+	vbox.add_child(cat2)
+
+	# Row 4: World Gravity
+	var opt_grav = OptionButton.new()
+	opt_grav.add_item("1.0x Normal Gravity")
+	opt_grav.add_item("0.0x Zero-G Floating")
+	opt_grav.add_item("0.3x Lunar Low-G")
+	opt_grav.add_item("2.5x Heavy Gravity")
+	opt_grav.item_selected.connect(_on_dev_gravity_selected)
+	_add_dev_option_row(vbox, "World Gravity Scale", opt_grav)
+
+	# Row 5: Time Scale (Slow-Mo)
+	var opt_time = OptionButton.new()
+	opt_time.add_item("1.0x Normal Speed")
+	opt_time.add_item("0.25x Matrix Slow-Mo")
+	opt_time.add_item("0.5x Half Speed")
+	opt_time.add_item("2.0x Fast-Forward")
+	opt_time.item_selected.connect(_on_dev_timescale_selected)
+	_add_dev_option_row(vbox, "Time Scale (Slow-Mo)", opt_time)
+
+	# Row 6: God Mode / Invincibility
+	var opt_god = OptionButton.new()
+	opt_god.add_item("Disabled (Normal Damage)")
+	opt_god.add_item("Enabled (Invincible)")
+	opt_god.item_selected.connect(_on_dev_god_mode_selected)
+	_add_dev_option_row(vbox, "God Mode (Invincibility)", opt_god)
+
+	# Row 7: Motor Thrust Power
+	var opt_thrust = OptionButton.new()
+	opt_thrust.add_item("1.0x Normal Thrust")
+	opt_thrust.add_item("2.5x Rocket Thrust")
+	opt_thrust.item_selected.connect(_on_dev_thrust_selected)
+	_add_dev_option_row(vbox, "Motor Thrust Power", opt_thrust)
+
+	main_layout.add_child(dev_menu_panel)
+	dev_menu_panel.visible = false

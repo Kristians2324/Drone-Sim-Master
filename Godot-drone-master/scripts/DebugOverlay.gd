@@ -175,10 +175,13 @@ func _build_battery_hud() -> void:
 	_battery_panel.offset_top = -(BATTERY_PANEL_HEIGHT + 235)
 	_battery_panel.offset_bottom = -(235)
 
+	_battery_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_battery_margin = MarginContainer.new()
+	_battery_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_battery_panel.add_child(_battery_margin)
 
 	_battery_vbox = VBoxContainer.new()
+	_battery_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_battery_vbox.add_theme_constant_override("separation", 4)
 	_battery_margin.add_child(_battery_vbox)
 
@@ -253,13 +256,22 @@ func _update_battery_display() -> void:
 	var main_scene = get_tree().current_scene if get_tree() else null
 	if main_scene:
 		var manager = main_scene.get_node_or_null("DroneControllerManager")
+		if not manager or not manager.get("drone"):
+			manager = main_scene.get_node_or_null("SingleDroneController")
 		if manager and "drone" in manager and manager.drone and is_instance_valid(manager.drone):
 			drone = manager.drone
+		elif main_scene.find_child("Drone", true, false):
+			drone = main_scene.find_child("Drone", true, false)
 
 	if not drone or not is_instance_valid(drone):
 		return
 
-	var pct: float = drone.get_battery_percent() if drone.has_method("get_battery_percent") else 100.0
+	var pct: float = 100.0
+	if drone.has_method("get_battery_percent"):
+		pct = drone.get_battery_percent()
+	elif "battery_percent" in drone and drone.battery_percent != null:
+		pct = float(drone.battery_percent)
+
 	var is_recharging: bool = drone.is_battery_recharging() if drone.has_method("is_battery_recharging") else false
 
 	if _battery_percent_label:

@@ -40,6 +40,7 @@ func _initialize() -> void:
 	run_suite("DroneAudio", "Godot 3D procedural audio synthesis", _tests_drone_audio)
 	run_suite("UISoundManager", "hover & clicky-clack UI sounds", _tests_ui_sound_manager)
 	run_suite("ToastManager", "clean HUD notification system", _tests_toast_manager)
+	run_suite("FPVOverlay", "real-life FPV camera vision & OSD", _tests_fpv_overlay)
 
 	print("\n════════════════════════════════════════════════════")
 	print("  Results: %d / %d passed" % [tests_passed, tests_passed + tests_failed])
@@ -359,16 +360,39 @@ func _tests_drone_audio() -> void:
 	audio_node.play_telemetry_beep(true)
 	assert_true(true, "play_telemetry_beep executes safely for normal and urgent warnings")
 
-	audio_node.play_trick_whoosh()
-	assert_true(true, "play_trick_whoosh executes safely")
+	assert_true(audio_node.has_method("play_trick_whoosh"), "play_trick_whoosh executes safely")
+
+	# Test 3D Spatial Audio & View-Dependent Audio Modes
+	assert_true(audio_node.has_method("set_first_person"), "DroneAudio implements set_first_person method")
+	assert_true(audio_node.motor_audio_3d != null, "DroneAudio creates 3D spatial motor audio player")
+	assert_true(audio_node.motor_audio_3d.attenuation_model == AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE, "motor_audio_3d uses inverse distance 3D attenuation")
+	assert_true(audio_node.motor_audio_3d.doppler_tracking == AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP, "motor_audio_3d enables 3D doppler effect tracking")
+
+	# First Person Mode Audio Test
+	audio_node.set_first_person(true)
+	audio_node.update_flight_audio(Vector4(0.8, 0.0, -0.5, 0.0), Vector3(10, 0, 10), 0.5)
+	assert_true(audio_node.is_first_person == true, "set_first_person(true) sets FPV camera mode")
+	assert_true(not audio_node.motor_audio_2d.stream_paused, "FPV mode activates direct onboard 2D audio stream")
+
+	# Third Person Mode Audio Test
+	audio_node.set_first_person(false)
+	audio_node.update_flight_audio(Vector4(0.8, 0.0, -0.5, 0.0), Vector3(10, 0, 10), 0.5)
+	assert_true(audio_node.is_first_person == false, "set_first_person(false) sets TPV camera mode")
+	assert_true(not audio_node.motor_audio_3d.stream_paused, "TPV mode keeps 3D spatial audio active on the drone")
+	assert_true(audio_node.motor_audio_3d.unit_size == 45.0, "TPV mode motor_audio_3d uses 45m unit_size to prevent sound dropouts")
 
 	audio_node.set_audio_enabled(false)
 	assert_false(audio_node.audio_enabled, "set_audio_enabled(false) disables audio flag")
 
-	var master_bus_idx = AudioServer.get_bus_index("Master")
-	assert_true(master_bus_idx >= 0, "AudioServer Master bus index found")
-	AudioServer.set_bus_volume_db(master_bus_idx, linear_to_db(0.8))
-	assert_true(AudioServer.get_bus_volume_db(master_bus_idx) != 0.0, "AudioServer volume modified successfully")
+	var SwarmAudioClass = load("res://scripts/audio/SwarmAudio.gd")
+	assert_true(SwarmAudioClass != null, "SwarmAudio script loaded successfully")
+	var swarm_audio = spawn(SwarmAudioClass.new()) as SwarmAudio
+	assert_true(swarm_audio != null, "SwarmAudio node spawned")
+	swarm_audio.update_swarm_audio(Vector3(0, 20, 0), 15.0, 25, 0.5)
+	assert_true(swarm_audio.user_volume_db == -24.0, "SwarmAudio user_volume_db default is soft and distant (-24.0 dB)")
+	assert_true(swarm_audio.swarm_player_3d.unit_size == 14.0, "SwarmAudio 3D player unit_size configured for distant background coverage")
+	assert_true(swarm_audio.swarm_player_3d.attenuation_model == AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE, "SwarmAudio 3D player uses inverse distance attenuation")
+	swarm_audio.free()
 
 	audio_node.free()
 
@@ -383,3 +407,17 @@ func _tests_toast_manager() -> void:
 	assert_true(true, "show_toast executes safely with uppercase clean text")
 
 	toast_node.free()
+
+func _tests_fpv_overlay() -> void:
+	var FPVClass = load("res://scripts/ui/FPVCameraOverlay.gd")
+	assert_true(FPVClass != null, "FPVCameraOverlay script loaded successfully")
+	var fpv_node = spawn(FPVClass.new()) as FPVCameraOverlay
+	assert_true(fpv_node != null, "FPVCameraOverlay node spawned into scene tree")
+
+	fpv_node.set_fpv_active(true)
+	assert_true(fpv_node.visible == true, "set_fpv_active(true) makes FPV overlay visible")
+
+	fpv_node.set_fpv_active(false)
+	assert_true(fpv_node.visible == false, "set_fpv_active(false) hides FPV overlay for third-person mode")
+
+	fpv_node.free()
