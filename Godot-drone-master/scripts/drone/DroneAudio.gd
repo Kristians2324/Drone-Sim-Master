@@ -2,7 +2,9 @@ extends Node
 class_name DroneAudio
 
 var motor_audio_2d: AudioStreamPlayer
+var motor_audio_2d_B: AudioStreamPlayer
 var motor_audio_3d: AudioStreamPlayer3D
+var motor_audio_3d_B: AudioStreamPlayer3D
 var crash_audio_2d: AudioStreamPlayer
 var crash_audio_3d: AudioStreamPlayer3D
 var whoosh_audio_2d: AudioStreamPlayer
@@ -10,6 +12,10 @@ var beep_audio_2d: AudioStreamPlayer
 var trick_audio_2d: AudioStreamPlayer
 var blade_scrape_audio_2d: AudioStreamPlayer
 var blade_scrape_audio_3d: AudioStreamPlayer3D
+
+var granular_timer: float = 0.0
+var active_voice: int = 0
+var voice_fade_timer: float = 1.0
 
 static var shared_motor_stream: AudioStream = null
 static var shared_crash_stream: AudioStream = null
@@ -76,12 +82,7 @@ func _notification(what: int) -> void:
 
 static func _ensure_shared_streams() -> void:
 	if shared_motor_stream == null:
-		if ResourceLoader.exists("res://assets/sound/Real_prop_hover_pingpong.wav"):
-			var loaded_motor = load("res://assets/sound/Real_prop_hover_pingpong.wav") as AudioStreamWAV
-			if loaded_motor:
-				loaded_motor.loop_mode = AudioStreamWAV.LOOP_PINGPONG
-				shared_motor_stream = loaded_motor
-		elif ResourceLoader.exists("res://assets/sound/Real_prop_hover.mp3"):
+		if ResourceLoader.exists("res://assets/sound/Real_prop_hover.mp3"):
 			var loaded_mp3 = load("res://assets/sound/Real_prop_hover.mp3") as AudioStreamMP3
 			if loaded_mp3:
 				loaded_mp3.loop = true
@@ -379,10 +380,12 @@ func _start_playback_if_ready() -> void:
 
 	if motor_audio_2d and shared_motor_stream and not motor_audio_2d.playing:
 		motor_audio_2d.stream = shared_motor_stream.duplicate()
+		motor_audio_2d.volume_db = -80.0
 		motor_audio_2d.play()
 
 	if motor_audio_3d and shared_motor_stream and not motor_audio_3d.playing:
 		motor_audio_3d.stream = shared_motor_stream.duplicate()
+		motor_audio_3d.volume_db = -80.0
 		motor_audio_3d.play()
 
 	if not startup_played and shared_startup_chirp_stream:
@@ -405,23 +408,46 @@ func setup_motor_audio() -> void:
 	_ensure_shared_streams()
 
 	motor_audio_2d = AudioStreamPlayer.new()
-	motor_audio_2d.name = "MotorAudio2D"
+	motor_audio_2d.name = "MotorAudio2D_A"
 	motor_audio_2d.bus = "Master"
+	motor_audio_2d.volume_db = -80.0
 	if shared_motor_stream:
 		motor_audio_2d.stream = shared_motor_stream.duplicate()
 	add_child(motor_audio_2d)
 
+	motor_audio_2d_B = AudioStreamPlayer.new()
+	motor_audio_2d_B.name = "MotorAudio2D_B"
+	motor_audio_2d_B.bus = "Master"
+	motor_audio_2d_B.volume_db = -80.0
+	if shared_motor_stream:
+		motor_audio_2d_B.stream = shared_motor_stream.duplicate()
+	add_child(motor_audio_2d_B)
+
 	motor_audio_3d = AudioStreamPlayer3D.new()
-	motor_audio_3d.name = "MotorAudio3D"
+	motor_audio_3d.name = "MotorAudio3D_A"
 	motor_audio_3d.unit_size = 45.0
 	motor_audio_3d.max_distance = 1200.0
 	motor_audio_3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 	motor_audio_3d.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
 	motor_audio_3d.panning_strength = 1.0
 	motor_audio_3d.bus = "Master"
+	motor_audio_3d.volume_db = -80.0
 	if shared_motor_stream:
 		motor_audio_3d.stream = shared_motor_stream.duplicate()
 	add_child(motor_audio_3d)
+
+	motor_audio_3d_B = AudioStreamPlayer3D.new()
+	motor_audio_3d_B.name = "MotorAudio3D_B"
+	motor_audio_3d_B.unit_size = 45.0
+	motor_audio_3d_B.max_distance = 1200.0
+	motor_audio_3d_B.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	motor_audio_3d_B.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+	motor_audio_3d_B.panning_strength = 1.0
+	motor_audio_3d_B.bus = "Master"
+	motor_audio_3d_B.volume_db = -80.0
+	if shared_motor_stream:
+		motor_audio_3d_B.stream = shared_motor_stream.duplicate()
+	add_child(motor_audio_3d_B)
 
 	_start_playback_if_ready()
 
@@ -556,7 +582,9 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	var speed_vol = clampf(velocity.length() / 20.0, 0.0, 1.0) * 3.0
 
 	# Refined physical RPM range: 0.82x (hover/descent) to 1.48x (max throttle)
-	var target_pitch = clampf(base_pitch + thrust_pitch + pitch_dir_mod + roll_dir_mod + yaw_dir_mod + speed_pitch, 0.82, 1.48)
+	var time_sec = Time.get_ticks_msec() * 0.001
+	var organic_jitter = sin(time_sec * 1.9) * 0.003 + cos(time_sec * 3.3) * 0.002
+	var target_pitch = clampf(base_pitch + thrust_pitch + pitch_dir_mod + roll_dir_mod + yaw_dir_mod + speed_pitch + organic_jitter, 0.82, 1.48)
 	var target_vol_db = clampf(-12.0 + (thrust_vol + pitch_vol + roll_vol + yaw_vol + speed_vol) * 0.35, -20.0, -4.0)
 
 	# Smooth physical rotor inertia spooling (dt = delta * 4.5 for silky smooth transitions)
@@ -570,19 +598,46 @@ func update_flight_audio(input_vec: Vector4, velocity: Vector3, delta: float = 0
 	var pitch_3d_mod = lerpf(-0.02, 0.0, view_mode_blend)
 	var target_pitch_3d = clampf(target_pitch + pitch_3d_mod, 0.80, 1.46)
 
+	# Dual-Voice Granular Engine: Crossfades Voice A and Voice B every 1.0s to bypass MP3 padding gaps
+	granular_timer += delta
+	if granular_timer >= 1.0:
+		granular_timer = 0.0
+		active_voice = 1 - active_voice
+		voice_fade_timer = 0.0
+		if active_voice == 1:
+			if motor_audio_2d_B and shared_motor_stream: motor_audio_2d_B.play(0.2)
+			if motor_audio_3d_B and shared_motor_stream: motor_audio_3d_B.play(0.2)
+		else:
+			if motor_audio_2d and shared_motor_stream: motor_audio_2d.play(0.2)
+			if motor_audio_3d and shared_motor_stream: motor_audio_3d.play(0.2)
+
+	voice_fade_timer += delta * 3.5
+	var fade_factor = clampf(voice_fade_timer, 0.0, 1.0)
+
+	var vol_2d_A = desired_vol_2d if active_voice == 0 else lerpf(desired_vol_2d, -80.0, fade_factor)
+	var vol_2d_B = desired_vol_2d if active_voice == 1 else lerpf(desired_vol_2d, -80.0, fade_factor)
+	var vol_3d_A = desired_vol_3d if active_voice == 0 else lerpf(desired_vol_3d, -80.0, fade_factor)
+	var vol_3d_B = desired_vol_3d if active_voice == 1 else lerpf(desired_vol_3d, -80.0, fade_factor)
+
 	if motor_audio_2d:
 		motor_audio_2d.stream_paused = false
-		var cur_p2d = motor_audio_2d.pitch_scale if not is_nan(motor_audio_2d.pitch_scale) and not is_inf(motor_audio_2d.pitch_scale) else 1.0
-		var cur_v2d = motor_audio_2d.volume_db if not is_nan(motor_audio_2d.volume_db) and not is_inf(motor_audio_2d.volume_db) else -16.0
-		motor_audio_2d.pitch_scale = clampf(lerpf(cur_p2d, target_pitch, dt), 0.1, 4.0)
-		motor_audio_2d.volume_db = clampf(lerpf(cur_v2d, desired_vol_2d, dt), -80.0, 24.0)
+		motor_audio_2d.pitch_scale = clampf(target_pitch, 0.5, 2.5)
+		motor_audio_2d.volume_db = clampf(vol_2d_A, -80.0, 6.0)
+
+	if motor_audio_2d_B:
+		motor_audio_2d_B.stream_paused = false
+		motor_audio_2d_B.pitch_scale = clampf(target_pitch * 1.004, 0.5, 2.5)
+		motor_audio_2d_B.volume_db = clampf(vol_2d_B, -80.0, 6.0)
 
 	if motor_audio_3d:
 		motor_audio_3d.stream_paused = false
-		var cur_p3d = motor_audio_3d.pitch_scale if not is_nan(motor_audio_3d.pitch_scale) and not is_inf(motor_audio_3d.pitch_scale) else 1.0
-		var cur_v3d = motor_audio_3d.volume_db if not is_nan(motor_audio_3d.volume_db) and not is_inf(motor_audio_3d.volume_db) else -16.0
-		motor_audio_3d.pitch_scale = clampf(lerpf(cur_p3d, target_pitch_3d, dt), 0.1, 4.0)
-		motor_audio_3d.volume_db = clampf(lerpf(cur_v3d, desired_vol_3d, dt), -80.0, 24.0)
+		motor_audio_3d.pitch_scale = clampf(target_pitch_3d, 0.5, 2.5)
+		motor_audio_3d.volume_db = clampf(vol_3d_A, -80.0, 6.0)
+
+	if motor_audio_3d_B:
+		motor_audio_3d_B.stream_paused = false
+		motor_audio_3d_B.pitch_scale = clampf(target_pitch_3d * 1.004, 0.5, 2.5)
+		motor_audio_3d_B.volume_db = clampf(vol_3d_B, -80.0, 6.0)
 
 	# Dynamic Speed & Motion Airflow Audio Layering
 	if whoosh_audio_2d and shared_whoosh_stream:

@@ -28,6 +28,8 @@ var wind_gust_factor: float = 0.25
 var wind_state_name: String = "Normal"
 var wind_phase: float = 0.0
 
+const DroneAudioClass = preload("res://scripts/drone/DroneAudio.gd")
+
 var low_cost_mode: bool = false
 var low_detail_visuals: bool = false
 
