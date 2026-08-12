@@ -11,6 +11,7 @@ layer = 120
 script = ExtResource("1_minimap_script")
 
 [node name="Margin" type="MarginContainer" parent="."]
+layout_direction = 2
 offset_right = 290.0
 offset_bottom = 290.0
 theme_override_constants/margin_left = 20

@@ -177,6 +177,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "Neon Amber",
 		"OPT_VIBRANT_MAGENTA": "Vibrant Magenta",
 		"OPT_PULSING_RAINBOW": "Pulsing Rainbow",
+		# StartMenu Keys
+		"START_WELCOME_TEXT": "Press Space to start flying, or view the flight controls below.",
+		"START_HINT_TRICKS": "Tricks: 6 (Loop), 7 (Roll)",
+		"START_HINT_FLIGHT": "Flight: WASD + Space / Shift",
+		"START_HINT_SWARM": "Swarm Mode: Tab Key",
+		"START_HINT_MAPS": "Maps: 1 to 4 Keys",
+		"START_PRESS_SPACE": "PRESS SPACE TO START",
+		"START_SUB_PROMPT": "(or press Enter / Controller A button)",
+		# Permission Modal, Loading & Custom Shape keys
+		"PERM_TITLE": "WELCOME TO DRONE SIMULATION",
+		"PERM_DESC": "The game can check your location to automatically match the UI theme with your local daylight and night time — giving you Light Mode during the day and Dark Mode at night.\n\nClick 'Allow Location Sync' to enable automatic location detection, or choose a theme below:",
+		"BTN_ALLOW_SYNC": "Allow Location Sync",
+		"PERM_SELECT_CITY": "Or Select City:",
+		"BTN_CONFIRM_CONTINUE": "Confirm & Continue",
+		"MSG_LOADING_ENVIRONMENT": "Loading Environment...",
+		"TITLE_CUSTOM_SHAPE": "CUSTOM 3D & 2D SHAPE LIGHT SHOW",
+		"BTN_CHOOSE_SHAPE_FILE": "CHOOSE IMAGE (.PNG, .JPG) OR 3D MODEL",
+		"LABEL_CUSTOM_DRONE_COUNT": "Drone Count (0 = Auto):",
+		"MSG_SELECT_SHAPE_FILE": "Select a 3D model or 2D image file to scan formation.",
+		"BTN_FORM_SHAPE_START": "FORM SHAPE & START SHOW",
+		"MSG_SCANNING_3D": "Scanning 3D shape geometry and sampling points...",
+		"MSG_PROCESSING_2D": "Processing image with Python edge detection...",
+		"MSG_SHAPE_ERROR": "Error: Could not extract valid shape from selected file.",
 		# DetailedOptionsMenu tabs & labels
 		"TITLE_OPTIONS_MENU": "OPTIONS",
 		"OPT_TAB_DISPLAY": "DISPLAY",
@@ -456,6 +479,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "Neon-Bernstein",
 		"OPT_VIBRANT_MAGENTA": "Lebhaftes Magenta",
 		"OPT_PULSING_RAINBOW": "Pulsierender Regenbogen",
+		# StartMenu Keys (Deutsch)
+		"START_WELCOME_TEXT": "Drücken Sie die Leertaste zum Fliegen oder prüfen Sie die Steuerung unten.",
+		"START_HINT_TRICKS": "Tricks: 6 (Looping), 7 (Rolle)",
+		"START_HINT_FLIGHT": "Flug: WASD + Leertaste / Shift",
+		"START_HINT_SWARM": "Schwarmmodus: TAB-Taste",
+		"START_HINT_MAPS": "Karten: Tasten 1 bis 4",
+		"START_PRESS_SPACE": "ZUM STARTEN LEERTASTE DRÜCKEN",
+		"START_SUB_PROMPT": "(oder Eingabetaste / Controller A-Taste drücken)",
+		# Permission Modal, Loading & Custom Shape keys (Deutsch)
+		"PERM_TITLE": "WILLKOMMEN ZUR DROHNENSIMULATION",
+		"PERM_DESC": "Das Spiel kann Ihren Standort prüfen, um das UI-Thema automatisch an Tag und Nacht anzupassen – Helles Thema am Tag und Dunkles Thema bei Nacht.\n\nKlicken Sie auf 'Ortssynchronisation erlauben' für automatische Erkennung oder wählen Sie ein Thema:",
+		"BTN_ALLOW_SYNC": "Ortssynchronisation erlauben",
+		"PERM_SELECT_CITY": "Oder Stadt auswählen:",
+		"BTN_CONFIRM_CONTINUE": "Bestätigen & Fortfahren",
+		"MSG_LOADING_ENVIRONMENT": "Umgebung wird geladen...",
+		"TITLE_CUSTOM_SHAPE": "EIGENE 3D- & 2D-FORMEN LIGHTSHOW",
+		"BTN_CHOOSE_SHAPE_FILE": "BILD (.PNG, .JPG) ODER 3D-MODELL WÄHLEN",
+		"LABEL_CUSTOM_DRONE_COUNT": "Drohnenanzahl (0 = Auto):",
+		"MSG_SELECT_SHAPE_FILE": "Wählen Sie eine Datei zur Formenscannung.",
+		"BTN_FORM_SHAPE_START": "FORM BILDEN & SHOW STARTEN",
+		"MSG_SCANNING_3D": "3D-Formgeometrie wird gescannt...",
+		"MSG_PROCESSING_2D": "Bildverarbeitung mit Kantenerkennung...",
+		"MSG_SHAPE_ERROR": "Fehler: Ungültige Formdatei.",
 		# DetailedOptionsMenu tabs & labels (Deutsch)
 		"TITLE_OPTIONS_MENU": "EINSTELLUNGEN",
 		"OPT_TAB_DISPLAY": "ANZEIGE",
@@ -734,6 +780,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "Ámbar Neón",
 		"OPT_VIBRANT_MAGENTA": "Magenta Vibrante",
 		"OPT_PULSING_RAINBOW": "Arcoíris Pulsante",
+		# StartMenu Keys (Español)
+		"START_WELCOME_TEXT": "Presiona Espacio para volar o consulta los controles de vuelo abajo.",
+		"START_HINT_TRICKS": "Acrobacias: 6 (Loop), 7 (Roll)",
+		"START_HINT_FLIGHT": "Vuelo: WASD + Espacio / Shift",
+		"START_HINT_SWARM": "Modo Enjambre: Tecla Tab",
+		"START_HINT_MAPS": "Mapas: Teclas 1 a 4",
+		"START_PRESS_SPACE": "PRESIONA ESPACIO PARA EMPEZAR",
+		"START_SUB_PROMPT": "(o presiona Enter / Botón A del mando)",
+		# Permission Modal, Loading & Custom Shape keys (Español)
+		"PERM_TITLE": "BIENVENIDO A LA SIMULACIÓN DE DRONES",
+		"PERM_DESC": "El juego puede consultar tu ubicación para ajustar automáticamente el tema entre día y noche.\n\nHaz clic en 'Permitir sincronización' o elige un tema abajo:",
+		"BTN_ALLOW_SYNC": "Permitir sincronización de ubicación",
+		"PERM_SELECT_CITY": "O seleccionar ciudad:",
+		"BTN_CONFIRM_CONTINUE": "Confirmar y continuar",
+		"MSG_LOADING_ENVIRONMENT": "Cargando entorno...",
+		"TITLE_CUSTOM_SHAPE": "SHOW DE LUCES 3D Y 2D PERSONALIZADO",
+		"BTN_CHOOSE_SHAPE_FILE": "ELEGIR IMAGEN (.PNG, .JPG) O MODELO 3D",
+		"LABEL_CUSTOM_DRONE_COUNT": "Número de drones (0 = Auto):",
+		"MSG_SELECT_SHAPE_FILE": "Selecciona un archivo para escanear formación.",
+		"BTN_FORM_SHAPE_START": "CREAR FORMA Y EMPEZAR SHOW",
+		"MSG_SCANNING_3D": "Escaneando geometría 3D...",
+		"MSG_PROCESSING_2D": "Procesando imagen...",
+		"MSG_SHAPE_ERROR": "Error: No se pudo extraer la forma del archivo.",
 		# DetailedOptionsMenu tabs & labels (Español)
 		"TITLE_OPTIONS_MENU": "OPCIONES",
 		"OPT_TAB_DISPLAY": "PANTALLA",
@@ -1012,6 +1081,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "Ambre Néon",
 		"OPT_VIBRANT_MAGENTA": "Magenta Éclatant",
 		"OPT_PULSING_RAINBOW": "Arc-en-ciel Pulsant",
+		# StartMenu Keys (Français)
+		"START_WELCOME_TEXT": "Appuyez sur Espace pour voler ou consultez les commandes ci-dessous.",
+		"START_HINT_TRICKS": "Figures: 6 (Boucle), 7 (Tonneau)",
+		"START_HINT_FLIGHT": "Vol: WASD + Espace / Shift",
+		"START_HINT_SWARM": "Mode Essaim: Touche Tab",
+		"START_HINT_MAPS": "Cartes: Touches 1 à 4",
+		"START_PRESS_SPACE": "APPUYEZ SUR ESPACE POUR COMMENCER",
+		"START_SUB_PROMPT": "(ou appuyez sur Entrée / Bouton A manette)",
+		# Permission Modal, Loading & Custom Shape keys (Français)
+		"PERM_TITLE": "BIENVENUE DANS LA SIMULATION DE DRONE",
+		"PERM_DESC": "Le jeu peut vérifier votre position pour adapter automatiquement le thème selon le jour et la nuit.\n\nCliquez sur 'Autoriser la synchro' ou choisissez un thème ci-dessous :",
+		"BTN_ALLOW_SYNC": "Autoriser la synchro de localisation",
+		"PERM_SELECT_CITY": "Ou sélectionner une ville :",
+		"BTN_CONFIRM_CONTINUE": "Confirmer et continuer",
+		"MSG_LOADING_ENVIRONMENT": "Chargement de l'environnement...",
+		"TITLE_CUSTOM_SHAPE": "SPECTACLE DE LUMIÈRE 3D ET 2D PERSONNALISÉ",
+		"BTN_CHOOSE_SHAPE_FILE": "CHOISIR UNE IMAGE (.PNG, .JPG) OU UN MODÈLE 3D",
+		"LABEL_CUSTOM_DRONE_COUNT": "Nombre de drones (0 = Auto) :",
+		"MSG_SELECT_SHAPE_FILE": "Sélectionnez un fichier pour scanner la formation.",
+		"BTN_FORM_SHAPE_START": "FORMER LA FIGURE ET LANCER",
+		"MSG_SCANNING_3D": "Analyse de la géométrie 3D...",
+		"MSG_PROCESSING_2D": "Traitement de l'image...",
+		"MSG_SHAPE_ERROR": "Erreur : Impossible d'extraire la forme du fichier.",
 		# DetailedOptionsMenu tabs & labels (Français)
 		"TITLE_OPTIONS_MENU": "OPTIONS",
 		"OPT_TAB_DISPLAY": "AFFICHAGE",
@@ -1290,6 +1382,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "霓虹琥珀",
 		"OPT_VIBRANT_MAGENTA": "活力洋红",
 		"OPT_PULSING_RAINBOW": "脉动彩虹",
+		# StartMenu Keys (中文)
+		"START_WELCOME_TEXT": "按空格键开始飞行，或查看下方的飞行控制按键。",
+		"START_HINT_TRICKS": "特技动作: 6 (翻滚), 7 (滚转)",
+		"START_HINT_FLIGHT": "飞行控制: WASD + 空格 / Shift",
+		"START_HINT_SWARM": "集群模式: TAB 键",
+		"START_HINT_MAPS": "地图切换: 数字键 1 至 4",
+		"START_PRESS_SPACE": "按空格键开始飞行",
+		"START_SUB_PROMPT": "(或按回车键 / 手柄 A 键)",
+		# Permission Modal, Loading & Custom Shape keys (中文)
+		"PERM_TITLE": "欢迎来到无人机飞行模拟器",
+		"PERM_DESC": "游戏可以自动检测您的位置，根据当地昼夜时间匹配UI主题——白天使用浅色模式，夜间使用深色模式。\n\n点击“允许位置同步”开启自动检测，或在下方选择主题：",
+		"BTN_ALLOW_SYNC": "允许位置同步",
+		"PERM_SELECT_CITY": "或选择城市：",
+		"BTN_CONFIRM_CONTINUE": "确认并继续",
+		"MSG_LOADING_ENVIRONMENT": "正在加载环境...",
+		"TITLE_CUSTOM_SHAPE": "自定义 3D 与 2D 图形灯光秀",
+		"BTN_CHOOSE_SHAPE_FILE": "选择图片 (.PNG, .JPG) 或 3D 模型文件",
+		"LABEL_CUSTOM_DRONE_COUNT": "无人机数量 (0 = 自动):",
+		"MSG_SELECT_SHAPE_FILE": "选择 3D 模型或 2D 图片文件以扫描编队。",
+		"BTN_FORM_SHAPE_START": "生成图形并开始灯光秀",
+		"MSG_SCANNING_3D": "正在扫描 3D 几何图形与采样点...",
+		"MSG_PROCESSING_2D": "正在使用边缘检测处理图片...",
+		"MSG_SHAPE_ERROR": "错误: 无法从所选文件中提取有效图形。",
 		# DetailedOptionsMenu tabs & labels (中文)
 		"TITLE_OPTIONS_MENU": "选项",
 		"OPT_TAB_DISPLAY": "显示",
@@ -1568,6 +1683,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "ネオンアンバー",
 		"OPT_VIBRANT_MAGENTA": "ビビッドマゼンタ",
 		"OPT_PULSING_RAINBOW": "パルスレインボー",
+		# StartMenu Keys (日本語)
+		"START_WELCOME_TEXT": "スペースキーを押して飛行を開始するか、以下の操作手順を確認してください。",
+		"START_HINT_TRICKS": "アクロバット: 6 (宙返り), 7 (横転)",
+		"START_HINT_FLIGHT": "飛行操作: WASD + Space / Shift",
+		"START_HINT_SWARM": "群れモード: TABキー",
+		"START_HINT_MAPS": "マップ切り替え: 数字キー 1〜4",
+		"START_PRESS_SPACE": "SPACEキーを押してスタート",
+		"START_SUB_PROMPT": "(またはEnterキー / コントローラーAボタン)",
+		# Permission Modal, Loading & Custom Shape keys (日本語)
+		"PERM_TITLE": "ドローンシミュレーターへようこそ",
+		"PERM_DESC": "位置情報を取得して、昼夜に合わせてUIテーマを自動的に変更できます（昼はライトモード、夜はダークモード）。\n\n「位置同期を許可」をクリックするか、以下でテーマを選択してください：",
+		"BTN_ALLOW_SYNC": "位置同期を許可",
+		"PERM_SELECT_CITY": "または都市を選択：",
+		"BTN_CONFIRM_CONTINUE": "確認して続行",
+		"MSG_LOADING_ENVIRONMENT": "環境を読み込み中...",
+		"TITLE_CUSTOM_SHAPE": "カスタム 3D & 2D 形状ライトショー",
+		"BTN_CHOOSE_SHAPE_FILE": "画像 (.PNG, .JPG) または 3Dモデルを選択",
+		"LABEL_CUSTOM_DRONE_COUNT": "ドローン数 (0 = 自動):",
+		"MSG_SELECT_SHAPE_FILE": "フォーメーションのスキャン用にファイルを選択してください。",
+		"BTN_FORM_SHAPE_START": "形状生成 & ショー開始",
+		"MSG_SCANNING_3D": "3Dモデルの幾何形状をスキャン中...",
+		"MSG_PROCESSING_2D": "画像のエッジ検出を処理中...",
+		"MSG_SHAPE_ERROR": "エラー: 選択したファイルから形状を抽出できませんでした。",
 		# DetailedOptionsMenu tabs & labels (日本語)
 		"TITLE_OPTIONS_MENU": "オプション",
 		"OPT_TAB_DISPLAY": "表示",
@@ -1846,6 +1984,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "네온 앰버",
 		"OPT_VIBRANT_MAGENTA": "비비드 마젠타",
 		"OPT_PULSING_RAINBOW": "펄스 레인보우",
+		# StartMenu Keys (한국어)
+		"START_WELCOME_TEXT": "스페이스바를 눌러 비행을 시작하거나 아래의 비행 조작법을 확인하세요.",
+		"START_HINT_TRICKS": "묘기: 6 (루프), 7 (롤)",
+		"START_HINT_FLIGHT": "비행 조작: WASD + 스페이스 / Shift",
+		"START_HINT_SWARM": "군집 모드: TAB 키",
+		"START_HINT_MAPS": "맵 전환: 숫자 키 1 ~ 4",
+		"START_PRESS_SPACE": "스페이스바를 눌러 시작",
+		"START_SUB_PROMPT": "(또는 엔터 키 / 컨트롤러 A 버튼)",
+		# Permission Modal, Loading & Custom Shape keys (한국어)
+		"PERM_TITLE": "드론 시뮬레이터에 오신 것을 환영합니다",
+		"PERM_DESC": "위치 정보를 확인하여 현지 낮/밤 시간에 맞춰 UI 테마를 자동으로 적용합니다 (낮: 라이트 모드, 밤: 다크 모드).\n\n'위치 동기화 허용'을 클릭하거나 아래에서 테마를 선택하세요:",
+		"BTN_ALLOW_SYNC": "위치 동기화 허용",
+		"PERM_SELECT_CITY": "또는 도시 선택:",
+		"BTN_CONFIRM_CONTINUE": "확인 및 계속",
+		"MSG_LOADING_ENVIRONMENT": "환경 로딩 중...",
+		"TITLE_CUSTOM_SHAPE": "커스텀 3D & 2D 형상 라이트쇼",
+		"BTN_CHOOSE_SHAPE_FILE": "이미지 (.PNG, .JPG) 또는 3D 모델 선택",
+		"LABEL_CUSTOM_DRONE_COUNT": "드론 수 (0 = 자동):",
+		"MSG_SELECT_SHAPE_FILE": "포메이션 스캔을 위한 파일을 선택하세요.",
+		"BTN_FORM_SHAPE_START": "형상 생성 및 쇼 시작",
+		"MSG_SCANNING_3D": "3D 모델 형상 스캔 중...",
+		"MSG_PROCESSING_2D": "이미지 윤곽선 처리 중...",
+		"MSG_SHAPE_ERROR": "오류: 선택한 파일에서 형상을 추출할 수 없습니다.",
 		# DetailedOptionsMenu tabs & labels (한국어)
 		"TITLE_OPTIONS_MENU": "옵션",
 		"OPT_TAB_DISPLAY": "디스플레이",
@@ -2124,6 +2285,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "Неоновый Янтарь",
 		"OPT_VIBRANT_MAGENTA": "Яркий Пурпур",
 		"OPT_PULSING_RAINBOW": "Пульсирующая Радуга",
+		# StartMenu Keys (Русский)
+		"START_WELCOME_TEXT": "Нажмите Пробел для начала полёта или изучите управление ниже.",
+		"START_HINT_TRICKS": "Трюки: 6 (Мёртвая петля), 7 (Бочка)",
+		"START_HINT_FLIGHT": "Полёт: WASD + Пробел / Shift",
+		"START_HINT_SWARM": "Режим Роя: Клавиша Tab",
+		"START_HINT_MAPS": "Карты: Клавиши 1 - 4",
+		"START_PRESS_SPACE": "НАЖМИТЕ ПРОБЕЛ ДЛЯ СТАРТА",
+		"START_SUB_PROMPT": "(или нажмите Enter / кнопку A геймпада)",
+		# Permission Modal, Loading & Custom Shape keys (Русский)
+		"PERM_TITLE": "ДОБРО ПОЖАЛОВАТЬ В СИМУЛЯТОР ДРОНА",
+		"PERM_DESC": "Игра может автоматически определять ваше местоположение для смены светлой и тёмной темы в зависимости от времени суток.\n\nНажмите 'Разрешить синхронизацию' или выберите тему ниже:",
+		"BTN_ALLOW_SYNC": "Разрешить синхронизацию локации",
+		"PERM_SELECT_CITY": "Или выберите город:",
+		"BTN_CONFIRM_CONTINUE": "Подтвердить и продолжить",
+		"MSG_LOADING_ENVIRONMENT": "Загрузка среды...",
+		"TITLE_CUSTOM_SHAPE": "ПОЛЬЗОВАТЕЛЬСКОЕ 3D И 2D СВЕТОВОЕ ШОУ",
+		"BTN_CHOOSE_SHAPE_FILE": "ВЫБРАТЬ ИЗОБРАЖЕНИЕ (.PNG, .JPG) ИЛИ 3D-МОДЕЛЬ",
+		"LABEL_CUSTOM_DRONE_COUNT": "Количество дронов (0 = Авто):",
+		"MSG_SELECT_SHAPE_FILE": "Выберите файл для сканирования формы.",
+		"BTN_FORM_SHAPE_START": "СФОРМИРОВАТЬ И НАЧАТЬ ШОУ",
+		"MSG_SCANNING_3D": "Сканирование 3D-геометрии...",
+		"MSG_PROCESSING_2D": "Обработка изображения...",
+		"MSG_SHAPE_ERROR": "Ошибка: Не удалось извлечь форму из файла.",
 		# DetailedOptionsMenu tabs & labels (Русский)
 		"TITLE_OPTIONS_MENU": "НАСТРОЙКИ",
 		"OPT_TAB_DISPLAY": "ДИСПЛЕЙ",
@@ -2402,6 +2586,29 @@ const TRANSLATION_DATA = {
 		"OPT_NEON_AMBER": "كهرماني نيون",
 		"OPT_VIBRANT_MAGENTA": "أرجواني نابض",
 		"OPT_PULSING_RAINBOW": "قوس قزح نابض",
+		# StartMenu Keys (العربية)
+		"START_WELCOME_TEXT": "اضغط مسافة لبدء الطيران، أو اطلع على عناصر التحكم بالأسفل.",
+		"START_HINT_TRICKS": "الحركات البهلوانية: 6 (شقلبة)، 7 (دوران)",
+		"START_HINT_FLIGHT": "الطيران: WASD + مسافة / Shift",
+		"START_HINT_SWARM": "وضع السرب: مفتاح Tab",
+		"START_HINT_MAPS": "الخرائط: المفاتيح من 1 إلى 4",
+		"START_PRESS_SPACE": "اضغط مسافة للبدء",
+		"START_SUB_PROMPT": "(أو اضغط Enter / زر A في ذراع التحكم)",
+		# Permission Modal, Loading & Custom Shape keys (العربية)
+		"PERM_TITLE": "مرحباً بك في محاكي الطائرات بدون طيار",
+		"PERM_DESC": "يمكن للمحاكي التحقق من موقعك لتحديد المظهر تلقائياً حسب الليل والنهار – الوضع الفاتح نهاراً والداكن ليلاً.\n\nانقر على 'السماح بتزامن الموقع' للتفعيل التلقائي، أو اختر المظهر بالأسفل:",
+		"BTN_ALLOW_SYNC": "السماح بتزامن الموقع",
+		"PERM_SELECT_CITY": "أو اختر المدينة:",
+		"BTN_CONFIRM_CONTINUE": "تأكيد ومتابعة",
+		"MSG_LOADING_ENVIRONMENT": "جارٍ تحميل البيئة...",
+		"TITLE_CUSTOM_SHAPE": "عرض ضوئي مخصص لأشكال 3D و 2D",
+		"BTN_CHOOSE_SHAPE_FILE": "اختر صورة (.PNG, .JPG) أو نموذج 3D",
+		"LABEL_CUSTOM_DRONE_COUNT": "عدد الطائرات (0 = تلقائي):",
+		"MSG_SELECT_SHAPE_FILE": "اختر ملف نموذج 3D أو صورة لمسح التشكيل.",
+		"BTN_FORM_SHAPE_START": "تكوين الشكل وبدء العرض",
+		"MSG_SCANNING_3D": "جارٍ مسح الهندسة ثلاثية الأبعاد...",
+		"MSG_PROCESSING_2D": "جارٍ معالجة الصورة واكتشاف الحواف...",
+		"MSG_SHAPE_ERROR": "خطأ: تعذر استخراج شكل صالح من الملف المحدد.",
 		# DetailedOptionsMenu tabs & labels (العربية)
 		"TITLE_OPTIONS_MENU": "الخيارات",
 		"OPT_TAB_DISPLAY": "العرض",
@@ -2538,6 +2745,9 @@ const TRANSLATION_DATA = {
 	}
 }
 
+func _init() -> void:
+	_load_config()
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_config()
@@ -2548,12 +2758,15 @@ func _load_config() -> void:
 	var config = ConfigFile.new()
 	if config.load(CONFIG_FILE_PATH) == OK:
 		if config.has_section_key("localization", "language"):
-			current_locale = config.get_value("localization", "language", "en")
+			current_locale = String(config.get_value("localization", "language", "en"))
+		elif config.has_section_key("settings", "language"):
+			current_locale = String(config.get_value("settings", "language", "en"))
 
 func save_config() -> void:
 	var config = ConfigFile.new()
 	config.load(CONFIG_FILE_PATH)
 	config.set_value("localization", "language", current_locale)
+	config.set_value("settings", "language", current_locale)
 	config.save(CONFIG_FILE_PATH)
 
 func _register_all_translations() -> void:

@@ -99,11 +99,10 @@ func _update_step_display() -> void:
 
 	var tm = get_node_or_null("/root/TranslationManager")
 	var is_rtl = tm.is_rtl() if tm else false
-	var target_dir = Control.LAYOUT_DIRECTION_RTL if is_rtl else Control.LAYOUT_DIRECTION_LTR
 
 	var center_node = get_node_or_null("Center")
 	if center_node:
-		center_node.layout_direction = target_dir
+		center_node.layout_direction = Control.LAYOUT_DIRECTION_LTR
 
 	var guide_title = get_node_or_null("Center/Panel/Margin/Layout/Header/Title")
 	if guide_title:
@@ -118,9 +117,11 @@ func _update_step_display() -> void:
 		step_label.text = counter_fmt % [step_idx, TUTORIAL_STEPS.size()]
 	if step_title_label:
 		step_title_label.text = tm.get_auto_translation(title_key) if tm else TUTORIAL_STEPS[current_step_index]["title"]
+		step_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if is_rtl else HORIZONTAL_ALIGNMENT_LEFT
 	if description_label:
 		description_label.text = tm.get_auto_translation(desc_key) if tm else TUTORIAL_STEPS[current_step_index]["description"]
 		description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		description_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if is_rtl else HORIZONTAL_ALIGNMENT_LEFT
 
 	if prev_button:
 		prev_button.disabled = (current_step_index == 0)

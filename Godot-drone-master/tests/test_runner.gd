@@ -42,6 +42,7 @@ func _initialize() -> void:
 	run_suite("ToastManager", "clean HUD notification system", _tests_toast_manager)
 	run_suite("FPVOverlay", "real-life FPV camera vision & OSD", _tests_fpv_overlay)
 	run_suite("TranslationSystem", "i18n, RTL & dynamic menu adaptation", _tests_translation_system)
+	run_suite("Language Persistence", "user config save/load", _tests_language_persistence)
 
 	print("\n════════════════════════════════════════════════════")
 	print("  Results: %d / %d passed" % [tests_passed, tests_passed + tests_failed])
@@ -217,6 +218,20 @@ func _tests_swarm_controller() -> void:
 	leader.free()
 	sc.free()
 
+func _tests_language_persistence() -> void:
+	var TransMgrClass = load("res://scripts/ui/TranslationManager.gd")
+	var tm = spawn(TransMgrClass.new())
+	if tm:
+		tm.set_locale("es")
+		assert_eq(tm.current_locale, "es", "set_locale('es') updates current_locale")
+
+		var tm2 = spawn(TransMgrClass.new())
+		if tm2:
+			assert_eq(tm2.current_locale, "es", "Language persistence loads saved locale ('es') from disk")
+			tm2.set_locale("en")
+			tm2.free()
+		tm.free()
+
 func _tests_start_menu() -> void:
 	var scene = load("res://scenes/StartMenu.tscn")
 	assert_true(scene != null, "StartMenu.tscn loads successfully")
@@ -224,6 +239,15 @@ func _tests_start_menu() -> void:
 		var instance = scene.instantiate()
 		spawn(instance)
 		assert_true(instance.is_active, "StartMenu starts with is_active == true")
+
+		var TransMgrClass = load("res://scripts/ui/TranslationManager.gd")
+		var tm = spawn(TransMgrClass.new())
+		if tm:
+			assert_true(tm.get_auto_translation("START_PRESS_SPACE", "ar") == "اضغط مسافة للبدء", "Arabic PRESS SPACE translation")
+			assert_true(tm.get_auto_translation("START_WELCOME_TEXT", "de") == "Drücken Sie die Leertaste zum Fliegen oder prüfen Sie die Steuerung unten.", "German Welcome Text translation")
+			assert_true(tm.get_auto_translation("START_HINT_FLIGHT", "es") == "Vuelo: WASD + Espacio / Shift", "Spanish Flight Hint translation")
+			tm.free()
+
 		instance.start_simulation()
 		assert_false(instance.is_active, "StartMenu is_active == false after start_simulation()")
 		instance.free()

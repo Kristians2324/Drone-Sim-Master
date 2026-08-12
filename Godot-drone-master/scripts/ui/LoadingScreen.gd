@@ -39,7 +39,7 @@ func _process(delta: float) -> void:
 	if visible and spinner_rect:
 		spinner_rect.rotation += delta * rotation_speed
 
-func show_loading(message: String = "Loading Environment...") -> void:
+func show_loading(message: String = "") -> void:
 	show()
 	is_loading = true
 	
@@ -47,6 +47,11 @@ func show_loading(message: String = "Loading Environment...") -> void:
 		fade_tween.kill()
 	if progress_tween and progress_tween.is_valid():
 		progress_tween.kill()
+
+	var tm = get_node_or_null("/root/TranslationManager")
+	var display_msg = message
+	if display_msg == "" or display_msg == "Loading Environment...":
+		display_msg = tm.get_auto_translation("MSG_LOADING_ENVIRONMENT") if tm else "Loading Environment..."
 
 	if dimmer:
 		dimmer.color.a = 0.96
@@ -56,7 +61,7 @@ func show_loading(message: String = "Loading Environment...") -> void:
 		_update_pivot()
 	if status_label:
 		status_label.modulate.a = 1.0
-		status_label.text = message
+		status_label.text = display_msg
 	if progress_bar and is_inside_tree():
 		progress_bar.modulate.a = 1.0
 		progress_bar.value = 10.0

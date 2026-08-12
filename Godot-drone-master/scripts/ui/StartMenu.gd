@@ -52,11 +52,13 @@ func _setup_theme_bar() -> void:
 	theme_container.add_child(label)
 	
 	var hbox = HBoxContainer.new()
+	hbox.name = "HBox"
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_theme_constant_override("separation", 8)
 	theme_container.add_child(hbox)
 	
 	var btn_auto = Button.new()
+	btn_auto.name = "BtnAuto"
 	btn_auto.text = "Location"
 	btn_auto.pressed.connect(func():
 		var tm = get_node_or_null("/root/ThemeManager")
@@ -65,6 +67,7 @@ func _setup_theme_bar() -> void:
 	hbox.add_child(btn_auto)
 	
 	var btn_light = Button.new()
+	btn_light.name = "BtnLight"
 	btn_light.text = "Light Mode"
 	btn_light.pressed.connect(func():
 		var tm = get_node_or_null("/root/ThemeManager")
@@ -73,6 +76,7 @@ func _setup_theme_bar() -> void:
 	hbox.add_child(btn_light)
 	
 	var btn_dark = Button.new()
+	btn_dark.name = "BtnDark"
 	btn_dark.text = "Dark Mode"
 	btn_dark.pressed.connect(func():
 		var tm = get_node_or_null("/root/ThemeManager")
@@ -126,6 +130,40 @@ func _adapt_ui_to_locale(_locale: String, is_rtl: bool) -> void:
 	var theme_lbl = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/ThemeStatusLabel")
 	if theme_lbl:
 		theme_lbl.text = tm.get_auto_translation("OPT_UI_TITLE") if tm else "UI THEME & LOCATION SYNC"
+
+	var btn_auto = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/HBox/BtnAuto")
+	var btn_light = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/HBox/BtnLight")
+	var btn_dark = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/HBox/BtnDark")
+
+	if btn_auto and btn_auto is Button:
+		btn_auto.text = tm.get_auto_translation("OPT_AUTO_LOCATION_SYNC") if tm else "Location"
+	if btn_light and btn_light is Button:
+		btn_light.text = tm.get_auto_translation("OPT_LIGHT_MODE") if tm else "Light Mode"
+	if btn_dark and btn_dark is Button:
+		btn_dark.text = tm.get_auto_translation("OPT_DARK_MODE") if tm else "Dark Mode"
+
+	var welcome_lbl = get_node_or_null("Center/Panel/Margin/Layout/WelcomeText")
+	if welcome_lbl and welcome_lbl is Label:
+		welcome_lbl.text = tm.get_auto_translation("START_WELCOME_TEXT") if tm else "Press Space to start flying, or view the flight controls below."
+
+	var feat1 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature1")
+	if feat1 and feat1 is Label:
+		feat1.text = tm.get_auto_translation("START_HINT_TRICKS") if tm else "Tricks: 6 (Loop), 7 (Roll)"
+	var feat2 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature2")
+	if feat2 and feat2 is Label:
+		feat2.text = tm.get_auto_translation("START_HINT_FLIGHT") if tm else "Flight: WASD + Space / Shift"
+	var feat3 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature3")
+	if feat3 and feat3 is Label:
+		feat3.text = tm.get_auto_translation("START_HINT_SWARM") if tm else "Swarm Mode: Tab Key"
+	var feat4 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature4")
+	if feat4 and feat4 is Label:
+		feat4.text = tm.get_auto_translation("START_HINT_MAPS") if tm else "Maps: 1 to 4 Keys"
+
+	if start_prompt_label:
+		start_prompt_label.text = tm.get_auto_translation("START_PRESS_SPACE") if tm else "PRESS SPACE TO START"
+	var sub_prompt = get_node_or_null("Center/Panel/Margin/Layout/PromptBox/SubPrompt")
+	if sub_prompt and sub_prompt is Label:
+		sub_prompt.text = tm.get_auto_translation("START_SUB_PROMPT") if tm else "(or press Enter / Controller A button)"
 
 func _on_theme_changed(_new_theme: String) -> void:
 	var theme_mgr = get_node_or_null("/root/ThemeManager")

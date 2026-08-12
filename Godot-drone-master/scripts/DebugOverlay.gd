@@ -137,6 +137,7 @@ func _get_preset_name() -> String:
 
 func _build_fps_label() -> void:
 	_fps_label = Label.new()
+	_fps_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	_fps_label.add_theme_font_size_override("font_size", FONT_SIZE_FPS)
 	_fps_label.add_theme_color_override("font_color", Color.WHITE)
 	_fps_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
@@ -227,6 +228,7 @@ func _build_battery_hud() -> void:
 
 func _build_stats_panel() -> void:
 	_stats_panel = PanelContainer.new()
+	_stats_panel.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.02, 0.04, 0.07, 0.88)
 	style.border_width_left = 2
@@ -299,10 +301,14 @@ func _update_battery_display() -> void:
 	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
 
 	var tm = get_node_or_null("/root/TranslationManager")
+	var is_rtl = (tm and tm.is_rtl())
 
 	if _battery_percent_label:
 		var bat_prefix = tm.get_auto_translation("HUD_BATTERY") if tm else "BATTERY"
-		_battery_percent_label.text = "%s %d%%" % [bat_prefix, int(pct)]
+		if is_rtl:
+			_battery_percent_label.text = "%s %d%%\u200E" % [bat_prefix, int(pct)]
+		else:
+			_battery_percent_label.text = "%s %d%%" % [bat_prefix, int(pct)]
 		if is_light:
 			if pct > 40.0:
 				_battery_percent_label.add_theme_color_override("font_color", Color(0.04, 0.55, 0.22))
@@ -331,7 +337,10 @@ func _update_battery_display() -> void:
 		else:
 			var ft_prefix = tm.get_auto_translation("HUD_FLIGHT_TIME") if tm else "FLIGHT TIME"
 			var min_suffix = tm.get_auto_translation("HUD_MIN") if tm else "MIN"
-			_battery_status_label.text = "%s: ~%d %s" % [ft_prefix, int(pct * 0.2), min_suffix]
+			if is_rtl:
+				_battery_status_label.text = "%s: ~%d\u200E %s" % [ft_prefix, int(pct * 0.2), min_suffix]
+			else:
+				_battery_status_label.text = "%s: ~%d %s" % [ft_prefix, int(pct * 0.2), min_suffix]
 			_battery_status_label.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.9) if is_light else Color(0.8, 0.9, 1.0, 0.8))
 
 func _fps_color(fps: int) -> Color:

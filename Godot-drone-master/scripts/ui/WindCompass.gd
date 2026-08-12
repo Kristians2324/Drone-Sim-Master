@@ -296,6 +296,8 @@ func _draw_state_badge(center: Vector2) -> void:
 
 	var text_line1: String = (tm.get_auto_translation("HUD_WIND_FROM") if tm else "WIND: FROM %s") % origin_name
 	var text_line2: String = (tm.get_auto_translation("HUD_WIND_PUSH") if tm else "PUSH: %s (%.1f m/s)") % [push_name, _smooth_strength]
+	if tm and tm.is_rtl():
+		text_line2 += "\u200E"
 
 	var effect_text: String = tm.get_auto_translation("HUD_EFFECT_DRIFT") if tm else "EFFECT: BALANCED DRIFT"
 	if target_drone and is_instance_valid(target_drone):

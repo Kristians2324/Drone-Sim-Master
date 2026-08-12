@@ -52,71 +52,71 @@ ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
        [0] initialize_swarm (res://scripts/SwarmController.gd:102)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
-       [2] run_suite (res://tests/test_runner.gd:83)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:194)
+       [2] run_suite (res://tests/test_runner.gd:84)
        [3] _initialize (res://tests/test_runner.gd:33)
 SwarmController: Swarm initialized with 10 follower drones.
   ✅ PASS  SwarmController active after initialize_swarm with leader drone
@@ -131,9 +131,19 @@ SwarmController: Swarm initialized with 10 follower drones.
 ── StartMenu         – intro functionality & signals    ──
   ✅ PASS  StartMenu.tscn loads successfully
   ✅ PASS  StartMenu starts with is_active == true
+  ✅ PASS  Arabic PRESS SPACE translation
+  ✅ PASS  German Welcome Text translation
+  ✅ PASS  Spanish Flight Hint translation
   ✅ PASS  StartMenu is_active == false after start_simulation()
 
 ── LoadingScreen     – progress spinner & fade          ──
+ERROR: Can't use get_node() with absolute paths from outside the active scene tree.
+   at: get_node_or_null (scene/main/node.cpp:1898)
+   GDScript backtrace (most recent call first):
+       [0] show_loading (res://scripts/ui/LoadingScreen.gd:51)
+       [1] _tests_loading_screen (res://tests/test_runner.gd:260)
+       [2] run_suite (res://tests/test_runner.gd:84)
+       [3] _initialize (res://tests/test_runner.gd:35)
   ✅ PASS  LoadingScreen is_loading == true
   ✅ PASS  LoadingScreen is_loading == false after hide_loading()
 
@@ -143,16 +153,16 @@ ERROR: Can't use get_node() with absolute paths from outside the active scene tr
    GDScript backtrace (most recent call first):
        [0] _on_theme_changed (res://scripts/ui/TutorialManager.gd:55)
        [1] start_tutorial (res://scripts/ui/TutorialManager.gd:88)
-       [2] _tests_tutorial_overlay (res://tests/test_runner.gd:247)
-       [3] run_suite (res://tests/test_runner.gd:83)
+       [2] _tests_tutorial_overlay (res://tests/test_runner.gd:271)
+       [3] run_suite (res://tests/test_runner.gd:84)
        [4] _initialize (res://tests/test_runner.gd:36)
 ERROR: Can't use get_node() with absolute paths from outside the active scene tree.
    at: get_node_or_null (scene/main/node.cpp:1898)
    GDScript backtrace (most recent call first):
        [0] _update_step_display (res://scripts/ui/TutorialManager.gd:100)
        [1] start_tutorial (res://scripts/ui/TutorialManager.gd:89)
-       [2] _tests_tutorial_overlay (res://tests/test_runner.gd:247)
-       [3] run_suite (res://tests/test_runner.gd:83)
+       [2] _tests_tutorial_overlay (res://tests/test_runner.gd:271)
+       [3] run_suite (res://tests/test_runner.gd:84)
        [4] _initialize (res://tests/test_runner.gd:36)
   ✅ PASS  TutorialOverlay is_active == true
   ✅ PASS  German tutorial guide title
@@ -271,12 +281,16 @@ ThreeDShapeDetector: Successfully processed via Python. Shape: 3D Mesh (TEST_CUB
   ✅ PASS  Menu scene instantiated successfully
   ✅ PASS  German sets LTR layout direction on Menu UI
   ✅ PASS  Arabic sets RTL layout direction on Menu UI
-  ❌ FAIL  Minimap screen layout_direction is strictly LTR
+  ✅ PASS  Minimap screen layout_direction is strictly LTR
+
+── Language Persistence – user config save/load            ──
+  ✅ PASS  set_locale('es') updates current_locale
+  ✅ PASS  Language persistence loads saved locale ('es') from disk
 
 
 ════════════════════════════════════════════════════
-  Results: 135 / 136 passed
-  ❌  1 TEST(S) FAILED
+  Results: 141 / 141 passed
+  ✅  ALL TESTS PASSED WITH 0 ERRORS
 ════════════════════════════════════════════════════
 
 ERROR: 1 RID allocations of type 'P12GodotShape3D' were leaked at exit.

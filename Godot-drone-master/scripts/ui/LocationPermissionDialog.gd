@@ -45,9 +45,11 @@ func _build_ui() -> void:
 	vbox.add_theme_constant_override("separation", 14)
 	margin.add_child(vbox)
 	
+	var tm = get_node_or_null("/root/TranslationManager")
+
 	# Header Title
 	var title = Label.new()
-	title.text = "WELCOME TO DRONE SIMULATION"
+	title.text = tm.get_auto_translation("PERM_TITLE") if tm else "WELCOME TO DRONE SIMULATION"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
@@ -55,7 +57,7 @@ func _build_ui() -> void:
 	
 	# Clear Humanised Explanation Label
 	var desc = Label.new()
-	desc.text = "The game can check your location to automatically match the UI theme with your local daylight and night time — giving you Light Mode during the day and Dark Mode at night.\n\nClick 'Allow Location Sync' to enable automatic location detection, or choose a theme below:"
+	desc.text = tm.get_auto_translation("PERM_DESC") if tm else "The game can check your location to automatically match the UI theme with your local daylight and night time — giving you Light Mode during the day and Dark Mode at night.\n\nClick 'Allow Location Sync' to enable automatic location detection, or choose a theme below:"
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.add_theme_font_size_override("font_size", 12)
@@ -66,7 +68,7 @@ func _build_ui() -> void:
 	
 	# Primary Choice 1: Allow Location Sync
 	var btn_grant = Button.new()
-	btn_grant.text = "Allow Location Sync"
+	btn_grant.text = tm.get_auto_translation("BTN_ALLOW_SYNC") if tm else "Allow Location Sync"
 	btn_grant.custom_minimum_size = Vector2(0, 40)
 	btn_grant.pressed.connect(_on_grant_pressed)
 	vbox.add_child(btn_grant)
@@ -77,7 +79,7 @@ func _build_ui() -> void:
 	vbox.add_child(mode_hbox)
 	
 	var btn_light = Button.new()
-	btn_light.text = "Light Mode"
+	btn_light.text = tm.get_auto_translation("OPT_LIGHT_MODE") if tm else "Light Mode"
 	btn_light.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_light.custom_minimum_size = Vector2(0, 36)
 	btn_light.pressed.connect(func():
@@ -90,7 +92,7 @@ func _build_ui() -> void:
 	mode_hbox.add_child(btn_light)
 	
 	var btn_dark = Button.new()
-	btn_dark.text = "Dark Mode"
+	btn_dark.text = tm.get_auto_translation("OPT_DARK_MODE") if tm else "Dark Mode"
 	btn_dark.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_dark.custom_minimum_size = Vector2(0, 36)
 	btn_dark.pressed.connect(func():
@@ -108,7 +110,7 @@ func _build_ui() -> void:
 	vbox.add_child(city_box)
 	
 	var city_label = Label.new()
-	city_label.text = "Or Select City:"
+	city_label.text = tm.get_auto_translation("PERM_SELECT_CITY") if tm else "Or Select City:"
 	city_label.add_theme_font_size_override("font_size", 12)
 	city_box.add_child(city_label)
 	
@@ -123,7 +125,7 @@ func _build_ui() -> void:
 	
 	# Confirm & Continue Button
 	var btn_confirm = Button.new()
-	btn_confirm.text = "Confirm & Continue"
+	btn_confirm.text = tm.get_auto_translation("BTN_CONFIRM_CONTINUE") if tm else "Confirm & Continue"
 	btn_confirm.custom_minimum_size = Vector2(0, 38)
 	btn_confirm.pressed.connect(func():
 		var tm = get_node_or_null("/root/ThemeManager")

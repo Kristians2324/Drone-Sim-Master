@@ -289,6 +289,19 @@ func _adapt_ui_to_locale(locale: String, is_rtl: bool) -> void:
 		record_show_button.text = tm.get_auto_translation("BTN_STOP_RECORDING") if video_recorder and video_recorder.is_recording else (tm.get_auto_translation("BTN_RECORD_SHOW") if tm else "RECORD SHOW")
 	if screenshot_button:
 		screenshot_button.text = tm.get_auto_translation("BTN_TAKE_SCREENSHOT") if tm else "TAKE SCREENSHOT"
+	if cinematic_camera_button:
+		cinematic_camera_button.text = tm.get_auto_translation("OPT_CINEMATIC_SHOW_CAM") if tm else "ENABLE CINEMATIC CAMERA"
+
+	if select_file_button:
+		select_file_button.text = tm.get_auto_translation("BTN_CHOOSE_SHAPE_FILE") if tm else "CHOOSE IMAGE (.PNG, .JPG) OR 3D MODEL"
+	if go_button:
+		go_button.text = tm.get_auto_translation("BTN_FORM_SHAPE_START") if tm else "FORM SHAPE & START SHOW"
+	var custom_count_lbl = _find_menu_node("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/DroneCountHBox/Label")
+	if custom_count_lbl and custom_count_lbl is Label:
+		custom_count_lbl.text = tm.get_auto_translation("LABEL_CUSTOM_DRONE_COUNT") if tm else "Drone Count (0 = Auto):"
+	var custom_title_lbl = _find_menu_node("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/CustomShapeTitle")
+	if custom_title_lbl and custom_title_lbl is Label:
+		custom_title_lbl.text = tm.get_auto_translation("TITLE_CUSTOM_SHAPE") if tm else "CUSTOM 3D & 2D SHAPE LIGHT SHOW"
 
 	for node in _dev_translatable:
 		if is_instance_valid(node):
@@ -711,6 +724,7 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	parent_layout.add_child(sep)
 
 	var title = Label.new()
+	title.name = "CustomShapeTitle"
 	title.text = "CUSTOM 3D & 2D SHAPE LIGHT SHOW"
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	title.add_theme_font_size_override("font_size", 12)
