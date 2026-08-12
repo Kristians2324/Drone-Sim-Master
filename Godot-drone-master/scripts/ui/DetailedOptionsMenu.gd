@@ -51,6 +51,23 @@ var tab_contents: Dictionary = {}
 var ui_controls: Dictionary = {}
 var current_tab: String = "graphics"
 var _is_initializing_ui: bool = true
+var _translatable_labels: Dictionary = {}  # node -> translation_key
+
+func _reg(node: Control, key: String) -> Control:
+	_translatable_labels[node] = key
+	return node
+
+func _row(key: String, row: Control) -> Control:
+	for child in row.get_children():
+		if child is Label:
+			_translatable_labels[child] = key
+			break
+		elif child is VBoxContainer or child is HBoxContainer:
+			for sub in child.get_children():
+				if sub is Label:
+					_translatable_labels[sub] = key
+					break
+	return row
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -77,6 +94,60 @@ func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
 	if tab_bar:
 		tab_bar.layout_direction = layout_direction
 
+	var tm = null
+	if is_inside_tree() and get_tree().root.has_node("TranslationManager"):
+		tm = get_tree().root.get_node("TranslationManager")
+
+	var top_lang_opt = find_child("TopHeaderLanguageDropdown", true, false)
+	if top_lang_opt and top_lang_opt is OptionButton and tm:
+		var locales = tm.get_supported_locales()
+		for i in range(locales.size()):
+			if locales[i]["code"] == new_locale and i < top_lang_opt.item_count:
+				top_lang_opt.selected = i
+				break
+
+	for node in _translatable_labels:
+		if not is_instance_valid(node):
+			continue
+		var key: String = _translatable_labels[node]
+		var text: String = tm.get_auto_translation(key) if tm else key
+		if node is Button:
+			node.text = text
+		elif node is Label:
+			node.text = text
+
+	for ctrl_key in ui_controls:
+		var ctrl = ui_controls[ctrl_key]
+		if ctrl.get("type") == "dropdown":
+			if ctrl_key == "language":
+				continue
+			var opt: OptionButton = ctrl.get("node")
+			var raw_options: Array = ctrl.get("raw_options", [])
+			if opt and is_instance_valid(opt) and raw_options.size() > 0:
+				var cur_sel = opt.selected
+				for i in range(raw_options.size()):
+					var raw_str = String(raw_options[i])
+					var item_key = "OPT_" + raw_str.to_upper().replace(" ", "_").replace("(", "").replace(")", "").replace("-", "_").replace("/", "_").replace(".", "_").replace("%", "")
+					var translated = tm.get_auto_translation(item_key) if tm else raw_str
+					if translated == item_key:
+						translated = raw_str
+					opt.set_item_text(i, translated)
+				if cur_sel >= 0 and cur_sel < opt.item_count:
+					opt.selected = cur_sel
+		elif ctrl.get("type") == "slider":
+			var slider: HSlider = ctrl.get("node")
+			var val_lbl: Label = ctrl.get("label")
+			var val_format: String = ctrl.get("format", "")
+			var val_transform: Callable = ctrl.get("transform")
+			if slider and val_lbl and val_format != "":
+				if ctrl_key == "boid_count":
+					var drones_word = tm.get_auto_translation("UNIT_DRONES") if tm else "Drones"
+					val_lbl.text = "%d %s" % [int(slider.value), drones_word]
+				elif val_transform and val_transform.is_valid():
+					val_lbl.text = val_format % val_transform.call(slider.value)
+
+	_switch_tab(current_tab)
+
 func _load_config_from_disk() -> void:
 	var config = ConfigFile.new()
 	if config.load(CONFIG_FILE_PATH) == OK:
@@ -97,7 +168,46 @@ func _setup_ui():
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	title.add_theme_font_size_override("font_size", 18)
+	_reg(title, "TITLE_OPTIONS_MENU")
 	root_vbox.add_child(title)
+
+	# --- Top Language Selection Bar ---
+	var top_lang_hbox = HBoxContainer.new()
+	top_lang_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	top_lang_hbox.add_theme_constant_override("separation", 8)
+
+	var globe_lbl = Label.new()
+	globe_lbl.text = "🌐 Language / Sprache / Idioma:"
+	globe_lbl.add_theme_font_size_override("font_size", 12)
+	globe_lbl.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0, 0.9))
+	_reg(globe_lbl, "OPT_LANGUAGE_ROW")
+	top_lang_hbox.add_child(globe_lbl)
+
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	var lang_names = []
+	var selected_idx = 0
+	if trans_mgr:
+		var locales = trans_mgr.get_supported_locales()
+		for i in range(locales.size()):
+			lang_names.append(locales[i]["name"])
+			if locales[i]["code"] == trans_mgr.current_locale:
+				selected_idx = i
+
+	var top_lang_opt = OptionButton.new()
+	top_lang_opt.name = "TopHeaderLanguageDropdown"
+	top_lang_opt.custom_minimum_size = Vector2(170, 26)
+	for name_str in lang_names:
+		top_lang_opt.add_item(name_str)
+	if selected_idx >= 0 and selected_idx < top_lang_opt.item_count:
+		top_lang_opt.select(selected_idx)
+	top_lang_opt.item_selected.connect(func(idx):
+		if trans_mgr:
+			var locales = trans_mgr.get_supported_locales()
+			if idx >= 0 and idx < locales.size():
+				trans_mgr.set_locale(locales[idx]["code"])
+	)
+	top_lang_hbox.add_child(top_lang_opt)
+	root_vbox.add_child(top_lang_hbox)
 
 	# --- Tab Bar ---
 	tab_bar = HBoxContainer.new()
@@ -107,13 +217,13 @@ func _setup_ui():
 	root_vbox.add_child(tab_bar)
 
 	var tabs_info = [
-		{"id": "graphics", "label": "DISPLAY"},
-		{"id": "physics", "label": "PHYSICS"},
-		{"id": "env", "label": "WORLD"},
-		{"id": "swarm", "label": "SWARM"},
-		{"id": "audio_cam", "label": "AUDIO/CAM"},
-		{"id": "ui_theme", "label": "UI THEME"},
-		{"id": "presets", "label": "PRESETS"}
+		{"id": "graphics", "label": "DISPLAY", "key": "OPT_TAB_DISPLAY"},
+		{"id": "physics", "label": "PHYSICS", "key": "OPT_TAB_PHYSICS"},
+		{"id": "env", "label": "WORLD", "key": "OPT_TAB_WORLD"},
+		{"id": "swarm", "label": "SWARM", "key": "OPT_TAB_SWARM"},
+		{"id": "audio_cam", "label": "AUDIO/CAM", "key": "OPT_TAB_AUDIO"},
+		{"id": "ui_theme", "label": "UI THEME", "key": "OPT_TAB_UI"},
+		{"id": "presets", "label": "PRESETS", "key": "OPT_TAB_PRESETS"}
 	]
 
 	for tab in tabs_info:
@@ -124,6 +234,7 @@ func _setup_ui():
 		btn.add_theme_font_size_override("font_size", 10)
 		btn.pressed.connect(_on_tab_clicked.bind(tab["id"]))
 		_apply_tab_button_style(btn, false)
+		_reg(btn, tab["key"])
 		tab_bar.add_child(btn)
 		tab_buttons[tab["id"]] = btn
 
@@ -221,16 +332,18 @@ func _build_graphics_tab() -> Control:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
-	vbox.add_child(_create_dropdown_row("vsync", "VSync Mode", ["Disabled", "Enabled", "Adaptive"], 1, _on_vsync_changed))
-	vbox.add_child(_create_dropdown_row("window_mode", "Window Mode", ["Exclusive Fullscreen", "Windowed", "Borderless Window"], 0, _on_window_mode_changed))
-	vbox.add_child(_create_dropdown_row("msaa", "Anti-Aliasing (MSAA)", ["Disabled", "2x MSAA", "4x MSAA", "8x MSAA"], 2, _on_msaa_changed))
-	vbox.add_child(_create_dropdown_row("shadow_resolution", "Shadow Resolution", ["Off", "Low (1024)", "Medium (2048)", "Ultra (4096)"], 2, _on_shadow_quality_changed))
-	vbox.add_child(_create_dropdown_row("fps_cap", "Max Frame Rate", ["Uncapped", "30 FPS", "60 FPS", "120 FPS", "144 FPS"], 0, _on_fps_cap_changed))
-	vbox.add_child(_create_slider_row("render_scale", "Resolution Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%", func(val): return val * 100.0, _on_render_scale_changed))
-	vbox.add_child(_create_slider_row("fog_density", "Volumetric Fog Haze", 0.0, 100.0, 1.0, 0.0, "%.0f%%", func(v): return v, _on_fog_density_changed))
+	vbox.add_child(_row("OPT_VSYNC", _create_dropdown_row("vsync", "VSync Mode", ["Disabled", "Enabled", "Adaptive"], 1, _on_vsync_changed)))
+	vbox.add_child(_row("OPT_WINDOW", _create_dropdown_row("window_mode", "Window Mode", ["Exclusive Fullscreen", "Windowed", "Borderless Window"], 0, _on_window_mode_changed)))
+	vbox.add_child(_row("OPT_MSAA", _create_dropdown_row("msaa", "Anti-Aliasing (MSAA)", ["Disabled", "2x MSAA", "4x MSAA", "8x MSAA"], 2, _on_msaa_changed)))
+	vbox.add_child(_row("OPT_SHADOW", _create_dropdown_row("shadow_resolution", "Shadow Resolution", ["Off", "Low (1024)", "Medium (2048)", "Ultra (4096)"], 2, _on_shadow_quality_changed)))
+	vbox.add_child(_row("OPT_FPS", _create_dropdown_row("fps_cap", "Max Frame Rate", ["Uncapped", "30 FPS", "60 FPS", "120 FPS", "144 FPS"], 0, _on_fps_cap_changed)))
+	vbox.add_child(_row("OPT_SCALE", _create_slider_row("render_scale", "Resolution Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%", func(val): return val * 100.0, _on_render_scale_changed)))
+	vbox.add_child(_row("OPT_FOG", _create_slider_row("fog_density", "Volumetric Fog Haze", 0.0, 100.0, 1.0, 0.0, "%.0f%%", func(v): return v, _on_fog_density_changed)))
 
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_create_styled_button("RESET DISPLAY DEFAULTS", _reset_graphics_defaults, Color(0.15, 0.25, 0.35, 0.9)))
+	var reset_btn = _create_styled_button("RESET DISPLAY DEFAULTS", _reset_graphics_defaults, Color(0.15, 0.25, 0.35, 0.9))
+	_reg(reset_btn, "BTN_RESET_DISPLAY")
+	vbox.add_child(reset_btn)
 
 	return vbox
 
@@ -238,15 +351,17 @@ func _build_physics_tab() -> Control:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
-	vbox.add_child(_create_toggle_row("hover_mode", "Hover Assist Mode", false, _on_hover_toggled))
-	vbox.add_child(_create_slider_row("thrust_multiplier", "Thrust Power Multiplier", 0.5, 2.5, 0.1, 1.0, "%.1fx", func(v): return v, _on_thrust_changed))
-	vbox.add_child(_create_slider_row("turn_sensitivity", "Control Turn Rate", 0.5, 2.5, 0.1, 1.0, "%.1fx", func(v): return v, _on_turn_sens_changed))
-	vbox.add_child(_create_slider_row("stabilize_force", "Gyro Stabilization Force", 10.0, 100.0, 5.0, 45.0, "%.0f", func(v): return v, _on_stabilize_changed))
-	vbox.add_child(_create_slider_row("gravity_scale", "Environment Gravity", 0.0, 2.0, 0.1, 1.0, "%.1fg", func(v): return v, _on_gravity_changed))
-	vbox.add_child(_create_toggle_row("infinite_battery", "Infinite Battery Supply", false, _on_battery_toggled))
+	vbox.add_child(_row("OPT_HOVER", _create_toggle_row("hover_mode", "Hover Assist Mode", false, _on_hover_toggled)))
+	vbox.add_child(_row("OPT_THRUST", _create_slider_row("thrust_multiplier", "Thrust Power Multiplier", 0.5, 2.5, 0.1, 1.0, "%.1fx", func(v): return v, _on_thrust_changed)))
+	vbox.add_child(_row("OPT_TURN", _create_slider_row("turn_sensitivity", "Control Turn Rate", 0.5, 2.5, 0.1, 1.0, "%.1fx", func(v): return v, _on_turn_sens_changed)))
+	vbox.add_child(_row("OPT_STABILIZE", _create_slider_row("stabilize_force", "Gyro Stabilization Force", 10.0, 100.0, 5.0, 45.0, "%.0f", func(v): return v, _on_stabilize_changed)))
+	vbox.add_child(_row("OPT_GRAVITY", _create_slider_row("gravity_scale", "Environment Gravity", 0.0, 2.0, 0.1, 1.0, "%.1fg", func(v): return v, _on_gravity_changed)))
+	vbox.add_child(_row("OPT_INF_BATTERY", _create_toggle_row("infinite_battery", "Infinite Battery Supply", false, _on_battery_toggled)))
 
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_create_styled_button("RESET PHYSICS DEFAULTS", _reset_physics_defaults, Color(0.15, 0.25, 0.35, 0.9)))
+	var reset_btn = _create_styled_button("RESET PHYSICS DEFAULTS", _reset_physics_defaults, Color(0.15, 0.25, 0.35, 0.9))
+	_reg(reset_btn, "BTN_RESET_PHYSICS")
+	vbox.add_child(reset_btn)
 
 	return vbox
 
@@ -254,12 +369,14 @@ func _build_env_tab() -> Control:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
-	vbox.add_child(_create_dropdown_row("environment", "Select Environment", ["Earth (Day)", "Earth (Night)", "Moon Base", "Indoor Arena"], 0, _on_environment_selected))
-	vbox.add_child(_create_dropdown_row("wind_preset", "Wind Simulation Profile", ["Dynamic Wind", "Calm (0 m/s)", "Light Breeze (5 m/s)", "Moderate (12 m/s)", "Severe Storm (25 m/s)"], 0, _on_wind_preset_changed))
-	vbox.add_child(_create_slider_row("light_energy", "Light & Sun Energy", 0.1, 3.0, 0.1, 1.0, "%.1fx", func(v): return v, _on_light_energy_changed))
+	vbox.add_child(_row("OPT_ENVIRONMENT", _create_dropdown_row("environment", "Select Environment", ["Earth (Day)", "Earth (Night)", "Moon Base", "Indoor Arena"], 0, _on_environment_selected)))
+	vbox.add_child(_row("OPT_WIND", _create_dropdown_row("wind_preset", "Wind Simulation Profile", ["Dynamic Wind", "Calm (0 m/s)", "Light Breeze (5 m/s)", "Moderate (12 m/s)", "Severe Storm (25 m/s)"], 0, _on_wind_preset_changed)))
+	vbox.add_child(_row("OPT_LIGHT", _create_slider_row("light_energy", "Light & Sun Energy", 0.1, 3.0, 0.1, 1.0, "%.1fx", func(v): return v, _on_light_energy_changed)))
 
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_create_styled_button("RESET WORLD DEFAULTS", _reset_env_defaults, Color(0.15, 0.25, 0.35, 0.9)))
+	var reset_btn = _create_styled_button("RESET WORLD DEFAULTS", _reset_env_defaults, Color(0.15, 0.25, 0.35, 0.9))
+	_reg(reset_btn, "BTN_RESET_WORLD")
+	vbox.add_child(reset_btn)
 
 	return vbox
 
@@ -269,14 +386,16 @@ func _build_swarm_tab() -> Control:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
-	vbox.add_child(_create_toggle_row("swarm_active", "Enable Swarm Mode (Tab)", false, _on_swarm_mode_toggled))
-	vbox.add_child(_create_slider_row("boid_count", "Swarm Drone Count", 5.0, 50.0, 1.0, 15.0, "%.0f Drones", func(v): return v, _on_boid_count_changed))
-	vbox.add_child(_create_slider_row("separation_radius", "Boid Separation Radius", 1.0, 10.0, 0.5, 3.5, "%.1fm", func(v): return v, _on_separation_changed))
-	vbox.add_child(_create_slider_row("boid_speed", "Max Swarm Speed", 5.0, 40.0, 1.0, 20.0, "%.0f m/s", func(v): return v, _on_boid_speed_changed))
-	vbox.add_child(_create_dropdown_row("led_theme", "Airshow LED Color Scheme", ["Cyber Cyan", "Emerald Green", "Neon Amber", "Vibrant Magenta", "Pulsing Rainbow"], 0, _on_led_theme_changed))
+	vbox.add_child(_row("OPT_SWARM_ENABLE", _create_toggle_row("swarm_active", "Enable Swarm Mode (Tab)", false, _on_swarm_mode_toggled)))
+	vbox.add_child(_row("OPT_DRONE_COUNT", _create_slider_row("boid_count", "Swarm Drone Count", 5.0, 50.0, 1.0, 15.0, "%.0f Drones", func(v): return v, _on_boid_count_changed)))
+	vbox.add_child(_row("OPT_SEPARATION", _create_slider_row("separation_radius", "Boid Separation Radius", 1.0, 10.0, 0.5, 3.5, "%.1fm", func(v): return v, _on_separation_changed)))
+	vbox.add_child(_row("OPT_SWARM_SPEED", _create_slider_row("boid_speed", "Max Swarm Speed", 5.0, 40.0, 1.0, 20.0, "%.0f m/s", func(v): return v, _on_boid_speed_changed)))
+	vbox.add_child(_row("OPT_LED_THEME", _create_dropdown_row("led_theme", "Airshow LED Color Scheme", ["Cyber Cyan", "Emerald Green", "Neon Amber", "Vibrant Magenta", "Pulsing Rainbow"], 0, _on_led_theme_changed)))
 
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_create_styled_button("RESET SWARM DEFAULTS", _reset_swarm_defaults, Color(0.15, 0.25, 0.35, 0.9)))
+	var reset_btn = _create_styled_button("RESET SWARM DEFAULTS", _reset_swarm_defaults, Color(0.15, 0.25, 0.35, 0.9))
+	_reg(reset_btn, "BTN_RESET_SWARM")
+	vbox.add_child(reset_btn)
 
 	return vbox
 
@@ -284,16 +403,18 @@ func _build_audio_cam_tab() -> Control:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
-	vbox.add_child(_create_slider_row("master_volume", "Master Volume", 0.0, 1.0, 0.05, 1.0, "%.0f%%", func(v): return v * 100.0, _on_volume_changed))
-	vbox.add_child(_create_toggle_row("ps1_music_enabled", "Music", true, _on_ps1_music_toggled))
-	vbox.add_child(_create_slider_row("ps1_music_volume", "Music Volume", 0.0, 1.0, 0.05, 0.15, "%.0f%%", func(v): return v * 100.0, _on_ps1_music_vol_changed))
-	vbox.add_child(_create_toggle_row("swarm_audio_enabled", "Distant Swarm/Lightshow Buzz", true, _on_swarm_audio_toggled))
-	vbox.add_child(_create_slider_row("swarm_audio_volume", "Swarm Buzz Volume", 0.0, 1.0, 0.05, 0.5, "%.0f%%", func(v): return v * 100.0, _on_swarm_audio_vol_changed))
-	vbox.add_child(_create_dropdown_row("camera_mode", "Active Camera View", ["First Person (FPV)", "Third Person Chase", "Cinematic Show Cam"], 0, _on_camera_mode_changed))
-	vbox.add_child(_create_slider_row("camera_fov", "Camera FOV", 60.0, 110.0, 1.0, 75.0, "%.0f°", func(v): return v, _on_fov_changed))
+	vbox.add_child(_row("OPT_VOLUME", _create_slider_row("master_volume", "Master Volume", 0.0, 1.0, 0.05, 1.0, "%.0f%%", func(v): return v * 100.0, _on_volume_changed)))
+	vbox.add_child(_row("OPT_MUSIC", _create_toggle_row("ps1_music_enabled", "Music", true, _on_ps1_music_toggled)))
+	vbox.add_child(_row("OPT_MUSIC_VOL", _create_slider_row("ps1_music_volume", "Music Volume", 0.0, 1.0, 0.05, 0.15, "%.0f%%", func(v): return v * 100.0, _on_ps1_music_vol_changed)))
+	vbox.add_child(_row("OPT_SWARM_AUDIO", _create_toggle_row("swarm_audio_enabled", "Distant Swarm/Lightshow Buzz", true, _on_swarm_audio_toggled)))
+	vbox.add_child(_row("OPT_SWARM_VOL", _create_slider_row("swarm_audio_volume", "Swarm Buzz Volume", 0.0, 1.0, 0.05, 0.5, "%.0f%%", func(v): return v * 100.0, _on_swarm_audio_vol_changed)))
+	vbox.add_child(_row("OPT_CAM_MODE", _create_dropdown_row("camera_mode", "Active Camera View", ["First Person (FPV)", "Third Person Chase", "Cinematic Show Cam"], 0, _on_camera_mode_changed)))
+	vbox.add_child(_row("OPT_FOV", _create_slider_row("camera_fov", "Camera FOV", 60.0, 110.0, 1.0, 75.0, "%.0f°", func(v): return v, _on_fov_changed)))
 
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_create_styled_button("RESET AUDIO/CAM DEFAULTS", _reset_audio_cam_defaults, Color(0.15, 0.25, 0.35, 0.9)))
+	var reset_btn = _create_styled_button("RESET AUDIO/CAM DEFAULTS", _reset_audio_cam_defaults, Color(0.15, 0.25, 0.35, 0.9))
+	_reg(reset_btn, "BTN_RESET_AUDIO")
+	vbox.add_child(reset_btn)
 
 	return vbox
 
@@ -305,6 +426,7 @@ func _build_ui_theme_tab() -> Control:
 	label.text = "UI THEME & LOCALIZATION"
 	label.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reg(label, "OPT_UI_TITLE")
 	vbox.add_child(label)
 
 	var trans_mgr = get_node_or_null("/root/TranslationManager")
@@ -323,6 +445,7 @@ func _build_ui_theme_tab() -> Control:
 			if idx >= 0 and idx < locales.size():
 				trans_mgr.set_locale(locales[idx]["code"])
 	)
+	_row("OPT_LANGUAGE_ROW", lang_row)
 	vbox.add_child(lang_row)
 
 	var theme_mgr = get_node_or_null("/root/ThemeManager")
@@ -341,6 +464,7 @@ func _build_ui_theme_tab() -> Control:
 				1: theme_mgr.set_theme_mode("light")
 				2: theme_mgr.set_theme_mode("dark")
 	)
+	_row("OPT_COLOR_THEME", theme_row)
 	vbox.add_child(theme_row)
 
 	return vbox
@@ -354,6 +478,7 @@ func _build_presets_tab() -> Control:
 	label.text = "QUICK PERFORMANCE PRESETS"
 	label.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reg(label, "OPT_PRESETS_TITLE")
 	vbox.add_child(label)
 
 	var grid = GridContainer.new()
@@ -368,6 +493,11 @@ func _build_presets_tab() -> Control:
 	var p_high = _create_styled_button("HIGH QUALITY", func(): _apply_preset("high"))
 	var p_ultra = _create_styled_button("ULTRA / CINEMATIC", func(): _apply_preset("ultra"))
 
+	_reg(p_low, "BTN_PRESET_LOW")
+	_reg(p_med, "BTN_PRESET_MED")
+	_reg(p_high, "BTN_PRESET_HIGH")
+	_reg(p_ultra, "BTN_PRESET_ULTRA")
+
 	grid.add_child(p_low)
 	grid.add_child(p_med)
 	grid.add_child(p_high)
@@ -377,6 +507,7 @@ func _build_presets_tab() -> Control:
 	vbox.add_child(sep)
 
 	var reset_btn = _create_styled_button("RESET ALL TO DEFAULTS", _reset_defaults, Color(0.85, 0.35, 0.35, 0.9))
+	_reg(reset_btn, "BTN_RESET_ALL")
 	vbox.add_child(reset_btn)
 
 	return vbox
@@ -443,6 +574,7 @@ func _create_dropdown_row(key: String, label_text: String, options: Array, defau
 	ui_controls[key] = {
 		"type": "dropdown",
 		"node": opt,
+		"raw_options": options,
 		"default": default_idx,
 		"callback": callback
 	}
@@ -462,8 +594,15 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	lbl.add_theme_font_size_override("font_size", 13)
 	header_hbox.add_child(lbl)
 
+	var _format_val = func(v: float) -> String:
+		if key == "boid_count":
+			var tm_curr = get_node_or_null("/root/TranslationManager")
+			var d_word = tm_curr.get_auto_translation("UNIT_DRONES") if tm_curr else "Drones"
+			return "%d %s" % [int(v), d_word]
+		return val_format % val_transform.call(v)
+
 	var val_lbl = Label.new()
-	val_lbl.text = val_format % val_transform.call(cur_val)
+	val_lbl.text = _format_val.call(cur_val)
 	val_lbl.add_theme_font_size_override("font_size", 13)
 	header_hbox.add_child(val_lbl)
 
@@ -477,7 +616,7 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	slider.custom_minimum_size = Vector2(0, 24)
 
 	slider.value_changed.connect(func(v):
-		val_lbl.text = val_format % val_transform.call(v)
+		val_lbl.text = _format_val.call(v)
 		callback.call(v)
 	)
 	vbox.add_child(slider)

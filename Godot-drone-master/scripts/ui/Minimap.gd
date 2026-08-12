@@ -15,6 +15,17 @@ var _smooth_heading: float = 0.0
 
 func _ready() -> void:
 	layer = 120
+	var margin = get_node_or_null("Margin")
+	if margin:
+		margin.layout_direction = Control.LAYOUT_DIRECTION_LTR
+
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	if trans_mgr:
+		trans_mgr.locale_changed.connect(func(_l, _rtl):
+			var m = get_node_or_null("Margin")
+			if m: m.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		)
+
 	_canvas = Control.new()
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE

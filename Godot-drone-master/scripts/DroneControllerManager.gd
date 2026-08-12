@@ -591,11 +591,14 @@ func start_show_mode(mode_id: int):
 	set_hud_visible(false)
 	update_camera_views()
 
+	var tm = get_node_or_null("/root/TranslationManager")
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr and toast_mgr.has_method("show_toast"):
 		for k in show_mode_names.keys():
 			if show_mode_names[k] == mode_id:
-				toast_mgr.show_toast("FORMATION ACTIVATED: " + k.to_upper())
+				var prefix = tm.get_auto_translation("TOAST_FORMATION_ACTIVATED") if tm else "FORMATION ACTIVATED"
+				var shape_trans = tm.get_auto_translation("BTN_" + k.to_upper()) if tm else k.to_upper()
+				toast_mgr.show_toast(prefix + ": " + shape_trans)
 				break
 	print("DroneControllerManager: Airshow mode ", mode_id, " started with ", targets.size(), " target positions.")
 
@@ -684,9 +687,11 @@ func enable_swarm_mode():
 			drone.set_audio_enabled(false)
 		drone.speed_multiplier = 1.0
 
+	var tm = get_node_or_null("/root/TranslationManager")
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.show_toast("SWARM MODE ACTIVATED (BOIDS SWARM)")
+		var msg = tm.get_auto_translation("TOAST_SWARM_ON") if tm else "SWARM MODE ACTIVATED"
+		toast_mgr.show_toast(msg)
 
 	print("DroneControllerManager: Boids Swarm Mode ENABLED.")
 
@@ -704,9 +709,11 @@ func disable_swarm_mode():
 		if drone.has_method("set_audio_enabled") and show_mode == ShowMode.NONE:
 			drone.set_audio_enabled(true)
 
+	var tm = get_node_or_null("/root/TranslationManager")
 	var toast_mgr = get_node_or_null("/root/ToastManager")
+	var msg_off = tm.get_auto_translation("TOAST_SWARM_OFF") if tm else "SWARM MODE DEACTIVATED"
 	if toast_mgr and toast_mgr.has_method("show_toast"):
-		toast_mgr.show_toast("SWARM MODE DEACTIVATED")
+		toast_mgr.show_toast(msg_off)
 
 	print("DroneControllerManager: Boids Swarm Mode DISABLED.")
 

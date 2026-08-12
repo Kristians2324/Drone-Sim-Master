@@ -123,6 +123,10 @@ func _adapt_ui_to_locale(_locale: String, is_rtl: bool) -> void:
 		title_lbl.text = tm.get_auto_translation("TITLE_SIMULATOR") if tm else "DRONE FLIGHT SIMULATOR"
 		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
+	var theme_lbl = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/ThemeStatusLabel")
+	if theme_lbl:
+		theme_lbl.text = tm.get_auto_translation("OPT_UI_TITLE") if tm else "UI THEME & LOCATION SYNC"
+
 func _on_theme_changed(_new_theme: String) -> void:
 	var theme_mgr = get_node_or_null("/root/ThemeManager")
 	if not theme_mgr or not panel:

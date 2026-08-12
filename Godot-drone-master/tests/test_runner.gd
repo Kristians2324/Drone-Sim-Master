@@ -246,6 +246,15 @@ func _tests_tutorial_overlay() -> void:
 		spawn(instance)
 		instance.start_tutorial()
 		assert_true(instance.is_active, "TutorialOverlay is_active == true")
+		
+		var TransMgrClass = load("res://scripts/ui/TranslationManager.gd")
+		var tm = spawn(TransMgrClass.new())
+		if tm:
+			assert_true(tm.get_auto_translation("TUTORIAL_GUIDE_TITLE", "de") == "FLUG- UND SIMULATOR-ANLEITUNG", "German tutorial guide title")
+			assert_true(tm.get_auto_translation("TUTORIAL_GUIDE_TITLE", "es") == "GUÍA DE VUELO Y SIMULADOR", "Spanish tutorial guide title")
+			assert_true(tm.get_auto_translation("TUTORIAL_STEP1_TITLE", "fr") == "1. Commandes de Vol de Base", "French tutorial step 1 title")
+			tm.free()
+
 		instance.close_tutorial()
 		assert_false(instance.is_active, "TutorialOverlay is_active == false")
 		instance.free()
@@ -433,6 +442,15 @@ func _tests_fpv_overlay() -> void:
 	fpv_node.visible = false
 	assert_true(fpv_node.visible == false, "set_fpv_active(false) hides FPV overlay for third-person mode")
 
+	var TransMgrClass = load("res://scripts/ui/TranslationManager.gd")
+	var tm = spawn(TransMgrClass.new())
+	if tm:
+		assert_true(tm.get_auto_translation("OSD_ALT", "de") == "HÖHE", "German OSD_ALT translation")
+		assert_true(tm.get_auto_translation("OSD_THROTTLE", "de") == "SCHUB", "German OSD_THROTTLE translation")
+		assert_true(tm.get_auto_translation("OSD_SPD", "es") == "VEL", "Spanish OSD_SPD translation")
+		assert_true(tm.get_auto_translation("OSD_MODE", "ar") == "الوضع", "Arabic OSD_MODE translation")
+		tm.free()
+
 	fpv_node.free()
 
 func _tests_translation_system() -> void:
@@ -470,6 +488,14 @@ func _tests_translation_system() -> void:
 	var auto_res = trans_mgr.get_auto_translation("DYNAMIC_CUSTOM_KEY_TEST")
 	assert_true(auto_res != "", "Auto-translation generator handles unknown dynamic keys cleanly")
 
+	# Option item translations
+	assert_true(trans_mgr.get_auto_translation("OPT_DISABLED", "es") == "Desactivado", "Spanish item translation for OPT_DISABLED")
+	assert_true(trans_mgr.get_auto_translation("OPT_EARTH_DAY", "de") == "Erde (Tag)", "German item translation for OPT_EARTH_DAY")
+	assert_true(trans_mgr.get_auto_translation("OPT_UNCAPPED", "fr") == "Illimité", "French item translation for OPT_UNCAPPED")
+	assert_true(trans_mgr.get_auto_translation("UNIT_DRONES", "de") == "Drohnen", "German UNIT_DRONES translation")
+	assert_true(trans_mgr.get_auto_translation("OPT_PULSING_RAINBOW", "de") == "Pulsierender Regenbogen", "German OPT_PULSING_RAINBOW translation")
+	assert_true(trans_mgr.get_auto_translation("UNIT_DRONES", "ar") == "طائرات", "Arabic UNIT_DRONES translation")
+
 	# Test Menu Adaptivity on Locale Change
 	var menu_scene = load("res://scenes/Menu.tscn")
 	var menu_inst = spawn(menu_scene.instantiate()) as CanvasLayer
@@ -482,6 +508,13 @@ func _tests_translation_system() -> void:
 		menu_inst._adapt_ui_to_locale("ar", true)
 		assert_true(menu_inst.get_node("Center").layout_direction == Control.LAYOUT_DIRECTION_RTL, "Arabic sets RTL layout direction on Menu UI")
 
+	var minimap_scene = load("res://scenes/Minimap.tscn")
+	if minimap_scene != null:
+		var minimap_inst = spawn(minimap_scene.instantiate()) as CanvasLayer
+		assert_true(minimap_inst.get_node("Margin").layout_direction == Control.LAYOUT_DIRECTION_LTR, "Minimap screen layout_direction is strictly LTR")
+		minimap_inst.free()
+
+	trans_mgr.set_locale("en")
 	menu_inst.free()
 	trans_mgr.free()
 

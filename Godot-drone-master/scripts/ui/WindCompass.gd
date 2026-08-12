@@ -29,7 +29,10 @@ var target_drone: Node3D = null
 func _ready() -> void:
 	layer = 125
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var margin = get_node_or_null("Margin")
+	if margin: margin.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	_canvas = Control.new()
+	_canvas.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.draw.connect(_on_draw)
@@ -283,13 +286,18 @@ func _draw_state_badge(center: Vector2) -> void:
 	var speed_t := clampf(_smooth_strength / 7.0, 0.0, 1.0)
 	var badge_col := _speed_colour(speed_t)
 
-	var origin_name := _wind_manager.get_wind_origin_name() if _wind_manager else "EAST"
-	var push_name   := _wind_manager.get_wind_push_name() if _wind_manager else "WEST"
+	var tm = get_node_or_null("/root/TranslationManager")
 
-	var text_line1 := "WIND: FROM %s" % origin_name
-	var text_line2 := "PUSH: %s (%.1f m/s)" % [push_name, _smooth_strength]
+	var raw_origin := _wind_manager.get_wind_origin_name() if _wind_manager else "EAST"
+	var raw_push   := _wind_manager.get_wind_push_name() if _wind_manager else "WEST"
 
-	var effect_text := "EFFECT: DRIFT"
+	var origin_name = tm.get_auto_translation("DIR_" + raw_origin) if tm else raw_origin
+	var push_name   = tm.get_auto_translation("DIR_" + raw_push) if tm else raw_push
+
+	var text_line1: String = (tm.get_auto_translation("HUD_WIND_FROM") if tm else "WIND: FROM %s") % origin_name
+	var text_line2: String = (tm.get_auto_translation("HUD_WIND_PUSH") if tm else "PUSH: %s (%.1f m/s)") % [push_name, _smooth_strength]
+
+	var effect_text: String = tm.get_auto_translation("HUD_EFFECT_DRIFT") if tm else "EFFECT: BALANCED DRIFT"
 	if target_drone and is_instance_valid(target_drone):
 		var fwd := -target_drone.global_transform.basis.z
 		var right := target_drone.global_transform.basis.x
@@ -297,15 +305,15 @@ func _draw_state_badge(center: Vector2) -> void:
 		var crosswind := right.dot(_wind_direction)
 
 		if tailwind > 0.4:
-			effect_text = "EFFECT: TAILWIND (PUSHING NOSE)"
+			effect_text = tm.get_auto_translation("HUD_EFFECT_TAILWIND") if tm else "EFFECT: TAILWIND (PUSHING NOSE)"
 		elif tailwind < -0.4:
-			effect_text = "EFFECT: HEADWIND (RESISTING NOSE)"
+			effect_text = tm.get_auto_translation("HUD_EFFECT_HEADWIND") if tm else "EFFECT: HEADWIND (RESISTING NOSE)"
 		elif crosswind > 0.3:
-			effect_text = "EFFECT: CROSSWIND (PUSHING RIGHT)"
+			effect_text = tm.get_auto_translation("HUD_EFFECT_CROSS_RIGHT") if tm else "EFFECT: CROSSWIND (PUSHING RIGHT)"
 		elif crosswind < -0.3:
-			effect_text = "EFFECT: CROSSWIND (PUSHING LEFT)"
+			effect_text = tm.get_auto_translation("HUD_EFFECT_CROSS_LEFT") if tm else "EFFECT: CROSSWIND (PUSHING LEFT)"
 		else:
-			effect_text = "EFFECT: BALANCED DRIFT"
+			effect_text = tm.get_auto_translation("HUD_EFFECT_DRIFT") if tm else "EFFECT: BALANCED DRIFT"
 
 	var pos1 := center + Vector2(-48.0, COMPASS_RADIUS + ARC_WIDTH + 8.0)
 	var pos2 := pos1 + Vector2(0, 13)

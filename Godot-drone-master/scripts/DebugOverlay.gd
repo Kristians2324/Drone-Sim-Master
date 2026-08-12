@@ -38,6 +38,10 @@ func _ready() -> void:
 	if theme_mgr:
 		theme_mgr.theme_changed.connect(func(_t): _update_battery_theme())
 
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	if trans_mgr:
+		trans_mgr.locale_changed.connect(func(_l, _rtl): _update_battery_display())
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == TOGGLE_KEY:
@@ -182,6 +186,7 @@ func _update_battery_theme() -> void:
 
 func _build_battery_hud() -> void:
 	_battery_panel = PanelContainer.new()
+	_battery_panel.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	_update_battery_theme()
 	
 	_battery_panel.anchor_left = 0.0
@@ -293,8 +298,11 @@ func _update_battery_display() -> void:
 	var theme_mgr = get_node_or_null("/root/ThemeManager")
 	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
 
+	var tm = get_node_or_null("/root/TranslationManager")
+
 	if _battery_percent_label:
-		_battery_percent_label.text = "BATTERY %d%%" % int(pct)
+		var bat_prefix = tm.get_auto_translation("HUD_BATTERY") if tm else "BATTERY"
+		_battery_percent_label.text = "%s %d%%" % [bat_prefix, int(pct)]
 		if is_light:
 			if pct > 40.0:
 				_battery_percent_label.add_theme_color_override("font_color", Color(0.04, 0.55, 0.22))
@@ -312,16 +320,18 @@ func _update_battery_display() -> void:
 
 	if _battery_status_label:
 		if is_recharging:
-			_battery_status_label.text = "RECHARGING AT TOWER..."
+			_battery_status_label.text = tm.get_auto_translation("HUD_RECHARGING") if tm else "RECHARGING AT TOWER..."
 			_battery_status_label.add_theme_color_override("font_color", Color(0.85, 0.45, 0.0) if is_light else Color(1.0, 0.65, 0.0))
 		elif pct <= 3.0:
-			_battery_status_label.text = "CRITICAL AUTO-LANDING"
+			_battery_status_label.text = tm.get_auto_translation("HUD_CRITICAL_LANDING") if tm else "CRITICAL AUTO-LANDING"
 			_battery_status_label.add_theme_color_override("font_color", Color(0.85, 0.15, 0.15) if is_light else Color(1.0, 0.2, 0.2))
 		elif pct <= 20.0:
-			_battery_status_label.text = "LOW BATTERY WARNING"
+			_battery_status_label.text = tm.get_auto_translation("HUD_LOW_BATTERY") if tm else "LOW BATTERY WARNING"
 			_battery_status_label.add_theme_color_override("font_color", Color(0.85, 0.45, 0.0) if is_light else Color(1.0, 0.7, 0.2))
 		else:
-			_battery_status_label.text = "FLIGHT TIME: ~%d MIN" % int(pct * 0.2)
+			var ft_prefix = tm.get_auto_translation("HUD_FLIGHT_TIME") if tm else "FLIGHT TIME"
+			var min_suffix = tm.get_auto_translation("HUD_MIN") if tm else "MIN"
+			_battery_status_label.text = "%s: ~%d %s" % [ft_prefix, int(pct * 0.2), min_suffix]
 			_battery_status_label.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.9) if is_light else Color(0.8, 0.9, 1.0, 0.8))
 
 func _fps_color(fps: int) -> Color:

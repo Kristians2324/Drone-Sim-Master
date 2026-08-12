@@ -47,6 +47,7 @@ func _build_ui() -> void:
 	# Fullscreen container - MOUSE_FILTER_IGNORE ensures clicks pass through to UI menus
 	var root = Control.new()
 	root.name = "FPVRoot"
+	root.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.anchor_right = 1.0
 	root.anchor_bottom = 1.0
@@ -201,9 +202,19 @@ func _process(delta: float) -> void:
 	var cell_v = bat_v / 4.0
 	var flight_mins = int(bat_percent * 0.2)
 
-	_top_right_label.text = "DRONE-01  MAVLINK 99%\n[⚡] BATTERY " + str(int(bat_percent)) + "% (" + str(snappedf(cell_v, 0.01)) + "V/C)\nFLIGHT TIME: ~" + str(flight_mins) + " MIN"
-	_mid_right_label.text = "ALT: " + str(snappedf(maxf(alt, 0.0), 0.1)) + " m\nSPD: " + str(snappedf(spd, 0.1)) + " m/s\nMODE: ACRO / AIRMODE"
-	_bottom_right_label.text = "THROTTLE: " + str(thr_percent) + "%"
+	var tm = get_node_or_null("/root/TranslationManager")
+	var bat_str = tm.get_auto_translation("HUD_BATTERY") if tm else "BATTERY"
+	var ft_str = tm.get_auto_translation("HUD_FLIGHT_TIME") if tm else "FLIGHT TIME"
+	var min_str = tm.get_auto_translation("HUD_MIN") if tm else "MIN"
+	var alt_str = tm.get_auto_translation("OSD_ALT") if tm else "ALT"
+	var spd_str = tm.get_auto_translation("OSD_SPD") if tm else "SPD"
+	var mode_str = tm.get_auto_translation("OSD_MODE") if tm else "MODE"
+	var acro_str = tm.get_auto_translation("OSD_MODE_ACRO") if tm else "ACRO / AIRMODE"
+	var thr_str = tm.get_auto_translation("OSD_THROTTLE") if tm else "THROTTLE"
+
+	_top_right_label.text = "DRONE-01  MAVLINK 99%\n[⚡] " + bat_str + " " + str(int(bat_percent)) + "% (" + str(snappedf(cell_v, 0.01)) + "V/C)\n" + ft_str + ": ~" + str(flight_mins) + " " + min_str
+	_mid_right_label.text = alt_str + ": " + str(snappedf(maxf(alt, 0.0), 0.1)) + " m\n" + spd_str + ": " + str(snappedf(spd, 0.1)) + " m/s\n" + mode_str + ": " + acro_str
+	_bottom_right_label.text = thr_str + ": " + str(thr_percent) + "%"
 
 	# Light Blue / Cyan menu glow pulse
 	var osd_color = Color(0.2, 0.85, 1.0, 0.88 + 0.08 * sin(_timer * 3.0))

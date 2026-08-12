@@ -46,6 +46,20 @@ var quit_confirm_modal: PanelContainer = null
 # Cached autoload references (safe in headless tests — avoids absolute-path get_node errors)
 var _trans_mgr = null
 var _theme_mgr = null
+var _dev_translatable: Dictionary = {}  # node -> translation_key
+var _dev_translatable_dropdowns: Dictionary = {}  # OptionButton -> Array[String]
+
+func _find_menu_node(rel_path: String) -> Node:
+	var n = get_node_or_null(rel_path)
+	if n != null:
+		return n
+	if rel_path.begins_with("Center/MainLayout/"):
+		var rep_path = rel_path.replace("Center/MainLayout/", "Center/TabbedVBox/MainLayout/")
+		n = get_node_or_null(rep_path)
+		if n != null:
+			return n
+	var node_name = rel_path.get_slice("/", rel_path.get_slice_count("/") - 1)
+	return find_child(node_name, true, false)
 
 const KEYBOARD_TEXT = "--- KEYBOARD CONTROLS ---
 SPACE / SHIFT : Thrust Up/Down
@@ -230,38 +244,44 @@ func _adapt_ui_to_locale(locale: String, is_rtl: bool) -> void:
 		tab_bar_container.custom_minimum_size = Vector2(panel_width, 38)
 		tab_bar_container.layout_direction = target_dir
 
+	# Pause Menu Title
+	var pause_title = _find_menu_node("Center/MainLayout/Panel/Margin/Layout/Title")
+	if pause_title and pause_title is Label:
+		pause_title.text = tm.get_auto_translation("TITLE_PAUSED") if tm else "SIMULATION PAUSED"
+
 	if resume_button:
 		resume_button.text = tm.get_auto_translation("BTN_RESUME") if tm else "RESUME SIMULATION"
-	var tutorial_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Tutorial")
-	if tutorial_btn:
-		tutorial_btn.text = tm.get_auto_translation("BTN_TUTORIAL") if tm else "PLAY TUTORIAL"
-	var main_menu_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/MainMenu")
-	if main_menu_btn:
-		main_menu_btn.text = tm.get_auto_translation("BTN_MAIN_MENU") if tm else "MAIN MENU"
-	var restart_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Restart")
-	if restart_btn:
-		restart_btn.text = tm.get_auto_translation("BTN_RESTART") if tm else "RESTART LEVEL"
-	var quit_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Quit")
-	if quit_btn:
-		quit_btn.text = tm.get_auto_translation("BTN_QUIT") if tm else "QUIT GAME"
+	var tutorial_btn = _find_menu_node("Center/MainLayout/Panel/Margin/Layout/Tutorial")
+	if tutorial_btn and tutorial_btn is Button:
+		tutorial_btn.text = tm.get_auto_translation("BTN_TUTORIAL_FLIGHT") if tm else "FLIGHT TUTORIAL"
+	var main_menu_btn = _find_menu_node("Center/MainLayout/Panel/Margin/Layout/MainMenu")
+	if main_menu_btn and main_menu_btn is Button:
+		main_menu_btn.text = tm.get_auto_translation("BTN_MAIN_MENU_INTRO") if tm else "MAIN MENU / INTRO"
+	var restart_btn = _find_menu_node("Center/MainLayout/Panel/Margin/Layout/Restart")
+	if restart_btn and restart_btn is Button:
+		restart_btn.text = tm.get_auto_translation("BTN_RESTART_SIM") if tm else "RESTART SIMULATION"
+	var quit_btn = _find_menu_node("Center/MainLayout/Panel/Margin/Layout/Quit")
+	if quit_btn and quit_btn is Button:
+		quit_btn.text = tm.get_auto_translation("BTN_QUIT_DESKTOP") if tm else "QUIT TO DESKTOP"
 
-	var fn_title = get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Title")
-	if fn_title:
+	if big_red_quit_button:
+		big_red_quit_button.text = "⏻ " + (tm.get_auto_translation("BTN_POWER_OFF") if tm else "POWER OFF (QUIT)")
+
+	var fn_title = _find_menu_node("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Title")
+	if fn_title and fn_title is Label:
 		fn_title.text = tm.get_auto_translation("TITLE_LIGHT_SHOWS") if tm else "LIGHT SHOWS & FUNCTIONS"
-	var fm_title = get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/FormationsTitle")
-	if fm_title:
+	var fm_title = _find_menu_node("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/FormationsTitle")
+	if fm_title and fm_title is Label:
 		fm_title.text = tm.get_auto_translation("LABEL_SWARM_FORMATIONS") if tm else "SWARM AIRSHOW FORMATIONS"
 
-	if formation_buttons != null and formation_buttons.has("star") and formation_buttons["star"]:
-		formation_buttons["star"].text = tm.get_auto_translation("BTN_STAR") if tm else "Star"
-	if formation_buttons != null and formation_buttons.has("circle") and formation_buttons["circle"]:
-		formation_buttons["circle"].text = tm.get_auto_translation("BTN_CIRCLE") if tm else "Circle"
-	if formation_buttons != null and formation_buttons.has("heart") and formation_buttons["heart"]:
-		formation_buttons["heart"].text = tm.get_auto_translation("BTN_HEART") if tm else "Heart"
-	if formation_buttons != null and formation_buttons.has("diamond") and formation_buttons["diamond"]:
-		formation_buttons["diamond"].text = tm.get_auto_translation("BTN_DIAMOND") if tm else "Diamond"
-	if formation_buttons != null and formation_buttons.has("wave") and formation_buttons["wave"]:
-		formation_buttons["wave"].text = tm.get_auto_translation("BTN_WAVE") if tm else "Wave"
+	if formation_buttons != null:
+		for k in ["star", "circle", "heart", "diamond", "wave"]:
+			var btn = formation_buttons.get(k)
+			if not btn or not is_instance_valid(btn):
+				btn = _find_menu_node("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/" + k.capitalize())
+				formation_buttons[k] = btn
+			if btn and btn is Button:
+				btn.text = tm.get_auto_translation("BTN_" + k.to_upper()) if tm else k.capitalize()
 
 	if stop_show_button:
 		stop_show_button.text = tm.get_auto_translation("BTN_STOP_SHOW") if tm else "STOP AIRSHOW FORMATION"
@@ -269,6 +289,29 @@ func _adapt_ui_to_locale(locale: String, is_rtl: bool) -> void:
 		record_show_button.text = tm.get_auto_translation("BTN_STOP_RECORDING") if video_recorder and video_recorder.is_recording else (tm.get_auto_translation("BTN_RECORD_SHOW") if tm else "RECORD SHOW")
 	if screenshot_button:
 		screenshot_button.text = tm.get_auto_translation("BTN_TAKE_SCREENSHOT") if tm else "TAKE SCREENSHOT"
+
+	for node in _dev_translatable:
+		if is_instance_valid(node):
+			var key: String = _dev_translatable[node]
+			var text: String = tm.get_auto_translation(key) if tm else key
+			if node is Label:
+				node.text = text
+			elif node is Button:
+				node.text = text
+
+	for opt in _dev_translatable_dropdowns:
+		if is_instance_valid(opt) and opt is OptionButton:
+			var raw_options: Array = _dev_translatable_dropdowns[opt]
+			var cur_sel = opt.selected
+			for i in range(raw_options.size()):
+				var raw_str = String(raw_options[i])
+				var item_key = "OPT_" + raw_str.to_upper().replace(" ", "_").replace("(", "").replace(")", "").replace("-", "_").replace("/", "_").replace(".", "_").replace("%", "")
+				var translated = tm.get_auto_translation(item_key) if tm else raw_str
+				if translated == item_key:
+					translated = raw_str
+				opt.set_item_text(i, translated)
+			if cur_sel >= 0 and cur_sel < opt.item_count:
+				opt.selected = cur_sel
 
 	select_tab(current_tab_index)
 	update_controls_display()
@@ -469,7 +512,7 @@ func _process(delta: float) -> void:
 	if visible and get_viewport():
 		var vp_size = get_viewport().get_visible_rect().size
 		if big_red_quit_button:
-			big_red_quit_button.position = Vector2(vp_size.x - 213, vp_size.y - 74)
+			big_red_quit_button.position = Vector2(vp_size.x - 245, vp_size.y - 74)
 		if quit_confirm_modal and quit_confirm_modal.visible:
 			quit_confirm_modal.position = (vp_size - Vector2(420, 180)) / 2.0
 
@@ -555,8 +598,9 @@ func _setup_big_red_quit_button() -> void:
 
 	big_red_quit_button = Button.new()
 	big_red_quit_button.name = "BigRedQuitButton"
-	big_red_quit_button.text = "⏻ POWER OFF (QUIT)"
-	big_red_quit_button.custom_minimum_size = Vector2(185, 48)
+	var tm = _trans_mgr if _trans_mgr else (get_tree().root.get_node_or_null("TranslationManager") if is_inside_tree() else null)
+	big_red_quit_button.text = "⏻ " + (tm.get_auto_translation("BTN_POWER_OFF") if tm else "POWER OFF (QUIT)")
+	big_red_quit_button.custom_minimum_size = Vector2(230, 48)
 	big_red_quit_button.add_theme_font_size_override("font_size", 13)
 
 	var sb_normal = StyleBoxFlat.new()
@@ -1182,7 +1226,7 @@ func _style_dev_option_button(opt: OptionButton) -> void:
 	opt.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
 	opt.add_theme_color_override("font_hover_color", Color(0.3, 0.95, 1.0))
 
-func _add_dev_option_row(vbox: VBoxContainer, label_text: String, opt_button: OptionButton) -> void:
+func _add_dev_option_row(vbox: VBoxContainer, label_text: String, opt_button: OptionButton, key: String = "", raw_options: Array = []) -> Label:
 	var row = HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 34)
 
@@ -1193,11 +1237,17 @@ func _add_dev_option_row(vbox: VBoxContainer, label_text: String, opt_button: Op
 	lbl.add_theme_color_override("font_color", Color(0.85, 0.92, 0.98))
 	row.add_child(lbl)
 
+	if key != "":
+		_dev_translatable[lbl] = key
+	if raw_options.size() > 0:
+		_dev_translatable_dropdowns[opt_button] = raw_options
+
 	opt_button.custom_minimum_size = Vector2(230, 32)
 	_style_dev_option_button(opt_button)
 	row.add_child(opt_button)
 
 	vbox.add_child(row)
+	return lbl
 
 func _on_dev_battery_preset_selected(idx: int) -> void:
 	match idx:
@@ -1285,6 +1335,7 @@ func _build_dev_menu_panel(main_layout: Node) -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 16)
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
+	_dev_translatable[title] = "DEV_TITLE"
 	vbox.add_child(title)
 
 	dev_status_label = Label.new()
@@ -1292,6 +1343,7 @@ func _build_dev_menu_panel(main_layout: Node) -> void:
 	dev_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dev_status_label.add_theme_font_size_override("font_size", 11)
 	dev_status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
+	_dev_translatable[dev_status_label] = "DEV_STATUS_READY"
 	vbox.add_child(dev_status_label)
 
 	var sep1 = HSeparator.new()
@@ -1303,32 +1355,29 @@ func _build_dev_menu_panel(main_layout: Node) -> void:
 	cat1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cat1.add_theme_font_size_override("font_size", 12)
 	cat1.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 0.9))
+	_dev_translatable[cat1] = "DEV_CAT_BATTERY"
 	vbox.add_child(cat1)
 
 	# Row 1: Battery Level Preset
 	var opt_bat = OptionButton.new()
-	opt_bat.add_item("100% (Instant Recharge)")
-	opt_bat.add_item("75% (Drain -25%)")
-	opt_bat.add_item("50% (Drain -50%)")
-	opt_bat.add_item("10% (Low Warning)")
-	opt_bat.add_item("0% (Empty)")
+	var bat_items = ["100% (Instant Recharge)", "75% (Drain -25%)", "50% (Drain -50%)", "10% (Low Warning)", "0% (Empty)"]
+	for item in bat_items: opt_bat.add_item(item)
 	opt_bat.item_selected.connect(_on_dev_battery_preset_selected)
-	_add_dev_option_row(vbox, "Battery Charge Preset", opt_bat)
+	_add_dev_option_row(vbox, "Battery Charge Preset", opt_bat, "DEV_BAT_PRESET", bat_items)
 
 	# Row 2: Battery Drain Speed
 	var opt_drain = OptionButton.new()
-	opt_drain.add_item("1x Normal Speed")
-	opt_drain.add_item("5x Fast Drain")
-	opt_drain.add_item("20x Turbo Drain")
+	var drain_items = ["1x Normal Speed", "5x Fast Drain", "20x Turbo Drain"]
+	for item in drain_items: opt_drain.add_item(item)
 	opt_drain.item_selected.connect(_on_dev_drain_speed_selected)
-	_add_dev_option_row(vbox, "Battery Drain Speed", opt_drain)
+	_add_dev_option_row(vbox, "Battery Drain Speed", opt_drain, "DEV_BAT_DRAIN", drain_items)
 
 	# Row 3: Infinite Battery Mode
 	var opt_inf = OptionButton.new()
-	opt_inf.add_item("Disabled")
-	opt_inf.add_item("Enabled")
+	var inf_items = ["Disabled", "Enabled"]
+	for item in inf_items: opt_inf.add_item(item)
 	opt_inf.item_selected.connect(_on_dev_infinite_battery_selected)
-	_add_dev_option_row(vbox, "Infinite Battery Mode", opt_inf)
+	_add_dev_option_row(vbox, "Infinite Battery Mode", opt_inf, "DEV_BAT_INFINITE", inf_items)
 
 	var sep2 = HSeparator.new()
 	vbox.add_child(sep2)
@@ -1339,39 +1388,36 @@ func _build_dev_menu_panel(main_layout: Node) -> void:
 	cat2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cat2.add_theme_font_size_override("font_size", 12)
 	cat2.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 0.9))
+	_dev_translatable[cat2] = "DEV_CAT_PHYSICS"
 	vbox.add_child(cat2)
 
 	# Row 4: World Gravity
 	var opt_grav = OptionButton.new()
-	opt_grav.add_item("1.0x Normal Gravity")
-	opt_grav.add_item("0.0x Zero-G Floating")
-	opt_grav.add_item("0.3x Lunar Low-G")
-	opt_grav.add_item("2.5x Heavy Gravity")
+	var grav_items = ["1.0x Normal Gravity", "0.0x Zero-G Floating", "0.3x Lunar Low-G", "2.5x Heavy Gravity"]
+	for item in grav_items: opt_grav.add_item(item)
 	opt_grav.item_selected.connect(_on_dev_gravity_selected)
-	_add_dev_option_row(vbox, "World Gravity Scale", opt_grav)
+	_add_dev_option_row(vbox, "World Gravity Scale", opt_grav, "DEV_GRAVITY", grav_items)
 
 	# Row 5: Time Scale (Slow-Mo)
 	var opt_time = OptionButton.new()
-	opt_time.add_item("1.0x Normal Speed")
-	opt_time.add_item("0.25x Matrix Slow-Mo")
-	opt_time.add_item("0.5x Half Speed")
-	opt_time.add_item("2.0x Fast-Forward")
+	var time_items = ["1.0x Normal Speed", "0.25x Matrix Slow-Mo", "0.5x Half Speed", "2.0x Fast-Forward"]
+	for item in time_items: opt_time.add_item(item)
 	opt_time.item_selected.connect(_on_dev_timescale_selected)
-	_add_dev_option_row(vbox, "Time Scale (Slow-Mo)", opt_time)
+	_add_dev_option_row(vbox, "Time Scale (Slow-Mo)", opt_time, "DEV_TIME", time_items)
 
 	# Row 6: God Mode / Invincibility
 	var opt_god = OptionButton.new()
-	opt_god.add_item("Disabled (Normal Damage)")
-	opt_god.add_item("Enabled (Invincible)")
+	var god_items = ["Disabled (Normal Damage)", "Enabled (Invincible)"]
+	for item in god_items: opt_god.add_item(item)
 	opt_god.item_selected.connect(_on_dev_god_mode_selected)
-	_add_dev_option_row(vbox, "God Mode (Invincibility)", opt_god)
+	_add_dev_option_row(vbox, "God Mode (Invincibility)", opt_god, "DEV_GOD", god_items)
 
 	# Row 7: Motor Thrust Power
 	var opt_thrust = OptionButton.new()
-	opt_thrust.add_item("1.0x Normal Thrust")
-	opt_thrust.add_item("2.5x Rocket Thrust")
+	var thrust_items = ["1.0x Normal Thrust", "2.5x Rocket Thrust"]
+	for item in thrust_items: opt_thrust.add_item(item)
 	opt_thrust.item_selected.connect(_on_dev_thrust_selected)
-	_add_dev_option_row(vbox, "Motor Thrust Power", opt_thrust)
+	_add_dev_option_row(vbox, "Motor Thrust Power", opt_thrust, "DEV_THRUST", thrust_items)
 
 	main_layout.add_child(dev_menu_panel)
 	dev_menu_panel.visible = false

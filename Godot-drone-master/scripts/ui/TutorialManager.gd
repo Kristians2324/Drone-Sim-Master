@@ -47,6 +47,9 @@ func _ready() -> void:
 	var theme_mgr = get_node_or_null("/root/ThemeManager")
 	if theme_mgr:
 		theme_mgr.theme_changed.connect(_on_theme_changed)
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	if trans_mgr:
+		trans_mgr.locale_changed.connect(func(_l, _rtl): _update_step_display())
 
 func _on_theme_changed(_t: String) -> void:
 	var theme_mgr = get_node_or_null("/root/ThemeManager")
@@ -94,21 +97,41 @@ func _update_step_display() -> void:
 	if current_step_index >= TUTORIAL_STEPS.size():
 		current_step_index = TUTORIAL_STEPS.size() - 1
 
-	var step_data = TUTORIAL_STEPS[current_step_index]
+	var tm = get_node_or_null("/root/TranslationManager")
+	var is_rtl = tm.is_rtl() if tm else false
+	var target_dir = Control.LAYOUT_DIRECTION_RTL if is_rtl else Control.LAYOUT_DIRECTION_LTR
+
+	var center_node = get_node_or_null("Center")
+	if center_node:
+		center_node.layout_direction = target_dir
+
+	var guide_title = get_node_or_null("Center/Panel/Margin/Layout/Header/Title")
+	if guide_title:
+		guide_title.text = tm.get_auto_translation("TUTORIAL_GUIDE_TITLE") if tm else "FLIGHT & SIMULATOR GUIDE"
+
+	var step_idx = current_step_index + 1
+	var title_key = "TUTORIAL_STEP%d_TITLE" % step_idx
+	var desc_key = "TUTORIAL_STEP%d_DESC" % step_idx
+
 	if step_label:
-		step_label.text = "Step %d of %d" % [current_step_index + 1, TUTORIAL_STEPS.size()]
+		var counter_fmt = tm.get_auto_translation("TUTORIAL_STEP_COUNTER") if tm else "Step %d of %d"
+		step_label.text = counter_fmt % [step_idx, TUTORIAL_STEPS.size()]
 	if step_title_label:
-		step_title_label.text = step_data["title"]
+		step_title_label.text = tm.get_auto_translation(title_key) if tm else TUTORIAL_STEPS[current_step_index]["title"]
 	if description_label:
-		description_label.text = step_data["description"]
+		description_label.text = tm.get_auto_translation(desc_key) if tm else TUTORIAL_STEPS[current_step_index]["description"]
+		description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	if prev_button:
 		prev_button.disabled = (current_step_index == 0)
+		prev_button.text = tm.get_auto_translation("BTN_PREV") if tm else "PREV"
+	if skip_button:
+		skip_button.text = tm.get_auto_translation("BTN_SKIP") if tm else "SKIP"
 	if next_button:
 		if current_step_index == TUTORIAL_STEPS.size() - 1:
-			next_button.text = "FINISH"
+			next_button.text = tm.get_auto_translation("BTN_FINISH") if tm else "FINISH"
 		else:
-			next_button.text = "NEXT"
+			next_button.text = tm.get_auto_translation("BTN_NEXT") if tm else "NEXT"
 
 func _on_prev_pressed() -> void:
 	if current_step_index > 0:
