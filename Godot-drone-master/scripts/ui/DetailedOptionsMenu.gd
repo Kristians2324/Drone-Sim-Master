@@ -60,6 +60,23 @@ func _ready():
 	_is_initializing_ui = false
 	apply_all_current_settings()
 
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	if theme_mgr:
+		theme_mgr.theme_changed.connect(_on_theme_changed)
+
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	if trans_mgr:
+		trans_mgr.locale_changed.connect(_on_locale_changed)
+		_on_locale_changed(trans_mgr.current_locale, trans_mgr.is_rtl())
+
+func _on_theme_changed(_new_theme: String) -> void:
+	_switch_tab(current_tab)
+
+func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
+	layout_direction = Control.LAYOUT_DIRECTION_RTL if is_rtl else Control.LAYOUT_DIRECTION_LTR
+	if tab_bar:
+		tab_bar.layout_direction = layout_direction
+
 func _load_config_from_disk() -> void:
 	var config = ConfigFile.new()
 	if config.load(CONFIG_FILE_PATH) == OK:
@@ -76,7 +93,7 @@ func _setup_ui():
 
 	# --- Title Bar ---
 	var title = Label.new()
-	title.text = "GRAPHICAL CONFIGURATION"
+	title.text = "OPTIONS"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	title.add_theme_font_size_override("font_size", 18)
@@ -95,6 +112,7 @@ func _setup_ui():
 		{"id": "env", "label": "WORLD"},
 		{"id": "swarm", "label": "SWARM"},
 		{"id": "audio_cam", "label": "AUDIO/CAM"},
+		{"id": "ui_theme", "label": "UI THEME"},
 		{"id": "presets", "label": "PRESETS"}
 	]
 
@@ -127,12 +145,10 @@ func _setup_ui():
 	content_margin.add_theme_constant_override("margin_bottom", 4)
 	scroll.add_child(content_margin)
 
-	var content_stack = PanelContainer.new()
+	var content_stack = MarginContainer.new()
 	content_stack.name = "ContentStack"
 	content_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var transparent_box = StyleBoxEmpty.new()
-	content_stack.add_theme_stylebox_override("panel", transparent_box)
 	content_margin.add_child(content_stack)
 
 	# Build tab content containers
@@ -141,6 +157,7 @@ func _setup_ui():
 	tab_contents["env"] = _build_env_tab()
 	tab_contents["swarm"] = _build_swarm_tab()
 	tab_contents["audio_cam"] = _build_audio_cam_tab()
+	tab_contents["ui_theme"] = _build_ui_theme_tab()
 	tab_contents["presets"] = _build_presets_tab()
 
 	for cat in tab_contents.keys():
@@ -149,16 +166,10 @@ func _setup_ui():
 	_switch_tab("graphics")
 
 func _apply_tab_button_style(btn: Button, active: bool):
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+	
 	var style = StyleBoxFlat.new()
-	if active:
-		style.bg_color = Color(0.2, 0.65, 0.95, 0.45)
-		style.border_color = Color(0.2, 0.85, 1.0, 0.9)
-		btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	else:
-		style.bg_color = Color(0.12, 0.16, 0.22, 0.9)
-		style.border_color = Color(0.2, 0.65, 0.95, 0.5)
-		btn.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95, 0.75))
-
 	style.set_border_width_all(1)
 	style.corner_radius_top_left = 6
 	style.corner_radius_top_right = 6
@@ -168,6 +179,26 @@ func _apply_tab_button_style(btn: Button, active: bool):
 	style.content_margin_right = 2
 	style.content_margin_top = 4
 	style.content_margin_bottom = 4
+
+	if is_light:
+		if active:
+			style.bg_color = Color(0.12, 0.48, 0.88, 0.95)
+			style.border_color = Color(0.20, 0.65, 1.0, 1.0)
+			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		else:
+			style.bg_color = Color(0.80, 0.85, 0.92, 0.95)
+			style.border_color = Color(0.20, 0.50, 0.85, 0.5)
+			btn.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.85))
+	else:
+		if active:
+			style.bg_color = Color(0.2, 0.65, 0.95, 0.45)
+			style.border_color = Color(0.2, 0.85, 1.0, 0.9)
+			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		else:
+			style.bg_color = Color(0.12, 0.16, 0.22, 0.9)
+			style.border_color = Color(0.2, 0.65, 0.95, 0.5)
+			btn.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95, 0.75))
+
 	btn.add_theme_stylebox_override("normal", style)
 	btn.add_theme_stylebox_override("hover", style)
 	btn.add_theme_stylebox_override("pressed", style)
@@ -263,6 +294,54 @@ func _build_audio_cam_tab() -> Control:
 
 	vbox.add_child(HSeparator.new())
 	vbox.add_child(_create_styled_button("RESET AUDIO/CAM DEFAULTS", _reset_audio_cam_defaults, Color(0.15, 0.25, 0.35, 0.9)))
+
+	return vbox
+
+func _build_ui_theme_tab() -> Control:
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+
+	var label = Label.new()
+	label.text = "UI THEME & LOCALIZATION"
+	label.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(label)
+
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	var lang_names = []
+	var selected_idx = 0
+	if trans_mgr:
+		var locales = trans_mgr.get_supported_locales()
+		for i in range(locales.size()):
+			lang_names.append(locales[i]["name"])
+			if locales[i]["code"] == trans_mgr.current_locale:
+				selected_idx = i
+
+	var lang_row = _create_dropdown_row("language", "Language / Language / Idioma / اللغة", lang_names, selected_idx, func(idx):
+		if trans_mgr:
+			var locales = trans_mgr.get_supported_locales()
+			if idx >= 0 and idx < locales.size():
+				trans_mgr.set_locale(locales[idx]["code"])
+	)
+	vbox.add_child(lang_row)
+
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var theme_names = ["Auto (Location Sync)", "Light Mode", "Dark Mode"]
+	var theme_idx = 0
+	if theme_mgr:
+		match theme_mgr.theme_mode:
+			"auto": theme_idx = 0
+			"light": theme_idx = 1
+			"dark": theme_idx = 2
+
+	var theme_row = _create_dropdown_row("theme_mode", "UI Color Theme", theme_names, theme_idx, func(idx):
+		if theme_mgr:
+			match idx:
+				0: theme_mgr.set_theme_mode("auto")
+				1: theme_mgr.set_theme_mode("light")
+				2: theme_mgr.set_theme_mode("dark")
+	)
+	vbox.add_child(theme_row)
 
 	return vbox
 
@@ -380,13 +459,11 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95, 0.9))
 	lbl.add_theme_font_size_override("font_size", 13)
 	header_hbox.add_child(lbl)
 
 	var val_lbl = Label.new()
 	val_lbl.text = val_format % val_transform.call(cur_val)
-	val_lbl.add_theme_color_override("font_color", Color(0.2, 0.85, 1.0, 1.0))
 	val_lbl.add_theme_font_size_override("font_size", 13)
 	header_hbox.add_child(val_lbl)
 
@@ -585,7 +662,7 @@ func _apply_msaa(idx: int):
 	match idx:
 		1: msaa = Viewport.MSAA_2X
 		2: msaa = Viewport.MSAA_4X
-		3: msaa = Viewport.MSAA_8X
+		3: msaa = Viewport.MSAA_4X
 	get_viewport().msaa_3d = msaa
 
 func _apply_shadow_quality(idx: int):
@@ -973,3 +1050,15 @@ func _on_swarm_audio_vol_changed(vol_linear: float) -> void:
 		if sc and sc.get("swarm_audio_component") != null and sc.swarm_audio_component:
 			var db = linear_to_db(clampf(vol_linear, 0.0001, 1.0)) if vol_linear > 0.01 else -80.0
 			sc.swarm_audio_component.set_user_volume_db(db)
+
+
+func _on_ui_theme_mode_changed(idx: int) -> void:
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	if not theme_mgr:
+		return
+	if idx == 0:
+		theme_mgr.set_theme_mode("auto")
+	elif idx == 1:
+		theme_mgr.set_theme_mode("light")
+	elif idx == 2:
+		theme_mgr.set_theme_mode("dark")

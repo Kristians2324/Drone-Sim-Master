@@ -22,6 +22,8 @@ config/icon="res://icon.png"
 
 UISoundManager="*res://scripts/ui/UISoundManager.gd"
 ToastManager="*res://scripts/ui/ToastManager.gd"
+ThemeManager="*res://scripts/ui/ThemeManager.gd"
+TranslationManager="*res://scripts/ui/TranslationManager.gd"
 
 [debug]
 

@@ -60,8 +60,15 @@ func show_toast(message: String, duration: float = 2.5) -> void:
 	style.content_margin_bottom = 10
 	panel.add_theme_stylebox_override("panel", style)
 
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	var is_rtl = trans_mgr.is_rtl() if trans_mgr else false
+	var display_text = trans_mgr.get_auto_translation(message) if trans_mgr else message
+
+	if is_rtl:
+		panel.layout_direction = Control.LAYOUT_DIRECTION_RTL
+
 	var label = Label.new()
-	label.text = message.to_upper()
+	label.text = display_text
 	label.add_theme_font_size_override("font_size", 11)
 	label.add_theme_color_override("font_color", Color(0.92, 0.95, 0.98))
 	panel.add_child(label)

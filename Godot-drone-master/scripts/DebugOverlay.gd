@@ -33,6 +33,10 @@ func _ready() -> void:
 	_build_battery_hud()
 	_build_stats_panel()
 	_apply_visibility()
+	
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	if theme_mgr:
+		theme_mgr.theme_changed.connect(func(_t): _update_battery_theme())
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -43,8 +47,9 @@ func _input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	var fps := Engine.get_frames_per_second()
 	var fps_color := _fps_color(fps)
-	_fps_label.text = "FPS: %d" % fps
-	_fps_label.add_theme_color_override("font_color", fps_color)
+	if _fps_label:
+		_fps_label.text = "FPS: %d" % fps
+		_fps_label.add_theme_color_override("font_color", fps_color)
 
 	_update_battery_display()
 
@@ -145,26 +150,39 @@ func _build_fps_label() -> void:
 	_fps_label.offset_bottom = PADDING + FONT_SIZE_FPS + 4
 	add_child(_fps_label)
 
-func _build_battery_hud() -> void:
-	_battery_panel = PanelContainer.new()
+func _update_battery_theme() -> void:
+	if not _battery_panel:
+		return
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.03, 0.06, 0.10, 0.85)
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.2, 0.75, 0.95, 0.8)
 	style.corner_radius_top_left = 12
 	style.corner_radius_top_right = 12
 	style.corner_radius_bottom_left = 12
 	style.corner_radius_bottom_right = 12
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
-	style.shadow_size = 6
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
+	style.set_border_width_all(2)
+
+	if is_light:
+		style.bg_color = Color(0.88, 0.91, 0.95, 0.94)
+		style.border_color = Color(0.12, 0.45, 0.80, 0.75)
+		style.shadow_color = Color(0.05, 0.10, 0.20, 0.12)
+		style.shadow_size = 6
+	else:
+		style.bg_color = Color(0.03, 0.06, 0.10, 0.85)
+		style.border_color = Color(0.2, 0.75, 0.95, 0.8)
+		style.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+		style.shadow_size = 6
+
 	_battery_panel.add_theme_stylebox_override("panel", style)
+
+func _build_battery_hud() -> void:
+	_battery_panel = PanelContainer.new()
+	_update_battery_theme()
 	
 	_battery_panel.anchor_left = 0.0
 	_battery_panel.anchor_right = 0.0
@@ -191,13 +209,11 @@ func _build_battery_hud() -> void:
 
 	_battery_percent_label = Label.new()
 	_battery_percent_label.add_theme_font_size_override("font_size", FONT_SIZE_BATTERY)
-	_battery_percent_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.4))
 	_battery_percent_label.text = "BATTERY 100%"
 	hbox.add_child(_battery_percent_label)
 
 	_battery_status_label = Label.new()
 	_battery_status_label.add_theme_font_size_override("font_size", 12)
-	_battery_status_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0, 0.8))
 	_battery_status_label.text = "FLIGHT TIME: ~20 MIN"
 	_battery_vbox.add_child(_battery_status_label)
 
@@ -243,9 +259,9 @@ func _build_stats_panel() -> void:
 	add_child(_stats_panel)
 
 func _apply_visibility() -> void:
-	_stats_panel.visible = _visible
-	_fps_label.visible = true
-	_battery_panel.visible = true
+	if _stats_panel: _stats_panel.visible = _visible
+	if _fps_label: _fps_label.visible = true
+	if _battery_panel: _battery_panel.visible = true
 
 func set_battery_hud_visible(visible_flag: bool) -> void:
 	if _battery_panel and is_instance_valid(_battery_panel):
@@ -274,28 +290,39 @@ func _update_battery_display() -> void:
 
 	var is_recharging: bool = drone.is_battery_recharging() if drone.has_method("is_battery_recharging") else false
 
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+
 	if _battery_percent_label:
 		_battery_percent_label.text = "BATTERY %d%%" % int(pct)
-		if pct > 40.0:
-			_battery_percent_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.4))
-		elif pct > 15.0:
-			_battery_percent_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.2))
+		if is_light:
+			if pct > 40.0:
+				_battery_percent_label.add_theme_color_override("font_color", Color(0.04, 0.55, 0.22))
+			elif pct > 15.0:
+				_battery_percent_label.add_theme_color_override("font_color", Color(0.85, 0.45, 0.0))
+			else:
+				_battery_percent_label.add_theme_color_override("font_color", Color(0.85, 0.15, 0.15))
 		else:
-			_battery_percent_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
+			if pct > 40.0:
+				_battery_percent_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.4))
+			elif pct > 15.0:
+				_battery_percent_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.2))
+			else:
+				_battery_percent_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
 
 	if _battery_status_label:
 		if is_recharging:
-			_battery_status_label.text = "⚡ RECHARGING AT TOWER..."
-			_battery_status_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.0))
+			_battery_status_label.text = "RECHARGING AT TOWER..."
+			_battery_status_label.add_theme_color_override("font_color", Color(0.85, 0.45, 0.0) if is_light else Color(1.0, 0.65, 0.0))
 		elif pct <= 3.0:
-			_battery_status_label.text = "⚠️ CRITICAL AUTO-LANDING"
-			_battery_status_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+			_battery_status_label.text = "CRITICAL AUTO-LANDING"
+			_battery_status_label.add_theme_color_override("font_color", Color(0.85, 0.15, 0.15) if is_light else Color(1.0, 0.2, 0.2))
 		elif pct <= 20.0:
-			_battery_status_label.text = "⚠️ LOW BATTERY WARNING"
-			_battery_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.2))
+			_battery_status_label.text = "LOW BATTERY WARNING"
+			_battery_status_label.add_theme_color_override("font_color", Color(0.85, 0.45, 0.0) if is_light else Color(1.0, 0.7, 0.2))
 		else:
 			_battery_status_label.text = "FLIGHT TIME: ~%d MIN" % int(pct * 0.2)
-			_battery_status_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0, 0.8))
+			_battery_status_label.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.9) if is_light else Color(0.8, 0.9, 1.0, 0.8))
 
 func _fps_color(fps: int) -> Color:
 	if fps >= 55:

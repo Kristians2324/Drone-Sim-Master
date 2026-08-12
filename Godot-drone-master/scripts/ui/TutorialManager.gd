@@ -44,6 +44,15 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	hide()
 	_connect_signals()
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	if theme_mgr:
+		theme_mgr.theme_changed.connect(_on_theme_changed)
+
+func _on_theme_changed(_t: String) -> void:
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var panel = get_node_or_null("Center/Panel")
+	if theme_mgr and panel:
+		theme_mgr.apply_theme_to_control(panel)
 
 func _connect_signals() -> void:
 	if prev_button and not prev_button.pressed.is_connected(_on_prev_pressed):
@@ -73,6 +82,7 @@ func start_tutorial() -> void:
 		get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	show()
+	_on_theme_changed("")
 	_update_step_display()
 	if next_button:
 		next_button.grab_focus()

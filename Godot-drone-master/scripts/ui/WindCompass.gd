@@ -28,13 +28,20 @@ var target_drone: Node3D = null
 
 func _ready() -> void:
 	layer = 125
-	process_mode = Node.PROCESS_MODE_PAUSABLE
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_canvas = Control.new()
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.draw.connect(_on_draw)
 	add_child(_canvas)
 	_connect_wind_manager()
+
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	if theme_mgr:
+		theme_mgr.theme_changed.connect(func(_new_theme: String):
+			if _canvas and is_instance_valid(_canvas):
+				_canvas.queue_redraw()
+		)
 
 var _connect_retries: int = 0
 
@@ -131,9 +138,13 @@ func _on_draw() -> void:
 		_draw_gust_flash(center)
 
 func _draw_backing(center: Vector2) -> void:
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
 	var r := COMPASS_RADIUS + ARC_WIDTH + 4.0
-	_canvas.draw_circle(center, r + 4.0, Color(0.0, 0.0, 0.0, 0.30))
-	_canvas.draw_circle(center, r, Color(0.03, 0.06, 0.10, 0.85))
+	var shadow_col := Color(0.0, 0.0, 0.0, 0.15) if is_light else Color(0.0, 0.0, 0.0, 0.30)
+	var bg_col := Color(0.88, 0.91, 0.95, 0.94) if is_light else Color(0.03, 0.06, 0.10, 0.85)
+	_canvas.draw_circle(center, r + 4.0, shadow_col)
+	_canvas.draw_circle(center, r, bg_col)
 
 func _draw_speed_arc(center: Vector2) -> void:
 	var max_speed := 8.0
@@ -166,17 +177,22 @@ func _draw_arc_thick(center: Vector2, radius: float, from_angle: float, to_angle
 		prev = pt
 
 func _draw_compass_ring(center: Vector2) -> void:
-	_draw_arc_thick(center, COMPASS_RADIUS, 0.0, TAU, 1.8, Color(0.2, 0.75, 1.0, 0.7))
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+	var ring_col := Color(0.12, 0.45, 0.85, 0.8) if is_light else Color(0.2, 0.75, 1.0, 0.7)
+	_draw_arc_thick(center, COMPASS_RADIUS, 0.0, TAU, 1.8, ring_col)
 
 	for i in range(8):
 		var angle := (PI / 4.0) * float(i)
 		var inner := COMPASS_RADIUS - (8.0 if i % 2 == 0 else 4.0)
 		var p0 := center + Vector2(cos(angle), sin(angle)) * inner
 		var p1 := center + Vector2(cos(angle), sin(angle)) * COMPASS_RADIUS
-		var col := Color(0.75, 0.92, 1.0, 0.85) if i % 2 == 0 else Color(0.5, 0.75, 0.95, 0.5)
+		var col := Color(0.12, 0.45, 0.85, 0.9) if is_light else (Color(0.75, 0.92, 1.0, 0.85) if i % 2 == 0 else Color(0.5, 0.75, 0.95, 0.5))
 		_canvas.draw_line(p0, p1, col, 1.5)
 
 func _draw_cardinal_labels(center: Vector2) -> void:
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
 	var cardinals := {
 		"N": -PI * 0.5,
 		"E": 0.0,
@@ -187,7 +203,11 @@ func _draw_cardinal_labels(center: Vector2) -> void:
 	for label in cardinals:
 		var a: float = cardinals[label]
 		var pt := center + Vector2(cos(a), sin(a)) * label_r - Vector2(5.0, 7.0)
-		var col := Color(0.9, 0.95, 1.0, 0.9) if label != "N" else Color(1.0, 0.35, 0.35, 1.0)
+		var col: Color
+		if label == "N":
+			col = Color(0.85, 0.15, 0.15, 1.0) if is_light else Color(1.0, 0.35, 0.35, 1.0)
+		else:
+			col = Color(0.06, 0.10, 0.18, 0.95) if is_light else Color(0.9, 0.95, 1.0, 0.9)
 		_canvas.draw_string(ThemeDB.fallback_font, pt, label, HORIZONTAL_ALIGNMENT_CENTER, -1, 13, col)
 
 func _draw_flow_ribbons(center: Vector2) -> void:

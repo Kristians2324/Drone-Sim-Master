@@ -43,6 +43,10 @@ var god_mode_active: bool = false
 var big_red_quit_button: Button = null
 var quit_confirm_modal: PanelContainer = null
 
+# Cached autoload references (safe in headless tests — avoids absolute-path get_node errors)
+var _trans_mgr = null
+var _theme_mgr = null
+
 const KEYBOARD_TEXT = "--- KEYBOARD CONTROLS ---
 SPACE / SHIFT : Thrust Up/Down
 W / S : Pitch Forward/Back
@@ -98,6 +102,257 @@ func _ready():
 	if quit_btn and not quit_btn.pressed.is_connected(_on_quit_pressed):
 		quit_btn.pressed.connect(_on_quit_pressed)
 
+	_setup_theme_switcher_bar()
+	if is_inside_tree() and get_tree().root.has_node("ThemeManager"):
+		_theme_mgr = get_tree().root.get_node("ThemeManager")
+		_theme_mgr.theme_changed.connect(_on_theme_changed)
+		_on_theme_changed(_theme_mgr.current_ui_theme)
+
+	if is_inside_tree() and get_tree().root.has_node("TranslationManager"):
+		var trans_mgr = get_tree().root.get_node("TranslationManager")
+		_trans_mgr = trans_mgr
+		trans_mgr.locale_changed.connect(_on_locale_changed)
+		_on_locale_changed(trans_mgr.current_locale, trans_mgr.is_rtl())
+
+func _setup_theme_switcher_bar() -> void:
+	var layout = get_node_or_null("Center/MainLayout/Panel/Margin/Layout")
+	if not layout:
+		return
+		
+	var theme_box = VBoxContainer.new()
+	theme_box.name = "PauseThemeBar"
+	theme_box.add_theme_constant_override("separation", 4)
+	
+	var label = Label.new()
+	label.name = "PauseThemeLabel"
+	label.text = "UI THEME MODE"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 10)
+	theme_box.add_child(label)
+	
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 4)
+	theme_box.add_child(hbox)
+	
+	var btn_auto = Button.new()
+	btn_auto.text = "Location"
+	btn_auto.pressed.connect(func():
+		var tm = get_node_or_null("/root/ThemeManager")
+		if tm: tm.set_theme_mode("auto")
+	)
+	hbox.add_child(btn_auto)
+	
+	var btn_light = Button.new()
+	btn_light.text = "Light Mode"
+	btn_light.pressed.connect(func():
+		var tm = get_node_or_null("/root/ThemeManager")
+		if tm: tm.set_theme_mode("light")
+	)
+	hbox.add_child(btn_light)
+	
+	var btn_dark = Button.new()
+	btn_dark.text = "Dark Mode"
+	btn_dark.pressed.connect(func():
+		var tm = get_node_or_null("/root/ThemeManager")
+		if tm: tm.set_theme_mode("dark")
+	)
+	hbox.add_child(btn_dark)
+
+	var lang_option = OptionButton.new()
+	lang_option.name = "PauseLanguageDropdown"
+	var trans_mgr = get_node_or_null("/root/TranslationManager")
+	if trans_mgr:
+		var locales = trans_mgr.get_supported_locales()
+		var selected_idx = 0
+		for i in range(locales.size()):
+			var loc = locales[i]
+			lang_option.add_item(loc["name"])
+			if loc["code"] == trans_mgr.current_locale:
+				selected_idx = i
+		lang_option.selected = selected_idx
+		lang_option.item_selected.connect(func(idx):
+			if idx >= 0 and idx < locales.size():
+				trans_mgr.set_locale(locales[idx]["code"])
+		)
+	hbox.add_child(lang_option)
+	
+	layout.add_child(theme_box)
+
+func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
+	_adapt_ui_to_locale(new_locale, is_rtl)
+
+func _adapt_ui_to_locale(locale: String, is_rtl: bool) -> void:
+	# Use cached reference from _ready(); fall back to safe root.has_node() check.
+	# Never uses absolute-path get_node("/root/...") directly — that throws SCRIPT ERRORs
+	# in headless test environments where the autoload tree isn't fully initialised.
+	var tm = _trans_mgr
+	if tm == null and is_inside_tree() and get_tree().root.has_node("TranslationManager"):
+		tm = get_tree().root.get_node("TranslationManager")
+	var target_dir = Control.LAYOUT_DIRECTION_RTL if is_rtl else Control.LAYOUT_DIRECTION_LTR
+
+	var center_node = get_node_or_null("Center")
+	if center_node:
+		center_node.layout_direction = target_dir
+
+	# Per-locale panel width: wider for languages with long compound words or RTL scripts.
+	# Spanish/French have long translated tab labels (e.g. ESPECTÁCULO, HERRAMIENTAS)
+	var panel_width = 620
+	var tab_font_size = 11
+	if locale in ["de", "ru"]:
+		panel_width = 700
+		tab_font_size = 10
+	elif locale in ["es", "fr"]:
+		panel_width = 680
+		tab_font_size = 10
+	elif locale in ["zh", "ja", "ko"]:
+		panel_width = 560
+		tab_font_size = 12
+	elif locale == "ar":
+		panel_width = 660
+		tab_font_size = 10
+
+	if tab_btn_controls:
+		tab_btn_controls.text = tm.get_auto_translation("TAB_CONTROLS") if tm else "CONTROLS"
+		tab_btn_controls.add_theme_font_size_override("font_size", tab_font_size)
+	if tab_btn_show:
+		tab_btn_show.text = tm.get_auto_translation("TAB_SHOW") if tm else "LIGHT SHOW"
+		tab_btn_show.add_theme_font_size_override("font_size", tab_font_size)
+	if tab_btn_options:
+		tab_btn_options.text = tm.get_auto_translation("TAB_OPTIONS") if tm else "OPTIONS"
+		tab_btn_options.add_theme_font_size_override("font_size", tab_font_size)
+	if tab_btn_dev:
+		tab_btn_dev.text = tm.get_auto_translation("TAB_DEV") if tm else "DEV TOOLS"
+		tab_btn_dev.add_theme_font_size_override("font_size", tab_font_size)
+
+	if tab_bar_container:
+		# Keep tab bar exactly as wide as the panel so buttons are always evenly spread
+		tab_bar_container.custom_minimum_size = Vector2(panel_width, 38)
+		tab_bar_container.layout_direction = target_dir
+
+	if resume_button:
+		resume_button.text = tm.get_auto_translation("BTN_RESUME") if tm else "RESUME SIMULATION"
+	var tutorial_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Tutorial")
+	if tutorial_btn:
+		tutorial_btn.text = tm.get_auto_translation("BTN_TUTORIAL") if tm else "PLAY TUTORIAL"
+	var main_menu_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/MainMenu")
+	if main_menu_btn:
+		main_menu_btn.text = tm.get_auto_translation("BTN_MAIN_MENU") if tm else "MAIN MENU"
+	var restart_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Restart")
+	if restart_btn:
+		restart_btn.text = tm.get_auto_translation("BTN_RESTART") if tm else "RESTART LEVEL"
+	var quit_btn = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/Quit")
+	if quit_btn:
+		quit_btn.text = tm.get_auto_translation("BTN_QUIT") if tm else "QUIT GAME"
+
+	var fn_title = get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Title")
+	if fn_title:
+		fn_title.text = tm.get_auto_translation("TITLE_LIGHT_SHOWS") if tm else "LIGHT SHOWS & FUNCTIONS"
+	var fm_title = get_node_or_null("Center/MainLayout/FunctionsPanel/Margin/FunctionsLayout/Formations/FormationsTitle")
+	if fm_title:
+		fm_title.text = tm.get_auto_translation("LABEL_SWARM_FORMATIONS") if tm else "SWARM AIRSHOW FORMATIONS"
+
+	if formation_buttons != null and formation_buttons.has("star") and formation_buttons["star"]:
+		formation_buttons["star"].text = tm.get_auto_translation("BTN_STAR") if tm else "Star"
+	if formation_buttons != null and formation_buttons.has("circle") and formation_buttons["circle"]:
+		formation_buttons["circle"].text = tm.get_auto_translation("BTN_CIRCLE") if tm else "Circle"
+	if formation_buttons != null and formation_buttons.has("heart") and formation_buttons["heart"]:
+		formation_buttons["heart"].text = tm.get_auto_translation("BTN_HEART") if tm else "Heart"
+	if formation_buttons != null and formation_buttons.has("diamond") and formation_buttons["diamond"]:
+		formation_buttons["diamond"].text = tm.get_auto_translation("BTN_DIAMOND") if tm else "Diamond"
+	if formation_buttons != null and formation_buttons.has("wave") and formation_buttons["wave"]:
+		formation_buttons["wave"].text = tm.get_auto_translation("BTN_WAVE") if tm else "Wave"
+
+	if stop_show_button:
+		stop_show_button.text = tm.get_auto_translation("BTN_STOP_SHOW") if tm else "STOP AIRSHOW FORMATION"
+	if record_show_button:
+		record_show_button.text = tm.get_auto_translation("BTN_STOP_RECORDING") if video_recorder and video_recorder.is_recording else (tm.get_auto_translation("BTN_RECORD_SHOW") if tm else "RECORD SHOW")
+	if screenshot_button:
+		screenshot_button.text = tm.get_auto_translation("BTN_TAKE_SCREENSHOT") if tm else "TAKE SCREENSHOT"
+
+	select_tab(current_tab_index)
+	update_controls_display()
+
+func _on_theme_changed(_new_theme: String) -> void:
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var main_layout = get_node_or_null("Center/MainLayout")
+	if theme_mgr and main_layout:
+		theme_mgr.apply_theme_to_control(main_layout)
+		var label = get_node_or_null("Center/MainLayout/Panel/Margin/Layout/PauseThemeBar/PauseThemeLabel")
+		if label:
+			label.text = "UI THEME: %s (%s) | %s" % [theme_mgr.theme_mode.capitalize(), theme_mgr.current_ui_theme.capitalize(), theme_mgr.city_name]
+
+		if resume_button and is_instance_valid(resume_button):
+			var is_light = (theme_mgr.current_ui_theme == "light")
+			var primary_sb = StyleBoxFlat.new()
+			primary_sb.corner_radius_top_left = 8
+			primary_sb.corner_radius_top_right = 8
+			primary_sb.corner_radius_bottom_left = 8
+			primary_sb.corner_radius_bottom_right = 8
+			primary_sb.set_border_width_all(1)
+
+			if is_light:
+				primary_sb.bg_color = Color(0.12, 0.48, 0.88, 0.95)
+				primary_sb.border_color = Color(0.20, 0.65, 1.0, 1.0)
+				resume_button.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+				resume_button.add_theme_color_override("font_focus_color", Color(1.0, 1.0, 1.0, 1.0))
+				resume_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
+			else:
+				primary_sb.bg_color = Color(0.15, 0.45, 0.75, 1.0)
+				primary_sb.border_color = Color(0.20, 0.85, 1.0, 0.8)
+				resume_button.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+				resume_button.add_theme_color_override("font_focus_color", Color(1.0, 1.0, 1.0, 1.0))
+				resume_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
+
+			resume_button.add_theme_stylebox_override("normal", primary_sb)
+			resume_button.add_theme_stylebox_override("hover", primary_sb)
+			resume_button.add_theme_stylebox_override("focus", primary_sb)
+			resume_button.add_theme_stylebox_override("pressed", primary_sb)
+
+	_update_tab_button_styles()
+
+func _update_tab_button_styles() -> void:
+	# Use cached _theme_mgr to avoid absolute-path get_node() in headless tests
+	var theme_mgr = _theme_mgr
+	if theme_mgr == null and is_inside_tree() and get_tree().root.has_node("ThemeManager"):
+		theme_mgr = get_tree().root.get_node("ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+
+	var btns = [tab_btn_controls, tab_btn_show, tab_btn_options, tab_btn_dev]
+	for i in range(btns.size()):
+		var btn = btns[i]
+		if btn and is_instance_valid(btn):
+			var sb = StyleBoxFlat.new()
+			sb.corner_radius_top_left = 6
+			sb.corner_radius_top_right = 6
+			sb.corner_radius_bottom_left = 6
+			sb.corner_radius_bottom_right = 6
+
+			if is_light:
+				if i == current_tab_index:
+					sb.bg_color = Color(0.12, 0.48, 0.88, 0.95)
+					sb.border_width_bottom = 3
+					sb.border_color = Color(0.20, 0.65, 1.0, 1.0)
+					btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+				else:
+					sb.bg_color = Color(0.80, 0.85, 0.92, 0.95)
+					sb.border_width_bottom = 0
+					btn.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.85))
+			else:
+				if i == current_tab_index:
+					sb.bg_color = Color(0.12, 0.22, 0.32, 0.95)
+					sb.border_width_bottom = 3
+					sb.border_color = Color(0.2, 0.85, 1.0, 1.0)
+					btn.add_theme_color_override("font_color", Color(0.2, 0.95, 1.0, 1.0))
+				else:
+					sb.bg_color = Color(0.06, 0.1, 0.15, 0.8)
+					sb.border_width_bottom = 0
+					btn.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.85))
+
+			btn.add_theme_stylebox_override("normal", sb)
+			btn.add_theme_stylebox_override("hover", sb)
+			btn.add_theme_stylebox_override("pressed", sb)
+
 func _setup_tabbed_interface() -> void:
 	var main_layout = get_node_or_null("Center/MainLayout")
 	var center_node = get_node_or_null("Center")
@@ -108,13 +363,16 @@ func _setup_tabbed_interface() -> void:
 		var parent_vbox = VBoxContainer.new()
 		parent_vbox.name = "TabbedVBox"
 		parent_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		parent_vbox.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		parent_vbox.add_theme_constant_override("separation", 10)
 
 		tab_bar_container = HBoxContainer.new()
 		tab_bar_container.name = "TopTabBar"
 		tab_bar_container.alignment = BoxContainer.ALIGNMENT_CENTER
-		tab_bar_container.custom_minimum_size = Vector2(560, 38)
-		tab_bar_container.add_theme_constant_override("separation", 6)
+		# No fixed custom_minimum_size here — it will be set by _adapt_ui_to_locale
+		# to match the panel width for the active locale.
+		tab_bar_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		tab_bar_container.add_theme_constant_override("separation", 8)
 
 		tab_btn_controls = Button.new()
 		tab_btn_controls.text = "CONTROLS"
@@ -158,7 +416,7 @@ func _setup_tabbed_interface() -> void:
 
 		center_node.add_child(parent_vbox)
 
-	select_tab(1)
+	select_tab(0)
 
 func select_tab(tab_idx: int) -> void:
 	current_tab_index = tab_idx
@@ -181,36 +439,31 @@ func select_tab(tab_idx: int) -> void:
 		if dev_panel:
 			dev_panel.visible = (tab_idx == 3)
 
+		# Use locale-aware width so panels always match the tab bar above them
+		var pw = _get_locale_panel_width()
 		var panels = [main_panel, functions_panel, graph_panel, dev_panel]
 		if tab_idx < panels.size() and panels[tab_idx]:
-			panels[tab_idx].custom_minimum_size = Vector2(560, 520)
+			panels[tab_idx].custom_minimum_size = Vector2(pw, 520)
 
 	_update_tab_button_styles()
 
-func _update_tab_button_styles() -> void:
-	var btns = [tab_btn_controls, tab_btn_show, tab_btn_options, tab_btn_dev]
-	for i in range(btns.size()):
-		var btn = btns[i]
-		if btn and is_instance_valid(btn):
-			var sb = StyleBoxFlat.new()
-			sb.corner_radius_top_left = 6
-			sb.corner_radius_top_right = 6
-			sb.corner_radius_bottom_left = 6
-			sb.corner_radius_bottom_right = 6
+## Returns the panel width appropriate for the active locale.
+func _get_locale_panel_width() -> int:
+	var locale = ""
+	if _trans_mgr:
+		locale = _trans_mgr.current_locale
+	elif is_inside_tree() and get_tree().root.has_node("TranslationManager"):
+		locale = get_tree().root.get_node("TranslationManager").current_locale
+	if locale in ["de", "ru"]:
+		return 700
+	elif locale in ["es", "fr"]:
+		return 680
+	elif locale in ["zh", "ja", "ko"]:
+		return 560
+	elif locale == "ar":
+		return 660
+	return 620
 
-			if i == current_tab_index:
-				sb.bg_color = Color(0.12, 0.22, 0.32, 0.95)
-				sb.border_width_bottom = 3
-				sb.border_color = Color(0.2, 0.85, 1.0, 1.0)
-				btn.add_theme_color_override("font_color", Color(0.2, 0.95, 1.0, 1.0))
-			else:
-				sb.bg_color = Color(0.06, 0.1, 0.15, 0.8)
-				sb.border_width_bottom = 0
-				btn.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.85))
-
-			btn.add_theme_stylebox_override("normal", sb)
-			btn.add_theme_stylebox_override("hover", sb)
-			btn.add_theme_stylebox_override("pressed", sb)
 
 func _process(delta: float) -> void:
 	if visible and get_viewport():
@@ -433,7 +686,6 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	var count_label = Label.new()
 	count_label.text = "Drone Count (0 = Auto):"
 	count_label.add_theme_font_size_override("font_size", 11)
-	count_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0, 0.9))
 	count_hbox.add_child(count_label)
 
 	drone_count_spinbox = SpinBox.new()
@@ -450,7 +702,6 @@ func _setup_custom_image_ui(parent_layout: Control) -> void:
 	status_label = Label.new()
 	status_label.name = "CustomShapeStatusLabel"
 	status_label.text = "Select a 3D model or 2D image file to scan formation."
-	status_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.9, 0.8))
 	status_label.add_theme_font_size_override("font_size", 10)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -570,8 +821,40 @@ func _input(event):
 			update_controls_display()
 
 func update_controls_display():
-	if controls_label:
+	if not controls_label:
+		return
+	var tm = get_node_or_null("/root/TranslationManager")
+	if not tm:
 		controls_label.text = CONTROLLER_TEXT if last_input_was_controller else KEYBOARD_TEXT
+		return
+
+	controls_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if last_input_was_controller:
+		controls_label.text = tm.get_auto_translation("TITLE_XBOX_CONTROLS") + "\n" + \
+			tm.get_auto_translation("XBOX_THRUST") + "\n" + \
+			tm.get_auto_translation("XBOX_YAW") + "\n" + \
+			tm.get_auto_translation("XBOX_PITCH") + "\n" + \
+			tm.get_auto_translation("XBOX_ROLL") + "\n" + \
+			tm.get_auto_translation("XBOX_MENU") + "\n" + \
+			tm.get_auto_translation("XBOX_SELECT") + "\n" + \
+			tm.get_auto_translation("XBOX_RESTART")
+	else:
+		controls_label.text = tm.get_auto_translation("TITLE_KEYBOARD_CONTROLS") + "\n" + \
+			tm.get_auto_translation("KEY_THRUST") + "\n" + \
+			tm.get_auto_translation("KEY_PITCH") + "\n" + \
+			tm.get_auto_translation("KEY_ROLL") + "\n" + \
+			tm.get_auto_translation("KEY_YAW") + "\n" + \
+			tm.get_auto_translation("KEY_CAM") + "\n" + \
+			tm.get_auto_translation("KEY_ARROWS") + "\n" + \
+			tm.get_auto_translation("KEY_HOVER") + "\n" + \
+			tm.get_auto_translation("KEY_EXIT_SHOW") + "\n" + \
+			tm.get_auto_translation("KEY_SCREENSHOT") + "\n" + \
+			tm.get_auto_translation("KEY_DEBUG") + "\n" + \
+			tm.get_auto_translation("KEY_RESTART") + "\n" + \
+			tm.get_auto_translation("KEY_ENV") + "\n" + \
+			tm.get_auto_translation("KEY_AUTOPILOT") + "\n" + \
+			tm.get_auto_translation("KEY_TRICKS") + "\n" + \
+			tm.get_auto_translation("KEY_BOIDS")
 
 func connect_formation_buttons():
 	for key in formation_buttons.keys():
@@ -610,7 +893,7 @@ func pause():
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-	select_tab(current_tab_index)
+	select_tab(0)
 
 	var manager = get_tree().current_scene.get_node_or_null("DroneControllerManager")
 	if manager:

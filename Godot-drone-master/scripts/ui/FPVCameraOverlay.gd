@@ -24,6 +24,25 @@ func _ready() -> void:
 	_build_ui()
 	visible = false
 
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	if theme_mgr:
+		theme_mgr.theme_changed.connect(_on_theme_changed)
+		_on_theme_changed(theme_mgr.current_ui_theme)
+
+func _on_theme_changed(_new_theme: String) -> void:
+	# Exact signature cyan OSD color matching ALT/SPD OSD text
+	var osd_color = Color(0.20, 0.85, 1.0, 0.95)
+	
+	if _top_right_label: _top_right_label.add_theme_color_override("font_color", osd_color)
+	if _mid_right_label: _mid_right_label.add_theme_color_override("font_color", osd_color)
+	if _bottom_right_label: _bottom_right_label.add_theme_color_override("font_color", osd_color)
+	
+	var reticle_label = get_node_or_null("FPVRoot/OSDContainer/CenterReticle/ReticleCross")
+	if reticle_label:
+		reticle_label.add_theme_color_override("font_color", osd_color)
+		reticle_label.remove_theme_color_override("font_outline_color")
+		reticle_label.remove_theme_constant_override("outline_size")
+
 func _build_ui() -> void:
 	# Fullscreen container - MOUSE_FILTER_IGNORE ensures clicks pass through to UI menus
 	var root = Control.new()

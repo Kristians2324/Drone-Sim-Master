@@ -49,7 +49,7 @@ func _apply_environment() -> void:
 	env.glow_enabled = true
 	env.glow_intensity = 0.85
 	env.glow_bloom = 0.25
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFT
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 
 	if skybox_texture != null:
 		var sky := Sky.new()

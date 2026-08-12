@@ -34,9 +34,9 @@ Godot Engine v4.6.2.stable.official.71f334935 - https://godotengine.org
   ✅ PASS  Star formation generates 20 target positions
 
 ── BoidManager       – real flocking steering           ──
-  ✅ PASS  boid_count default == 15
-  ✅ PASS  neighborhood_radius default == 12.0
-  ✅ PASS  separation_radius default == 3.5
+  ✅ PASS  boid_count default == 20
+  ✅ PASS  neighborhood_radius default == 14.0
+  ✅ PASS  separation_radius default == 4.2
   ✅ PASS  _get_target_velocity() with no target → Vector3.ZERO
 
 ── DroneInput        – input smoothing & sampling       ──
@@ -51,78 +51,79 @@ Godot Engine v4.6.2.stable.official.71f334935 - https://godotengine.org
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
    at: get_global_transform (scene/3d/node_3d.cpp:642)
    GDScript backtrace (most recent call first):
-       [0] initialize_swarm (res://scripts/SwarmController.gd:91)
-       [1] _tests_swarm_controller (res://tests/test_runner.gd:165)
-       [2] run_suite (res://tests/test_runner.gd:55)
-       [3] _initialize (res://tests/test_runner.gd:32)
+       [0] initialize_swarm (res://scripts/SwarmController.gd:102)
+       [1] _tests_swarm_controller (res://tests/test_runner.gd:193)
+       [2] run_suite (res://tests/test_runner.gd:83)
+       [3] _initialize (res://tests/test_runner.gd:33)
 SwarmController: Swarm initialized with 10 follower drones.
   ✅ PASS  SwarmController active after initialize_swarm with leader drone
   ✅ PASS  SwarmController spawned 10 follower drones
   ✅ PASS  SwarmController generated boid scatter offsets
   ✅ PASS  Swarm follower drones initialized with hover_enabled == true
+  ✅ PASS  Swarm follower drones initialized with audio_enabled == false
   ✅ PASS  Swarm centroid tracked near leader drone
   ✅ PASS  SwarmController inactive after cleanup
   ✅ PASS  SwarmController drones array cleared after cleanup
@@ -137,6 +138,14 @@ SwarmController: Swarm initialized with 10 follower drones.
   ✅ PASS  LoadingScreen is_loading == false after hide_loading()
 
 ── TutorialOverlay   – interactive tutorial steps       ──
+ERROR: Can't use get_node() with absolute paths from outside the active scene tree.
+   at: get_node_or_null (scene/main/node.cpp:1898)
+   GDScript backtrace (most recent call first):
+       [0] _on_theme_changed (res://scripts/ui/TutorialManager.gd:52)
+       [1] start_tutorial (res://scripts/ui/TutorialManager.gd:85)
+       [2] _tests_tutorial_overlay (res://tests/test_runner.gd:247)
+       [3] run_suite (res://tests/test_runner.gd:83)
+       [4] _initialize (res://tests/test_runner.gd:36)
   ✅ PASS  TutorialOverlay is_active == true
   ✅ PASS  TutorialOverlay is_active == false
 
@@ -152,6 +161,10 @@ SwarmController: Swarm initialized with 10 follower drones.
   ✅ PASS  3-Column ESC Menu: FunctionsPanel exists on far left
   ✅ PASS  3-Column ESC Menu: Main Panel exists in center
   ✅ PASS  3-Column ESC Menu: GraphMenuPanel exists on far right
+  ✅ PASS  ESC Menu: _on_resume_pressed handler exists
+  ✅ PASS  ESC Menu: _on_tutorial_pressed handler exists
+  ✅ PASS  ESC Menu: _on_main_menu_pressed handler exists
+  ✅ PASS  ESC Menu: _on_restart_pressed handler exists
   ✅ PASS  DroneControllerManager: is_cinematic_mode defaults to true
 DroneControllerManager: Still camera mode ENABLED.
   ✅ PASS  set_cinematic_camera_enabled(false) switches to still mode
@@ -170,20 +183,77 @@ ThreeDShapeDetector: Successfully processed via Python. Shape: 3D Mesh (TEST_CUB
   ✅ PASS  DroneAudio node spawned into scene tree
   ✅ PASS  DroneAudio creates motor_audio_2d AudioStreamPlayer
   ✅ PASS  DroneAudio creates crash_audio_2d AudioStreamPlayer
-  ✅ PASS  motor_audio_2d uses AudioStreamWAV
+  ✅ PASS  motor_audio_2d stream is a valid audio format (WAV or MP3)
   ✅ PASS  crash_audio_2d uses AudioStreamWAV
   ✅ PASS  set_audio_enabled(true) enables audio flag
   ✅ PASS  DroneAudio implements update_flight_audio method
   ✅ PASS  update_flight_audio executes safely across all flight telemetry axes
   ✅ PASS  DroneAudio implements play_crash method
   ✅ PASS  play_crash executes safely with impact intensity
+  ✅ PASS  play_telemetry_beep executes safely for normal and urgent warnings
+  ✅ PASS  play_trick_whoosh executes safely
+  ✅ PASS  DroneAudio implements set_first_person method
+  ✅ PASS  DroneAudio creates 3D spatial motor audio player
+  ✅ PASS  motor_audio_3d uses inverse distance 3D attenuation
+  ✅ PASS  motor_audio_3d enables 3D doppler effect tracking
+  ✅ PASS  set_first_person(true) sets FPV camera mode
+  ✅ PASS  FPV mode activates direct onboard 2D audio stream
+  ✅ PASS  set_first_person(false) sets TPV camera mode
+  ✅ PASS  TPV mode keeps 3D spatial audio active on the drone
+  ✅ PASS  TPV mode motor_audio_3d uses 45m unit_size to prevent sound dropouts
   ✅ PASS  set_audio_enabled(false) disables audio flag
-  ✅ PASS  AudioServer Master bus index found
-  ✅ PASS  AudioServer volume modified successfully
+  ✅ PASS  SwarmAudio script loaded successfully
+  ✅ PASS  SwarmAudio node spawned
+  ✅ PASS  SwarmAudio user_volume_db default is soft and distant (-24.0 dB)
+  ✅ PASS  SwarmAudio 3D player created successfully
+  ✅ PASS  SwarmAudio 3D player unit_size set to 25m for background coverage
+  ✅ PASS  SwarmAudio 3D player uses inverse distance attenuation
+
+── UISoundManager    – hover & clicky-clack UI sounds   ──
+  ✅ PASS  UISoundManager instance spawned into scene tree
+  ✅ PASS  hover_stream generated AudioStreamWAV
+  ✅ PASS  click_stream generated AudioStreamWAV
+  ✅ PASS  play_hover_sound executes safely
+  ✅ PASS  play_click_sound executes safely
+  ✅ PASS  Test button spawned
+  ✅ PASS  Button hover and press triggers UI sound handlers
+
+── ToastManager      – clean HUD notification system    ──
+  ✅ PASS  ToastManager script loaded successfully
+  ✅ PASS  ToastManager node spawned into scene tree
+  ✅ PASS  show_toast executes safely with uppercase clean text
+
+── FPVOverlay        – real-life FPV camera vision & OSD ──
+  ✅ PASS  FPVCameraOverlay script loaded successfully
+  ✅ PASS  FPVCameraOverlay node spawned into scene tree
+  ✅ PASS  set_fpv_active(true) makes FPV overlay visible
+  ✅ PASS  set_fpv_active(false) hides FPV overlay for third-person mode
+
+── TranslationSystem – i18n, RTL & dynamic menu adaptation ──
+  ✅ PASS  TranslationManager script loaded successfully
+  ✅ PASS  TranslationManager node spawned
+  ✅ PASS  9 supported locales configured (EN, DE, ES, FR, ZH, JA, KO, RU, AR)
+  ✅ PASS  English is strictly Left-To-Right (LTR)
+  ✅ PASS  German is strictly Left-To-Right (LTR)
+  ✅ PASS  Spanish is strictly Left-To-Right (LTR)
+  ✅ PASS  French is strictly Left-To-Right (LTR)
+  ✅ PASS  Chinese is strictly Left-To-Right (LTR)
+  ✅ PASS  Russian is strictly Left-To-Right (LTR)
+  ✅ PASS  Arabic is strictly Right-To-Left (RTL)
+  ✅ PASS  set_locale('de') sets German locale
+  ✅ PASS  German translation key lookup for TAB_CONTROLS
+  ✅ PASS  German translation key lookup for BTN_RESUME
+  ✅ PASS  set_locale('ar') sets Arabic locale
+  ✅ PASS  is_rtl() returns true for active Arabic locale
+  ✅ PASS  Arabic translation key lookup for TAB_CONTROLS
+  ✅ PASS  Auto-translation generator handles unknown dynamic keys cleanly
+  ✅ PASS  Menu scene instantiated successfully
+  ✅ PASS  German sets LTR layout direction on Menu UI
+  ✅ PASS  Arabic sets RTL layout direction on Menu UI
 
 
 ════════════════════════════════════════════════════
-  Results: 68 / 68 passed
+  Results: 122 / 122 passed
   ✅  ALL TESTS PASSED WITH 0 ERRORS
 ════════════════════════════════════════════════════
 

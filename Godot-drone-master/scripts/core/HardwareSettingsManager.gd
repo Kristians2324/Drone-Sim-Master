@@ -102,7 +102,7 @@ func apply_quality_preset(tier: QualityTier) -> void:
 				vp.msaa_3d = Viewport.MSAA_4X
 				vp.use_debanding = true
 				vp.scaling_3d_scale = 1.0
-			rs.directional_shadow_atlas_set_size(8192, true)
+			rs.directional_shadow_atlas_set_size(4096, true)
 			rs.positional_soft_shadow_filter_set_quality(rs.SHADOW_QUALITY_SOFT_ULTRA)
 			rs.directional_soft_shadow_filter_set_quality(rs.SHADOW_QUALITY_SOFT_ULTRA)
 

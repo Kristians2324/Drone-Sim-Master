@@ -24,6 +24,9 @@ func _ready() -> void:
 	
 	if sub_viewport:
 		sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		sub_viewport.msaa_3d = Viewport.MSAA_DISABLED
+		sub_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+		sub_viewport.size = Vector2i(256, 256)
 
 	if map_camera:
 		map_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -34,6 +37,10 @@ func _ready() -> void:
 		clean_env.ambient_light_color = Color(1.0, 1.0, 1.0)
 		clean_env.fog_enabled = false
 		clean_env.volumetric_fog_enabled = false
+		clean_env.glow_enabled = false
+		clean_env.ssr_enabled = false
+		clean_env.ssao_enabled = false
+		clean_env.ssil_enabled = false
 		map_camera.environment = clean_env
 
 func _process(delta: float) -> void:
@@ -76,7 +83,9 @@ func _on_draw() -> void:
 	_draw_player_direction_arrow(center)
 
 func _draw_thick_border_ring(center: Vector2, radius: float) -> void:
-	var border_color := Color(0.2, 0.75, 1.0, 0.95)
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+	var border_color := Color(0.12, 0.45, 0.85, 0.95) if is_light else Color(0.2, 0.75, 1.0, 0.95)
 	var steps: int = 64
 	var prev := center + Vector2(radius, 0)
 	for i in range(1, steps + 1):
