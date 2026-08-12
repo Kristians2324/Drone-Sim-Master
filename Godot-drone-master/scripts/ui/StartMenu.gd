@@ -53,6 +53,7 @@ func _setup_theme_bar() -> void:
 	
 	var hbox = HBoxContainer.new()
 	hbox.name = "HBox"
+	hbox.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_theme_constant_override("separation", 8)
 	theme_container.add_child(hbox)
@@ -236,10 +237,34 @@ func _on_theme_changed(_new_theme: String) -> void:
 
 	var status_label = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/ThemeStatusLabel")
 	if status_label:
-		var mode_name = theme_mgr.theme_mode.capitalize()
-		var current_name = theme_mgr.current_ui_theme.capitalize()
-		status_label.text = "UI THEME: %s (%s) | Location: %s" % [mode_name, current_name, theme_mgr.city_name]
+		var tm = get_node_or_null("/root/TranslationManager")
+		status_label.text = tm.get_auto_translation("OPT_UI_TITLE") if tm else "UI THEME & LOCATION SYNC"
 		status_label.add_theme_color_override("font_color", Color(0.12, 0.22, 0.35, 0.9) if is_light else Color(0.75, 0.85, 0.95, 0.9))
+
+	var lang_option = get_node_or_null("Center/Panel/Margin/Layout/ThemeControlBar/HBox/StartLanguageDropdown")
+	if lang_option and lang_option is OptionButton:
+		var opt_style = StyleBoxFlat.new()
+		opt_style.corner_radius_top_left = 6
+		opt_style.corner_radius_top_right = 6
+		opt_style.corner_radius_bottom_left = 6
+		opt_style.corner_radius_bottom_right = 6
+		opt_style.content_margin_left = 10
+		opt_style.content_margin_right = 10
+		opt_style.content_margin_top = 4
+		opt_style.content_margin_bottom = 4
+		opt_style.set_border_width_all(1)
+		if is_light:
+			opt_style.bg_color = Color(0.80, 0.85, 0.92, 0.95)
+			opt_style.border_color = Color(0.20, 0.50, 0.85, 0.6)
+			lang_option.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 1.0))
+		else:
+			opt_style.bg_color = Color(0.12, 0.16, 0.25, 0.95)
+			opt_style.border_color = Color(0.20, 0.85, 1.0, 0.4)
+			lang_option.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0, 1.0))
+		lang_option.add_theme_stylebox_override("normal", opt_style)
+		lang_option.add_theme_stylebox_override("hover", opt_style)
+		lang_option.add_theme_stylebox_override("pressed", opt_style)
+		lang_option.add_theme_stylebox_override("focus", opt_style)
 
 func _exit_tree() -> void:
 	if pulse_tween and pulse_tween.is_valid():

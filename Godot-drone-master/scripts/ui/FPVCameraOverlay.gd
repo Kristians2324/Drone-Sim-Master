@@ -79,6 +79,7 @@ func _build_ui() -> void:
 	_top_right_label = Label.new()
 	_top_right_label.name = "TopRightOSD"
 	_top_right_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_top_right_label.text_direction = Control.TEXT_DIRECTION_LTR
 	_top_right_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_top_right_label.anchor_left = 1.0
 	_top_right_label.anchor_right = 1.0
@@ -93,6 +94,7 @@ func _build_ui() -> void:
 	_mid_right_label = Label.new()
 	_mid_right_label.name = "MidRightOSD"
 	_mid_right_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_mid_right_label.text_direction = Control.TEXT_DIRECTION_LTR
 	_mid_right_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mid_right_label.anchor_left = 1.0
 	_mid_right_label.anchor_right = 1.0
@@ -109,6 +111,7 @@ func _build_ui() -> void:
 	_bottom_right_label = Label.new()
 	_bottom_right_label.name = "BottomRightOSD"
 	_bottom_right_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_bottom_right_label.text_direction = Control.TEXT_DIRECTION_LTR
 	_bottom_right_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bottom_right_label.anchor_left = 1.0
 	_bottom_right_label.anchor_right = 1.0
@@ -216,11 +219,7 @@ func _process(delta: float) -> void:
 	var acro_str = tm.get_auto_translation("OSD_MODE_ACRO") if tm else "ACRO / AIRMODE"
 	var thr_str = tm.get_auto_translation("OSD_THROTTLE") if tm else "THROTTLE"
 
-	var is_rtl = (tm and tm.is_rtl())
-	if is_rtl:
-		_top_right_label.text = "DRONE-01  MAVLINK 99%\n[⚡] " + bat_str + " " + str(int(bat_percent)) + "%\u200E (" + str(snappedf(cell_v, 0.01)) + "V/C)\n" + ft_str + ": ~" + str(flight_mins) + "\u200E " + min_str
-	else:
-		_top_right_label.text = "DRONE-01  MAVLINK 99%\n[⚡] " + bat_str + " " + str(int(bat_percent)) + "% (" + str(snappedf(cell_v, 0.01)) + "V/C)\n" + ft_str + ": ~" + str(flight_mins) + " " + min_str
+	_top_right_label.text = "DRONE-01  MAVLINK 99%\n[⚡] " + bat_str + " " + str(int(bat_percent)) + "% (" + str(snappedf(cell_v, 0.01)) + "V/C)\n" + ft_str + ": ~" + str(flight_mins) + " " + min_str
 	_mid_right_label.text = alt_str + ": " + str(snappedf(maxf(alt, 0.0), 0.1)) + " m\n" + spd_str + ": " + str(snappedf(spd, 0.1)) + " m/s\n" + mode_str + ": " + acro_str
 	_bottom_right_label.text = thr_str + ": " + str(thr_percent) + "%"
 

@@ -90,9 +90,8 @@ func _on_theme_changed(_new_theme: String) -> void:
 	_switch_tab(current_tab)
 
 func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
-	layout_direction = Control.LAYOUT_DIRECTION_RTL if is_rtl else Control.LAYOUT_DIRECTION_LTR
 	if tab_bar:
-		tab_bar.layout_direction = layout_direction
+		tab_bar.layout_direction = Control.LAYOUT_DIRECTION_LTR
 
 	var tm = null
 	if is_inside_tree() and get_tree().root.has_node("TranslationManager"):
@@ -129,7 +128,7 @@ func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
 					var raw_str = String(raw_options[i])
 					var item_key = "OPT_" + raw_str.to_upper().replace(" ", "_").replace("(", "").replace(")", "").replace("-", "_").replace("/", "_").replace(".", "_").replace("%", "")
 					var translated = tm.get_auto_translation(item_key) if tm else raw_str
-					if translated == item_key:
+					if translated == item_key or translated.begins_with("Opt ") or translated.begins_with("OPT_"):
 						translated = raw_str
 					opt.set_item_text(i, translated)
 				if cur_sel >= 0 and cur_sel < opt.item_count:
@@ -173,6 +172,7 @@ func _setup_ui():
 
 	# --- Top Language Selection Bar ---
 	var top_lang_hbox = HBoxContainer.new()
+	top_lang_hbox.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	top_lang_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	top_lang_hbox.add_theme_constant_override("separation", 8)
 
@@ -196,10 +196,27 @@ func _setup_ui():
 	var top_lang_opt = OptionButton.new()
 	top_lang_opt.name = "TopHeaderLanguageDropdown"
 	top_lang_opt.custom_minimum_size = Vector2(170, 26)
+	top_lang_opt.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	for name_str in lang_names:
 		top_lang_opt.add_item(name_str)
 	if selected_idx >= 0 and selected_idx < top_lang_opt.item_count:
 		top_lang_opt.select(selected_idx)
+
+	var top_style = StyleBoxFlat.new()
+	top_style.bg_color = Color(0.12, 0.16, 0.22, 0.95)
+	top_style.border_color = Color(0.2, 0.65, 0.95, 0.6)
+	top_style.set_border_width_all(1)
+	top_style.corner_radius_top_left = 6
+	top_style.corner_radius_top_right = 6
+	top_style.corner_radius_bottom_right = 6
+	top_style.corner_radius_bottom_left = 6
+	top_style.content_margin_left = 8
+	top_style.content_margin_right = 8
+	top_lang_opt.add_theme_stylebox_override("normal", top_style)
+	top_lang_opt.add_theme_stylebox_override("hover", top_style)
+	top_lang_opt.add_theme_stylebox_override("pressed", top_style)
+	top_lang_opt.add_theme_stylebox_override("focus", top_style)
+
 	top_lang_opt.item_selected.connect(func(idx):
 		if trans_mgr:
 			var locales = trans_mgr.get_supported_locales()
@@ -212,6 +229,7 @@ func _setup_ui():
 	# --- Tab Bar ---
 	tab_bar = HBoxContainer.new()
 	tab_bar.name = "TabsHeader"
+	tab_bar.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	tab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tab_bar.add_theme_constant_override("separation", 3)
 	root_vbox.add_child(tab_bar)
@@ -559,14 +577,19 @@ func _create_dropdown_row(key: String, label_text: String, options: Array, defau
 		opt.select(default_idx)
 
 	var opt_style = StyleBoxFlat.new()
-	opt_style.bg_color = Color(0.12, 0.16, 0.22, 0.9)
-	opt_style.border_color = Color(0.2, 0.65, 0.95, 0.5)
+	opt_style.bg_color = Color(0.12, 0.16, 0.22, 0.95)
+	opt_style.border_color = Color(0.2, 0.65, 0.95, 0.6)
 	opt_style.set_border_width_all(1)
 	opt_style.corner_radius_top_left = 6
 	opt_style.corner_radius_top_right = 6
 	opt_style.corner_radius_bottom_right = 6
 	opt_style.corner_radius_bottom_left = 6
+	opt_style.content_margin_left = 10
+	opt_style.content_margin_right = 10
 	opt.add_theme_stylebox_override("normal", opt_style)
+	opt.add_theme_stylebox_override("hover", opt_style)
+	opt.add_theme_stylebox_override("pressed", opt_style)
+	opt.add_theme_stylebox_override("focus", opt_style)
 
 	opt.item_selected.connect(callback)
 	hbox.add_child(opt)
