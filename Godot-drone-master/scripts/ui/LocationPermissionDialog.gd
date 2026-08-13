@@ -128,11 +128,11 @@ func _build_ui() -> void:
 	btn_confirm.text = tm.get_auto_translation("BTN_CONFIRM_CONTINUE") if tm else "Confirm & Continue"
 	btn_confirm.custom_minimum_size = Vector2(0, 38)
 	btn_confirm.pressed.connect(func():
-		var tm = get_node_or_null("/root/ThemeManager")
-		if tm:
-			if tm.permission_state == "prompt":
-				tm.permission_state = "granted"
-			tm.save_config()
+		var t_mgr = get_node_or_null("/root/ThemeManager")
+		if t_mgr:
+			if t_mgr.permission_state == "prompt":
+				t_mgr.permission_state = "granted"
+			t_mgr.save_config()
 		_close_dialog()
 	)
 	vbox.add_child(btn_confirm)

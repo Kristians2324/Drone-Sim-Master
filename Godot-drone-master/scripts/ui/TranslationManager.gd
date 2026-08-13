@@ -2589,11 +2589,11 @@ const TRANSLATION_DATA = {
 		# StartMenu Keys (العربية)
 		"START_WELCOME_TEXT": "اضغط مسافة لبدء الطيران، أو اطلع على عناصر التحكم بالأسفل.",
 		"START_HINT_TRICKS": "الحركات البهلوانية: 6 (شقلبة)، 7 (دوران)",
-		"START_HINT_FLIGHT": "الطيران: WASD + مسافة / Shift",
-		"START_HINT_SWARM": "وضع السرب: مفتاح Tab",
+		"START_HINT_FLIGHT": "الطيران: مفاتيح W,A,S,D + مسافة / العالي (Shift)",
+		"START_HINT_SWARM": "وضع السرب: مفتاح الجدولة (Tab)",
 		"START_HINT_MAPS": "الخرائط: المفاتيح من 1 إلى 4",
-		"START_PRESS_SPACE": "اضغط مسافة للبدء",
-		"START_SUB_PROMPT": "(أو اضغط Enter / زر A في ذراع التحكم)",
+		"START_PRESS_SPACE": "اضغط مفتاح المسافة للبدء",
+		"START_SUB_PROMPT": "(أو اضغط إدخال Enter / زر A في ذراع التحكم)",
 		# Permission Modal, Loading & Custom Shape keys (العربية)
 		"PERM_TITLE": "مرحباً بك في محاكي الطائرات بدون طيار",
 		"PERM_DESC": "يمكن للمحاكي التحقق من موقعك لتحديد المظهر تلقائياً حسب الليل والنهار – الوضع الفاتح نهاراً والداكن ليلاً.\n\nانقر على 'السماح بتزامن الموقع' للتفعيل التلقائي، أو اختر المظهر بالأسفل:",
@@ -2761,6 +2761,10 @@ func _load_config() -> void:
 			current_locale = String(config.get_value("localization", "language", "en"))
 		elif config.has_section_key("settings", "language"):
 			current_locale = String(config.get_value("settings", "language", "en"))
+		else:
+			current_locale = "en"
+	else:
+		current_locale = "en"
 
 func save_config() -> void:
 	var config = ConfigFile.new()

@@ -147,18 +147,30 @@ func _adapt_ui_to_locale(_locale: String, is_rtl: bool) -> void:
 	if welcome_lbl and welcome_lbl is Label:
 		welcome_lbl.text = tm.get_auto_translation("START_WELCOME_TEXT") if tm else "Press Space to start flying, or view the flight controls below."
 
+	var feat_grid = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid")
+	if feat_grid:
+		feat_grid.layout_direction = Control.LAYOUT_DIRECTION_LTR
+
 	var feat1 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature1")
 	if feat1 and feat1 is Label:
-		feat1.text = tm.get_auto_translation("START_HINT_TRICKS") if tm else "Tricks: 6 (Loop), 7 (Roll)"
+		feat1.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		feat1.text_direction = Control.TEXT_DIRECTION_LTR
+		feat1.text = tm.get_auto_translation("START_HINT_FLIGHT") if tm else "Flight: WASD + Space / Shift"
 	var feat2 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature2")
 	if feat2 and feat2 is Label:
-		feat2.text = tm.get_auto_translation("START_HINT_FLIGHT") if tm else "Flight: WASD + Space / Shift"
+		feat2.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		feat2.text_direction = Control.TEXT_DIRECTION_LTR
+		feat2.text = tm.get_auto_translation("START_HINT_TRICKS") if tm else "Tricks: 6 (Loop), 7 (Roll)"
 	var feat3 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature3")
 	if feat3 and feat3 is Label:
-		feat3.text = tm.get_auto_translation("START_HINT_SWARM") if tm else "Swarm Mode: Tab Key"
+		feat3.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		feat3.text_direction = Control.TEXT_DIRECTION_LTR
+		feat3.text = tm.get_auto_translation("START_HINT_MAPS") if tm else "Maps: 1 to 4 Keys"
 	var feat4 = get_node_or_null("Center/Panel/Margin/Layout/FeatureGrid/Feature4")
 	if feat4 and feat4 is Label:
-		feat4.text = tm.get_auto_translation("START_HINT_MAPS") if tm else "Maps: 1 to 4 Keys"
+		feat4.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		feat4.text_direction = Control.TEXT_DIRECTION_LTR
+		feat4.text = tm.get_auto_translation("START_HINT_SWARM") if tm else "Swarm Mode: Tab Key"
 
 	if start_prompt_label:
 		start_prompt_label.text = tm.get_auto_translation("START_PRESS_SPACE") if tm else "PRESS SPACE TO START"

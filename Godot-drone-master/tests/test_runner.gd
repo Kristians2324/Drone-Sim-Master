@@ -243,7 +243,7 @@ func _tests_start_menu() -> void:
 		var TransMgrClass = load("res://scripts/ui/TranslationManager.gd")
 		var tm = spawn(TransMgrClass.new())
 		if tm:
-			assert_true(tm.get_auto_translation("START_PRESS_SPACE", "ar") == "اضغط مسافة للبدء", "Arabic PRESS SPACE translation")
+			assert_true(tm.get_auto_translation("START_PRESS_SPACE", "ar") == "اضغط مفتاح المسافة للبدء", "Arabic PRESS SPACE translation")
 			assert_true(tm.get_auto_translation("START_WELCOME_TEXT", "de") == "Drücken Sie die Leertaste zum Fliegen oder prüfen Sie die Steuerung unten.", "German Welcome Text translation")
 			assert_true(tm.get_auto_translation("START_HINT_FLIGHT", "es") == "Vuelo: WASD + Espacio / Shift", "Spanish Flight Hint translation")
 			tm.free()

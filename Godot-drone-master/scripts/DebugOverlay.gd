@@ -19,6 +19,7 @@ var _battery_panel: PanelContainer
 var _battery_margin: MarginContainer
 var _battery_vbox: VBoxContainer
 var _battery_icon_box: Control
+var _battery_title_label: Label
 var _battery_percent_label: Label
 var _battery_status_label: Label
 var _stats_panel: PanelContainer
@@ -210,15 +211,26 @@ func _build_battery_hud() -> void:
 	_battery_margin.add_child(_battery_vbox)
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 10)
+	hbox.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	hbox.add_theme_constant_override("separation", 6)
 	_battery_vbox.add_child(hbox)
 
+	_battery_title_label = Label.new()
+	_battery_title_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_battery_title_label.add_theme_font_size_override("font_size", FONT_SIZE_BATTERY)
+	_battery_title_label.text = "BATTERY"
+	hbox.add_child(_battery_title_label)
+
 	_battery_percent_label = Label.new()
+	_battery_percent_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_battery_percent_label.text_direction = Control.TEXT_DIRECTION_LTR
 	_battery_percent_label.add_theme_font_size_override("font_size", FONT_SIZE_BATTERY)
-	_battery_percent_label.text = "BATTERY 100%"
+	_battery_percent_label.text = "100%"
 	hbox.add_child(_battery_percent_label)
 
 	_battery_status_label = Label.new()
+	_battery_status_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	_battery_status_label.text_direction = Control.TEXT_DIRECTION_LTR
 	_battery_status_label.add_theme_font_size_override("font_size", 12)
 	_battery_status_label.text = "FLIGHT TIME: ~20 MIN"
 	_battery_vbox.add_child(_battery_status_label)
@@ -303,12 +315,12 @@ func _update_battery_display() -> void:
 	var tm = get_node_or_null("/root/TranslationManager")
 	var is_rtl = (tm and tm.is_rtl())
 
+	if _battery_title_label:
+		_battery_title_label.text = tm.get_auto_translation("HUD_BATTERY") if tm else "BATTERY"
+		_battery_title_label.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.95) if is_light else Color(0.92, 0.96, 1.0, 0.95))
+
 	if _battery_percent_label:
-		var bat_prefix = tm.get_auto_translation("HUD_BATTERY") if tm else "BATTERY"
-		if is_rtl:
-			_battery_percent_label.text = "%s %d%%\u200E" % [bat_prefix, int(pct)]
-		else:
-			_battery_percent_label.text = "%s %d%%" % [bat_prefix, int(pct)]
+		_battery_percent_label.text = "%d%%" % int(pct)
 		if is_light:
 			if pct > 40.0:
 				_battery_percent_label.add_theme_color_override("font_color", Color(0.04, 0.55, 0.22))
@@ -337,10 +349,7 @@ func _update_battery_display() -> void:
 		else:
 			var ft_prefix = tm.get_auto_translation("HUD_FLIGHT_TIME") if tm else "FLIGHT TIME"
 			var min_suffix = tm.get_auto_translation("HUD_MIN") if tm else "MIN"
-			if is_rtl:
-				_battery_status_label.text = "%s: ~%d\u200E %s" % [ft_prefix, int(pct * 0.2), min_suffix]
-			else:
-				_battery_status_label.text = "%s: ~%d %s" % [ft_prefix, int(pct * 0.2), min_suffix]
+			_battery_status_label.text = "%s: ~%d %s" % [ft_prefix, int(pct * 0.2), min_suffix]
 			_battery_status_label.add_theme_color_override("font_color", Color(0.06, 0.10, 0.18, 0.9) if is_light else Color(0.8, 0.9, 1.0, 0.8))
 
 func _fps_color(fps: int) -> Color:

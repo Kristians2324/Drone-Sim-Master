@@ -88,6 +88,49 @@ func _ready():
 
 func _on_theme_changed(_new_theme: String) -> void:
 	_switch_tab(current_tab)
+	_update_all_dropdown_styles()
+
+func _update_all_dropdown_styles() -> void:
+	var theme_mgr = get_node_or_null("/root/ThemeManager")
+	var is_light = (theme_mgr and theme_mgr.current_ui_theme == "light")
+
+	var opt_style = StyleBoxFlat.new()
+	opt_style.set_border_width_all(1)
+	opt_style.corner_radius_top_left = 6
+	opt_style.corner_radius_top_right = 6
+	opt_style.corner_radius_bottom_right = 6
+	opt_style.corner_radius_bottom_left = 6
+	opt_style.content_margin_left = 10
+	opt_style.content_margin_right = 10
+
+	var font_col: Color
+	if is_light:
+		opt_style.bg_color = Color(0.80, 0.85, 0.92, 0.95)
+		opt_style.border_color = Color(0.20, 0.50, 0.85, 0.6)
+		font_col = Color(0.06, 0.10, 0.18, 1.0)
+	else:
+		opt_style.bg_color = Color(0.12, 0.16, 0.22, 0.95)
+		opt_style.border_color = Color(0.20, 0.65, 0.95, 0.6)
+		font_col = Color(0.92, 0.96, 1.0, 1.0)
+
+	var top_lang_opt = find_child("TopHeaderLanguageDropdown", true, false)
+	if top_lang_opt and top_lang_opt is OptionButton:
+		top_lang_opt.add_theme_stylebox_override("normal", opt_style)
+		top_lang_opt.add_theme_stylebox_override("hover", opt_style)
+		top_lang_opt.add_theme_stylebox_override("pressed", opt_style)
+		top_lang_opt.add_theme_stylebox_override("focus", opt_style)
+		top_lang_opt.add_theme_color_override("font_color", font_col)
+
+	for ctrl_key in ui_controls:
+		var ctrl = ui_controls[ctrl_key]
+		if ctrl.get("type") == "dropdown":
+			var opt: OptionButton = ctrl.get("node")
+			if opt and is_instance_valid(opt):
+				opt.add_theme_stylebox_override("normal", opt_style)
+				opt.add_theme_stylebox_override("hover", opt_style)
+				opt.add_theme_stylebox_override("pressed", opt_style)
+				opt.add_theme_stylebox_override("focus", opt_style)
+				opt.add_theme_color_override("font_color", font_col)
 
 func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
 	if tab_bar:
@@ -145,6 +188,7 @@ func _on_locale_changed(new_locale: String, is_rtl: bool) -> void:
 				elif val_transform and val_transform.is_valid():
 					val_lbl.text = val_format % val_transform.call(slider.value)
 
+	_update_all_dropdown_styles()
 	_switch_tab(current_tab)
 
 func _load_config_from_disk() -> void:
@@ -557,6 +601,7 @@ func _create_styled_button(text: String, callback: Callable, custom_color: Color
 
 func _create_dropdown_row(key: String, label_text: String, options: Array, default_idx: int, callback: Callable) -> HBoxContainer:
 	var hbox = HBoxContainer.new()
+	hbox.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var lbl = Label.new()
@@ -568,6 +613,7 @@ func _create_dropdown_row(key: String, label_text: String, options: Array, defau
 
 	var opt = OptionButton.new()
 	opt.custom_minimum_size = Vector2(160, 32)
+	opt.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	for item in options:
 		opt.add_item(item)
 	var cur_idx = int(settings.get(key, default_idx))
@@ -606,11 +652,13 @@ func _create_dropdown_row(key: String, label_text: String, options: Array, defau
 
 func _create_slider_row(key: String, label_text: String, min_val: float, max_val: float, step_val: float, default_val: float, val_format: String, val_transform: Callable, callback: Callable) -> VBoxContainer:
 	var vbox = VBoxContainer.new()
+	vbox.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	vbox.add_theme_constant_override("separation", 2)
 
 	var cur_val = float(settings.get(key, default_val))
 
 	var header_hbox = HBoxContainer.new()
+	header_hbox.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -632,6 +680,7 @@ func _create_slider_row(key: String, label_text: String, min_val: float, max_val
 	vbox.add_child(header_hbox)
 
 	var slider = HSlider.new()
+	slider.layout_direction = Control.LAYOUT_DIRECTION_LTR
 	slider.min_value = min_val
 	slider.max_value = max_val
 	slider.step = step_val
@@ -689,6 +738,7 @@ func save_user_settings():
 	if _is_initializing_ui:
 		return
 	var config = ConfigFile.new()
+	config.load(CONFIG_FILE_PATH)
 	for key in settings.keys():
 		config.set_value("settings", key, settings[key])
 	config.save(CONFIG_FILE_PATH)
