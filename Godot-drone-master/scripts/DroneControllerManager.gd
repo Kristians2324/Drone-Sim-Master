@@ -270,7 +270,7 @@ func _process(delta):
 	if get_tree().paused or (get_viewport() and get_viewport().gui_get_focus_owner() != null):
 		return
 
-	if Input.is_key_pressed(KEY_5) and state_toggle_cooldown <= 0:
+	if Input.is_key_pressed(KEY_0) and state_toggle_cooldown <= 0:
 		state_toggle_cooldown = 0.3
 		toggle_autopilot()
 

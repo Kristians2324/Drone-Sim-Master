@@ -149,6 +149,7 @@ func load_environment(EnvironmentClass):
 	elif EnvironmentClass == MapEarthNight: env_name_str = "EARTH NIGHT"
 	elif EnvironmentClass == MapMoon: env_name_str = "MOON SURFACE"
 	elif EnvironmentClass == MapIndoor: env_name_str = "INDOOR WAREHOUSE"
+	elif EnvironmentClass == MapRealWorld: env_name_str = "REAL WORLD (CESIUM)"
 
 	if current_environment != null and loading_screen_instance and loading_screen_instance.has_method("show_loading") and DisplayServer.get_name() != "headless":
 		loading_screen_instance.show_loading("Clearing previous environment resources...")
@@ -241,6 +242,9 @@ func _input(event):
 		elif event.keycode == KEY_4:
 			_sync_env_setting(3)
 			load_environment(MapIndoor)
+		elif event.keycode == KEY_5:
+			_sync_env_setting(4)
+			load_environment(MapRealWorld)
 		elif event.keycode == KEY_F12 or event.keycode == KEY_P:
 			if menu_instance and menu_instance.has_method("take_screenshot"):
 				menu_instance.take_screenshot()

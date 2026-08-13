@@ -156,7 +156,7 @@ func _process(delta):
 		return
 
 	# Autopilot toggle
-	if Input.is_key_pressed(KEY_5) and state_toggle_cooldown <= 0:
+	if Input.is_key_pressed(KEY_0) and state_toggle_cooldown <= 0:
 		state_toggle_cooldown = 0.3
 		toggle_autopilot()
 
