@@ -13,4 +13,4 @@ transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0
 
 [node name="Cesium3DTileset" type="Cesium3DTileset" parent="CesiumGeoreference" unique_id=1171116818]
 ion_asset_id = 2275207
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0)
+

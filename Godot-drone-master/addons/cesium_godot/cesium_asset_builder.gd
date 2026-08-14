@@ -21,8 +21,7 @@ func instantiate_tileset(tileset_type: TILESET_TYPE) -> void:
 	
 	tileset.cesiumConfig = self.cesiumConfig
 	tileset.name = CESIUM_TILESET_NAME
-	globe.global_rotation_degrees.x = -90
-	tileset.rotation_degrees.x = 90
+	tileset.transform = Transform3D.IDENTITY
 
 func instantiate_dynamic_cam() -> void:
 	# Find an existing tileset

@@ -37,7 +37,9 @@ func _ready() -> void:
 		sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		sub_viewport.msaa_3d = Viewport.MSAA_DISABLED
 		sub_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-		sub_viewport.size = Vector2i(256, 256)
+		var container = sub_viewport.get_parent() as SubViewportContainer
+		if container and not container.stretch:
+			sub_viewport.size = Vector2i(256, 256)
 
 	if map_camera:
 		map_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
